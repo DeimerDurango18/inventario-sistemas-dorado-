@@ -1,0 +1,13 @@
+# Inventario Equipos - Comandos de ejecución
+# Backend
+Set-Location "D:\proyectos\InventarioEquipos\backend"
+& "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+
+# Frontend
+Set-Location "D:\proyectos\InventarioEquipos\frontend"
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+
+# Verificación rápida
+# Backend health: http://127.0.0.1:8010/health
+# Frontend: http://localhost:5173

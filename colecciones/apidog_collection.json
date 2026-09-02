@@ -1,0 +1,113 @@
+{
+  "info": {
+    "name": "Inventario Equipos API",
+    "description": "Colección para importar en Apidog. Backend FastAPI del proyecto Inventario Equipos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:8002/health",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "8002",
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /api/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8002/api/auth/login",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "8002",
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "GET /api/inventory/equipos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:8002/api/inventory/equipos",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "8002",
+              "path": ["api", "inventory", "equipos"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/inventory/equipos/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:8002/api/inventory/equipos/1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "8002",
+              "path": ["api", "inventory", "equipos", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "GET /api/reports/dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://127.0.0.1:8002/api/reports/dashboard",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "8002",
+              "path": ["api", "reports", "dashboard"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
