@@ -7,11 +7,15 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.catalog import Category
+from app.models.catalog import Category, Location
 from app.models.equipment import Equipment
 from app.models.maintenance import MaintenanceRecord
 from app.models.acta import Acta
 from app.services.exports import exportar_csv, exportar_xlsx, _filas_equipos, _filas_actas, _filas_mantenimientos
+from app.services.pdf_reports import (
+    generar_inventario_por_ubicacion,
+    generar_resumen_mantenimientos,
+)
 
 router = APIRouter()
 PDF_DIR = Path(__file__).resolve().parents[3] / "storage" / "actas"
@@ -69,12 +73,62 @@ def dashboard(db: Session = Depends(get_db)):
     actas_mes = db.query(Acta).count()
     mes_nombre = MESES_ES.get(datetime.now().month, "Mes actual")
 
+    # Distribución por categoría (para gráficos del dashboard).
+    por_categoria = (
+        db.query(
+            Category.nombre,
+            func.count(Equipment.id),
+            func.coalesce(func.sum(Equipment.valor_aprox), 0),
+        )
+        .outerjoin(Equipment, Equipment.categoria_id == Category.id)
+        .group_by(Category.id, Category.nombre)
+        .all()
+    )
+    categoria_series = [
+        {"categoria": cat, "cantidad": int(cant or 0), "valor_total": float(val or 0)}
+        for cat, cant, val in por_categoria
+    ]
+    cant_sin_cat = int(
+        db.query(func.count(Equipment.id))
+        .filter(Equipment.categoria_id.is_(None))
+        .scalar()
+        or 0
+    )
+    if cant_sin_cat:
+        categoria_series.append({"categoria": "Sin categoría", "cantidad": cant_sin_cat, "valor_total": 0.0})
+    categoria_series.sort(key=lambda x: x["cantidad"], reverse=True)
+
+    # Distribución por ubicación (nombre y/o registrada en el equipo).
+    # Se agrega en Python para evitar diferencias de GROUP BY entre SQL Server/SQLite.
+    equipos_ubic = (
+        db.query(Equipment.ubicacion_id, Location.nombre, Equipment.ubicacion, Equipment.id)
+        .outerjoin(Location, Location.id == Equipment.ubicacion_id)
+        .all()
+    )
+    ubicacion_series = []
+    ub_counts = {}
+    for ub_id, loc_nombre, eq_ubicacion, _eid in equipos_ubic:
+        key = loc_nombre or eq_ubicacion or "Sin ubicación"
+        ub_counts[key] = ub_counts.get(key, 0) + 1
+    ubicacion_series = [
+        {"ubicacion": ub, "cantidad": cant} for ub, cant in ub_counts.items()
+    ]
+    ubicacion_series.sort(key=lambda x: x["cantidad"], reverse=True)
+
+    # Total del valor del inventario.
+    valor_total = float(
+        db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0)).scalar() or 0
+    )
+
     return {
         "totales": result,
         "mes": mes_nombre,
         "mantenimientos_activos": len(mantenimientos_activos),
         "actas_generadas": actas_mes,
         "alertas": {"vencidas": vencidas, "proximas": proximas},
+        "valor_total": valor_total,
+        "por_categoria": categoria_series,
+        "por_ubicacion": ubicacion_series,
     }
 
 
@@ -229,6 +283,63 @@ def exportar_mantenimientos(formato: str = "csv", db: Session = Depends(get_db))
             "Content-Disposition": f'attachment; filename="mantenimientos.{formato}"'
         },
     )
+
+
+@router.get("/pdf/inventario-por-ubicacion")
+def pdf_inventario_por_ubicacion(db: Session = Depends(get_db)):
+    """Reporte PDF del inventario agrupado por ubicación, con logo de la empresa."""
+    from app.core.config import COMPANY
+
+    equipos = db.query(Equipment).all()
+    por_ubicacion = {}
+    valor_total = 0.0
+    for eq in equipos:
+        nombre = (eq.ubicacion_rel.nombre if eq.ubicacion_rel else eq.ubicacion) or "Sin ubicación"
+        if nombre not in por_ubicacion:
+            por_ubicacion[nombre] = {"cantidad": 0, "valor_total": 0.0}
+        por_ubicacion[nombre]["cantidad"] += 1
+        v = eq.valor_aprox or 0
+        por_ubicacion[nombre]["valor_total"] += float(v)
+        valor_total += float(v)
+
+    filas = [
+        {"ubicacion": k, "cantidad": v["cantidad"], "valor_total": v["valor_total"]}
+        for k, v in sorted(por_ubicacion.items())
+    ]
+
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = PDF_DIR / "reporte_inventario_por_ubicacion.pdf"
+    generar_inventario_por_ubicacion(
+        filas, total_equipos=len(equipos), valor_total=valor_total,
+        company=COMPANY, output_path=out,
+    )
+    return FileResponse(path=str(out), media_type="application/pdf", filename="inventario_por_ubicacion.pdf")
+
+
+@router.get("/pdf/resumen-mantenimientos")
+def pdf_resumen_mantenimientos(db: Session = Depends(get_db)):
+    """Reporte PDF con el resumen de los registros de mantenimiento, con logo."""
+    from app.core.config import COMPANY
+
+    registros = db.query(MaintenanceRecord).order_by(MaintenanceRecord.id.desc()).all()
+    filas = []
+    for r in registros:
+        equipo = r.equipo
+        filas.append(
+            {
+                "folio": f"MT-{r.id}",
+                "equipo": f"{equipo.marca} {equipo.modelo}" if equipo else "-",
+                "tipo": r.tipo,
+                "tecnico": r.tecnico,
+                "estado": r.estado,
+                "costo": r.costo,
+            }
+        )
+
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = PDF_DIR / "reporte_resumen_mantenimientos.pdf"
+    generar_resumen_mantenimientos(filas, total=len(registros), company=COMPANY, output_path=out)
+    return FileResponse(path=str(out), media_type="application/pdf", filename="resumen_mantenimientos.pdf")
 
 
 @router.get("/acta/latest")

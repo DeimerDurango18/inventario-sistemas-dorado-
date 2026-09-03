@@ -62,11 +62,18 @@ def _header(c: canvas.Canvas, company: dict, numero: str):
     top = PAGE_H - MARGIN
 
     logo_x, logo_y, logo_w, logo_h = MARGIN, top - 24, 46, 24
-    c.setFillColorRGB(*BLUE)
-    c.roundRect(logo_x, logo_y, logo_w, logo_h, 4, fill=1, stroke=0)
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(logo_x + logo_w / 2, logo_y + 8, company["nombre"].split()[0][:4].upper())
+    logo_path = company.get("logo_path")
+    if logo_path and Path(logo_path).exists():
+        try:
+            c.drawImage(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            logo_path = None
+    if not (logo_path and Path(logo_path).exists()):
+        c.setFillColorRGB(*BLUE)
+        c.roundRect(logo_x, logo_y, logo_w, logo_h, 4, fill=1, stroke=0)
+        c.setFillColorRGB(*WHITE)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(logo_x + logo_w / 2, logo_y + 8, company["nombre"].split()[0][:4].upper())
 
     text_x = logo_x + logo_w + 10
     c.setFillColorRGB(*BLACK)

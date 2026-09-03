@@ -41,10 +41,12 @@ CORS_ORIGINS = [
 ]
 
 # Datos de la empresa usados en la generación de actas (SALIDA / ENTRADA) en PDF.
+_COMPANY_LOGO_DEFAULT = Path(__file__).resolve().parent.parent / "services" / "logo.jpg"
 COMPANY = {
     "nombre": os.getenv("COMPANY_NAME", "SISTEMAS BOGOTA"),
     "nit": os.getenv("COMPANY_NIT", "900123456-1"),
     "telefono": os.getenv("COMPANY_PHONE", "3157736033"),
     "direccion": os.getenv("COMPANY_ADDRESS", "CALLE 26 N 68C-61 BOGOTA"),
     "marca_agua": os.getenv("COMPANY_WATERMARK", "SISTEMAS BOGOTA"),
+    "logo_path": os.getenv("COMPANY_LOGO", str(_COMPANY_LOGO_DEFAULT)),
 }

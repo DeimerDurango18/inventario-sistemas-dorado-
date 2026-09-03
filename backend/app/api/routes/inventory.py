@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
@@ -6,10 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import require_roles
+from app.models.catalog import Category, Location
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
-from app.schemas import EquipmentIn, EquipmentUpdate
+from app.schemas import BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate
 from app.services.qr import generar_qr_png
+from app.services.exports import exportar_xlsx
 
 router = APIRouter()
 
@@ -113,6 +116,33 @@ def buscar_equipos(
     return [_serialize_equipo(equipo) for equipo in equipos]
 
 
+@router.get("/equipos/plantilla")
+def plantilla_importacion(
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Descarga una plantilla Excel con el formato esperado para la carga masiva."""
+    filas = [
+        {
+            "Marca": "HP",
+            "Modelo": "ProBook 450",
+            "Serie": "SN001",
+            "Estado": "disponible",
+            "Categoria": "Computo",
+            "Ubicacion": "Principal",
+            "Valor Aprox": 1500000,
+            "Observaciones": "Equipo de ejemplo",
+        }
+    ]
+    contenido = exportar_xlsx(filas) if filas else exportar_xlsx([])
+    return Response(
+        content=contenido,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="plantilla_equipos.xlsx"'
+        },
+    )
+
+
 @router.get("/equipos/historial/{equipo_id}")
 def historial_equipo(equipo_id: int, db: Session = Depends(get_db)):
     equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
@@ -204,6 +234,118 @@ def crear_equipo(
     db.commit()
     db.refresh(equipo)
     return _serialize_equipo(equipo)
+
+
+@router.post("/equipos/importar")
+def importar_equipos(
+    payload: List[BulkEquipmentItem],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Importa equipos de forma masiva desde una lista JSON.
+
+    Cada elemento soporta: marca, modelo, serie, estado, categoria (nombre),
+    ubicacion (nombre), valor_aprox, observaciones.
+    La marca y modelo son obligatorios. El folio se genera automáticamente.
+    """
+    if not payload:
+        raise HTTPException(status_code=400, detail="Debes enviar una lista de equipos no vacía")
+
+    categorias = {c.nombre.lower(): c for c in db.query(Category).all()}
+    ubicaciones = {u.nombre.lower(): u for u in db.query(Location).all()}
+
+    creados = 0
+    errores = []
+
+    for idx, fila in enumerate(payload, start=2):
+        marca = (fila.marca or "").strip()
+        modelo = (fila.modelo or "").strip()
+        if not marca or not modelo:
+            errores.append({"fila": idx, "error": "Faltan 'marca' y/o 'modelo'"})
+            continue
+
+        cat_nombre = (fila.categoria or "").strip()
+        ub_nombre = (fila.ubicacion or "").strip()
+        categoria = categorias.get(cat_nombre.lower()) if cat_nombre else None
+        ubicacion = ubicaciones.get(ub_nombre.lower()) if ub_nombre else None
+
+        serie = (fila.serie or "").strip() or None
+        if serie:
+            existente = db.query(Equipment).filter(Equipment.serie == serie).first()
+            if existente:
+                errores.append({"fila": idx, "error": f"Ya existe un equipo con serie '{serie}'"})
+                continue
+
+        folio = _siguiente_folio(db)
+        equipo = Equipment(
+            folio=folio,
+            marca=marca,
+            modelo=modelo,
+            serie=serie,
+            estado=(fila.estado or "disponible").strip() or "disponible",
+            ubicacion=ub_nombre if ub_nombre and not ubicacion else None,
+            categoria_id=categoria.id if categoria else None,
+            ubicacion_id=ubicacion.id if ubicacion else None,
+            valor_aprox=fila.valor_aprox,
+            observaciones=(fila.observaciones or "").strip() or None,
+        )
+        db.add(equipo)
+        db.flush()
+        _registrar_movimiento(
+            db,
+            equipo,
+            tipo="ENTRADA",
+            persona=current_user.nombre,
+            motivo="Importación masiva",
+            estado_nuevo=equipo.estado,
+        )
+        creados += 1
+
+    db.commit()
+    return {"creados": creados, "errores": errores}
+
+
+@router.post("/equipos/lote")
+def editar_equipos_lote(
+    payload: BulkEditEquipos,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Actualiza en lote el estado, ubicación y/o categoría de varios equipos."""
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="Selecciona al menos un equipo")
+
+    cambios = 0
+    errores = []
+    for eid in payload.ids:
+        equipo = db.query(Equipment).filter(Equipment.id == eid).first()
+        if not equipo:
+            errores.append({"id": eid, "error": "Equipo no encontrado"})
+            continue
+        estado_anterior = equipo.estado
+        if payload.estado is not None and payload.estado != equipo.estado:
+            equipo.estado = payload.estado
+        if payload.ubicacion_id is not None:
+            equipo.ubicacion_id = payload.ubicacion_id
+        if payload.ubicacion is not None:
+            equipo.ubicacion = payload.ubicacion
+        if payload.categoria_id is not None:
+            equipo.categoria_id = payload.categoria_id
+        db.flush()
+        if payload.estado is not None and payload.estado != estado_anterior:
+            _registrar_movimiento(
+                db,
+                equipo,
+                tipo="CAMBIO_ESTADO" if estado_anterior not in ("disponible",) else "MOVIMIENTO",
+                persona=current_user.nombre,
+                motivo="Edición en lote",
+                estado_anterior=estado_anterior,
+                estado_nuevo=payload.estado,
+            )
+        cambios += 1
+
+    db.commit()
+    return {"actualizados": cambios, "errores": errores}
 
 
 @router.put("/equipos/{equipo_id}")

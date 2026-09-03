@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const statLabels = {
   disponibles: 'Disponibles',
@@ -55,6 +55,46 @@ const actaItems = [
     estado: 'Nuevo',
   },
 ]
+
+function parseImportCSV(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+  if (lines.length < 2) return []
+  const headers = parseCSVLine(lines[0]).map((h) => h.trim().toLowerCase())
+  if (!headers.includes('marca')) return []
+  const rows = []
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i])
+    const row = {}
+    headers.forEach((h, idx) => {
+      row[h] = (vals[idx] || '').trim()
+    })
+    if (!row.marca || !row.modelo) continue
+    rows.push(row)
+  }
+  return rows
+}
+
+function parseCSVLine(line) {
+  const out = []
+  let cur = ''
+  let inQ = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++ } else { inQ = false }
+      } else { cur += ch }
+    } else if (ch === '"') {
+      inQ = true
+    } else if (ch === ',') {
+      out.push(cur); cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  out.push(cur)
+  return out
+}
 
 function Icon({ name }) {
   const icons = {
@@ -226,6 +266,9 @@ function App() {
   // Estados para Fotografía de Equipo
   const [equipmentPhotoFile, setEquipmentPhotoFile] = useState(null)
   const [equipmentPhotoPreview, setEquipmentPhotoPreview] = useState('')
+  const [importFile, setImportFile] = useState(null)
+  const [importResult, setImportResult] = useState(null)
+  const importInputRef = useRef(null)
 
   // Estados para Detalle e Historial de Equipo
   const [selectedEquipmentForDetail, setSelectedEquipmentForDetail] = useState(null)
@@ -244,6 +287,13 @@ function App() {
   const [stockLocationFilter, setStockLocationFilter] = useState('todas')
   const [stockStatusFilter, setStockStatusFilter] = useState('todos')
   const [stockSearchQuery, setStockSearchQuery] = useState('')
+  const [stockPage, setStockPage] = useState(1)
+  const [stockSortKey, setStockSortKey] = useState('folio')
+  const [stockSortDir, setStockSortDir] = useState('asc')
+  const STOCK_PAGE_SIZE = 20
+  const [stockSelected, setStockSelected] = useState([])
+  const [bulkAction, setBulkAction] = useState({ tipo: '', valor: '' })
+  const [bulkProcessing, setBulkProcessing] = useState(false)
 
   // Filtros para el Módulo de Historial
   const [historialSearchQuery, setHistorialSearchQuery] = useState('')
@@ -811,6 +861,100 @@ function App() {
     }
   }
 
+  const handleDownloadTemplate = () => {
+    const url = `${API_BASE}/api/inventory/equipos/plantilla`
+    const link = document.createElement('a')
+    link.href = url
+    link.target = '_blank'
+    link.rel = 'noopener,noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleImportFileChange = (event) => {
+    const file = event.target.files && event.target.files[0]
+    setImportFile(file || null)
+    setImportResult(null)
+    if (!file) return
+    if (!(file.name.endsWith('.csv') || file.name.endsWith('.xlsx'))) {
+      showToast('Adjunta un archivo .csv o .xlsx')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const text = String(reader.result || '')
+      try {
+        const filas = parseImportCSV(text)
+        if (!filas.length) {
+          setImportResult({ error: 'El archivo no contiene filas válidas' })
+          return
+        }
+        const res = await api('/api/inventory/equipos/importar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(filas),
+        })
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({ detail: 'Error al importar' }))
+          setImportResult({ error: d.detail || 'Error al importar' })
+          return
+        }
+        const data = await res.json()
+        setImportResult(data)
+        loadEquipos()
+        loadStats()
+        showToast(`Importación finalizada: ${data.creados} equipos creados`)
+      } catch (e) {
+        setImportResult({ error: e.message || 'Error al procesar el archivo' })
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const toggleStockSelect = (id) => {
+    setStockSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
+
+  const handleBulkEdit = async (action) => {
+    if (!stockSelected.length) {
+      showToast('Selecciona al menos un equipo')
+      return
+    }
+    const body = { ids: stockSelected }
+    if (action.tipo === 'estado') body.estado = action.valor
+    if (action.tipo === 'ubicacion') {
+      const loc = ubicaciones.find((u) => String(u.id) === String(action.valor))
+      if (loc) body.ubicacion_id = loc.id
+      else body.ubicacion = action.valor
+    }
+    setBulkProcessing(true)
+    try {
+      const res = await api('/api/inventory/equipos/lote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({ detail: 'Error' }))
+        showToast(d.detail || 'Error al aplicar cambios')
+      } else {
+        const data = await res.json()
+        showToast(`Cambios aplicados a ${data.actualizados} equipo(s)`)
+        setStockSelected([])
+        setBulkAction({ tipo: '', valor: '' })
+        loadEquipos()
+        loadStats()
+      }
+    } catch (e) {
+      showToast(e.message || 'Error al aplicar cambios')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
   const handleAddEquipment = async () => {
     setEditingEquipmentId(null)
     setEquipmentPhotoFile(null)
@@ -1166,6 +1310,18 @@ function App() {
     showToast('Exportando mantenimientos a Excel')
   }
 
+  const handleExportPDFInventarioUbicacion = () => {
+    const url = `${API_BASE}/api/reports/pdf/inventario-por-ubicacion`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    showToast('Generando PDF: inventario por ubicación')
+  }
+
+  const handleExportPDFResumenMantenimientos = () => {
+    const url = `${API_BASE}/api/reports/pdf/resumen-mantenimientos`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    showToast('Generando PDF: resumen de mantenimientos')
+  }
+
   const loadDepreciacion = async () => {
     try {
       const res = await api('/api/reports/depreciacion')
@@ -1182,6 +1338,142 @@ function App() {
   }
 
   const renderSectionContent = () => {
+    if (activeSection === 'dashboard') {
+      const t = stats.totales || {}
+      const al = stats.alertas || { vencidas: 0, proximas: 0 }
+      const totalEquipos =
+        (t.disponibles || 0) + (t.asignados || 0) + (t.reparacion || 0) + (t.baja || 0)
+      const pctDisp = totalEquipos ? Math.round(((t.disponibles || 0) / totalEquipos) * 100) : 0
+
+      const barChart = (label, items, colorKey) => {
+        const max = Math.max(1, ...items.map((i) => i.cantidad || 0))
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1rem' }}>{label}</h3>
+            {items.length === 0 && <p style={{ color: 'var(--text-soft)', margin: 0 }}>Sin datos aún</p>}
+            {items.map((it, idx) => (
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <span style={{ fontWeight: 600 }}>{it.categoria || it.ubicacion}</span>
+                  <span style={{ color: 'var(--text-soft)' }}>{it.cantidad}</span>
+                </div>
+                <div
+                  style={{
+                    height: '10px',
+                    borderRadius: '6px',
+                    background: 'var(--border)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.max(4, (it.cantidad / max) * 100)}%`,
+                      height: '100%',
+                      background: colorKey,
+                      borderRadius: '6px',
+                      transition: 'width .3s',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      return (
+        <section className="view-grid">
+          <div className="mini-grid" style={{ gridColumn: '1 / -1', marginBottom: '4px' }}>
+            <div className="action-card stock-stat-highlight">
+              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📦 Disponibles
+              </span>
+              <strong style={{ fontSize: '2.2rem' }}>{t.disponibles || 0}</strong>
+              <small style={{ color: 'var(--success)' }}>{pctDisp}% de disponibilidad operativa</small>
+            </div>
+            <div className="action-card">
+              <span>Asignados</span>
+              <strong style={{ fontSize: '2rem' }}>{t.asignados || 0}</strong>
+              <small>Equipos en uso</small>
+            </div>
+            <div className="action-card">
+              <span>En Reparación</span>
+              <strong style={{ fontSize: '2rem', color: 'var(--warning)' }}>{t.reparacion || 0}</strong>
+              <small>Mantenimiento activo</small>
+            </div>
+            <div className="action-card">
+              <span>Total en Inventario</span>
+              <strong style={{ fontSize: '2rem' }}>{totalEquipos}</strong>
+              <small>Equipos registrados</small>
+            </div>
+          </div>
+
+          <div className="mini-grid" style={{ gridColumn: '1 / -1', marginBottom: '4px' }}>
+            <div className="action-card highlight">
+              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                💰 Valor del inventario
+              </span>
+              <strong style={{ fontSize: '1.8rem' }}>
+                ${Number(stats.valor_total || 0).toLocaleString('es-CO')}
+              </strong>
+              <small>Valor aproximado total</small>
+            </div>
+            <div className="action-card">
+              <span>Actas del mes ({stats.mes || 'actual'})</span>
+              <strong style={{ fontSize: '2rem' }}>{stats.actas_generadas || 0}</strong>
+              <small>Entradas y salidas registradas</small>
+            </div>
+            <div className="action-card">
+              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                🔧 Mantenimiento activo
+              </span>
+              <strong style={{ fontSize: '2rem' }}>{stats.mantenimientos_activos || 0}</strong>
+              <small>Programados y en proceso</small>
+            </div>
+            <div
+              className="action-card"
+              style={{
+                background:
+                  al.vencidas > 0
+                    ? 'linear-gradient(135deg, rgba(220,38,38,.2), rgba(124,58,237,.08))'
+                    : 'rgba(34,211,238,0.06)',
+              }}
+            >
+              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ⚠️ Alertas
+              </span>
+              <strong style={{ fontSize: '1.8rem', color: al.vencidas > 0 ? 'var(--danger)' : 'var(--primary)' }}>
+                {al.vencidas} vencida{String(al.vencidas) > '1' ? 's' : ''} · {al.proximas} próx.
+              </strong>
+              <small>Mantenimientos por atender</small>
+            </div>
+          </div>
+
+          <article className="panel wide-panel" style={{ gridColumn: '1 / -1' }}>
+            <div className="panel-header">
+              <div>
+                <h2>Distribución del inventario</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-soft)' }}>
+                  Equipos agrupados por categoría y ubicación
+                </p>
+              </div>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '24px',
+                padding: '18px 4px 8px',
+              }}
+            >
+              {barChart('Por categoría', stats.por_categoria || [], 'linear-gradient(90deg,#22d3ee,#8b5cf6)')}
+              {barChart('Por ubicación', stats.por_ubicacion || [], 'linear-gradient(90deg,#34d399,#22d3ee)')}
+            </div>
+          </article>
+        </section>
+      )
+    }
+
     if (activeSection === 'stock') {
       const equiposDisponibles = equipos.filter((e) => e.estado === 'disponible').length
       const equiposAsignados = equipos.filter((e) => e.estado === 'asignado').length
@@ -1205,6 +1497,35 @@ function App() {
         }
         return true
       })
+
+      // Ordenamiento por columna.
+      const sortedEquipos = [...filteredEquipos].sort((a, b) => {
+        let va = a[stockSortKey] != null ? a[stockSortKey] : a.folio
+        let vb = b[stockSortKey] != null ? b[stockSortKey] : b.folio
+        if (stockSortKey === 'estado') { va = a.estado || ''; vb = b.estado || '' }
+        if (stockSortKey === 'categoria_nombre') { va = a.categoria_nombre || 'General'; vb = b.categoria_nombre || 'General' }
+        if (typeof va === 'number' && typeof vb === 'number') {
+          return stockSortDir === 'asc' ? va - vb : vb - va
+        }
+        return stockSortDir === 'asc'
+          ? String(va).localeCompare(String(vb), 'es')
+          : String(vb).localeCompare(String(va), 'es')
+      })
+
+      // Paginación.
+      const totalPages = Math.max(1, Math.ceil(sortedEquipos.length / STOCK_PAGE_SIZE))
+      const safePage = Math.min(stockPage, totalPages)
+      const pageEquipos = sortedEquipos.slice((safePage - 1) * STOCK_PAGE_SIZE, safePage * STOCK_PAGE_SIZE)
+
+      const toggleStockSort = (key) => {
+        if (stockSortKey === key) {
+          setStockSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+        } else {
+          setStockSortKey(key)
+          setStockSortDir('asc')
+        }
+        setStockPage(1)
+      }
 
       return (
         <section className="view-grid">
@@ -1324,24 +1645,126 @@ function App() {
               </div>
             </div>
 
+            {canModify && (
+              <div
+                className="stock-bulk-bar"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--card, rgba(255,255,255,.02))',
+                  marginBottom: '12px',
+                }}
+              >
+                <span className="filter-pill" style={{ cursor: 'default' }}>
+                  <span>
+                    {stockSelected.length} seleccionado{String(stockSelected.length) > '1' ? 's' : ''}
+                  </span>
+                </span>
+                <select
+                  className="filter-select"
+                  style={{ width: '170px' }}
+                  value={bulkAction.tipo === 'estado' ? bulkAction.valor : ''}
+                  onChange={(e) => setBulkAction({ tipo: 'estado', valor: e.target.value })}
+                >
+                  <option value="">Cambiar estado…</option>
+                  <option value="disponible">Disponible</option>
+                  <option value="asignado">Asignado</option>
+                  <option value="reparacion">En reparación</option>
+                  <option value="baja">Baja</option>
+                </select>
+                <select
+                  className="filter-select"
+                  style={{ width: '180px' }}
+                  value={bulkAction.tipo === 'ubicacion' ? bulkAction.valor : ''}
+                  onChange={(e) => setBulkAction({ tipo: 'ubicacion', valor: e.target.value })}
+                >
+                  <option value="">Mover a ubicación…</option>
+                  {ubicaciones.map((u) => (
+                    <option key={u.id} value={String(u.id)}>{u.nombre}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn-primary small"
+                  disabled={bulkProcessing || !stockSelected.length || !bulkAction.valor}
+                  onClick={() => handleBulkEdit(bulkAction)}
+                >
+                  {bulkProcessing ? 'Aplicando…' : 'Aplicar a seleccionados'}
+                </button>
+                {stockSelected.length > 0 && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    style={{ fontSize: '0.8rem', color: 'var(--danger)' }}
+                    onClick={() => setStockSelected([])}
+                  >
+                    Limpiar selección
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Folio</th>
-                    <th>Equipo / Marca</th>
-                    <th>N° Serie</th>
-                    <th>Categoría</th>
-                    <th>Ubicación</th>
-                    <th>Valor Aprox.</th>
-                    <th>Estado de Stock</th>
+                    <th style={{ width: '36px', cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          pageEquipos.length > 0 &&
+                          pageEquipos.every((i) => stockSelected.includes(i.id))
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setStockSelected((prev) => {
+                              const all = new Set([...prev, ...pageEquipos.map((i) => i.id)])
+                              return [...all]
+                            })
+                          } else {
+                            const ids = new Set(pageEquipos.map((i) => i.id))
+                            setStockSelected((prev) => prev.filter((x) => !ids.has(x)))
+                          }
+                        }}
+                      />
+                    </th>
+                    {[
+                      ['folio', 'Folio'],
+                      ['marca', 'Equipo / Marca'],
+                      ['serie', 'N° Serie'],
+                      ['categoria_nombre', 'Categoría'],
+                      ['ubicacion_nombre', 'Ubicación'],
+                      ['valor_aprox', 'Valor Aprox.'],
+                      ['estado', 'Estado'],
+                    ].map(([key, label]) => (
+                      <th
+                        key={key}
+                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => toggleStockSort(key)}
+                      >
+                        {label}{' '}
+                        {stockSortKey === key ? (stockSortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </th>
+                    ))}
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEquipos.length ? (
-                    filteredEquipos.map((item) => (
+                  {pageEquipos.length ? (
+                    pageEquipos.map((item) => (
                       <tr key={item.id}>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={stockSelected.includes(item.id)}
+                            onChange={() => toggleStockSelect(item.id)}
+                          />
+                        </td>
                         <td>
                           <span className="badge-numero">{item.folio}</span>
                         </td>
@@ -1441,13 +1864,44 @@ function App() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="empty-row">
+                      <td colSpan="9" className="empty-row">
                         No se encontraron equipos con los filtros seleccionados
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+
+              {sortedEquipos.length > STOCK_PAGE_SIZE && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '14px 4px 4px' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-soft)' }}>
+                    Mostrando {pageEquipos.length} de {sortedEquipos.length} equipos
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn-quick-status"
+                      style={{ padding: '5px 12px' }}
+                      disabled={safePage <= 1}
+                      onClick={() => setStockPage((p) => Math.max(1, p - 1))}
+                    >
+                      ← Anterior
+                    </button>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>
+                      Página {safePage} de {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-quick-status"
+                      style={{ padding: '5px 12px' }}
+                      disabled={safePage >= totalPages}
+                      onClick={() => setStockPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </article>
         </section>
@@ -1660,11 +2114,53 @@ function App() {
                     Agregar equipo
                   </button>
                 )}
+                {canModify && (
+                  <>
+                    <button type="button" className="btn-quick-status" onClick={handleDownloadTemplate}>
+                      Descargar plantilla
+                    </button>
+                    <button type="button" className="btn-quick-status" onClick={() => importInputRef.current && importInputRef.current.click()}>
+                      Importar (CSV)
+                    </button>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept=".csv,.xlsx"
+                      style={{ display: 'none' }}
+                      onChange={handleImportFileChange}
+                    />
+                  </>
+                )}
                 <button type="button" className="link-button" onClick={() => setActiveSection('dashboard')}>
                   Volver al dashboard
                 </button>
               </div>
             </div>
+
+            {importResult && (
+              <div
+                className="seed-banner"
+                style={{
+                  borderColor: importResult.error ? 'var(--danger)' : 'var(--success)',
+                  background: importResult.error ? 'rgba(220,38,38,.08)' : 'rgba(34,197,94,.08)',
+                }}
+              >
+                <div className="seed-banner-text">
+                  <h4>
+                    {importResult.error ? '✗ Error al importar' : `✓ Importación completada (${importResult.creados} creados)`}
+                  </h4>
+                  <p>
+                    {importResult.error
+                      ? importResult.error
+                      : importResult.errores && importResult.errores.length
+                        ? `${importResult.errores.length} fila(s) con errores: ${
+                            importResult.errores.map((e) => `fila ${e.fila} (${e.error})`).join('; ')
+                          }`
+                        : 'Todos los equipos del archivo fueron creados correctamente.'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {categorias.length === 0 && canModify && (
               <div className="seed-banner">
@@ -2632,6 +3128,12 @@ function App() {
                 </button>
                 <button type="button" className="link-button" onClick={handleExportMantenimientosXLSX} title="Exportar mantenimientos a Excel">
                   Mantenimiento Excel
+                </button>
+                <button type="button" className="link-button" onClick={handleExportPDFInventarioUbicacion} title="Inventario por ubicación en PDF con logo">
+                  Inventario PDF
+                </button>
+                <button type="button" className="link-button" onClick={handleExportPDFResumenMantenimientos} title="Resumen de mantenimientos en PDF con logo">
+                  Mantenimiento PDF
                 </button>
               </div>
             </div>

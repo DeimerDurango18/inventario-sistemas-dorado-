@@ -103,3 +103,22 @@ class EquipmentUpdate(BaseModel):
     observaciones: Optional[str] = None
     foto: Optional[str] = None
 
+
+class BulkEquipmentItem(BaseModel):
+    marca: str
+    modelo: str
+    serie: Optional[str] = None
+    estado: Optional[str] = None
+    categoria: Optional[str] = None
+    ubicacion: Optional[str] = None
+    valor_aprox: Optional[float] = None
+    observaciones: Optional[str] = None
+
+
+class BulkEditEquipos(BaseModel):
+    ids: List[int]
+    estado: Optional[str] = None
+    ubicacion_id: Optional[int] = None
+    ubicacion: Optional[str] = None
+    categoria_id: Optional[int] = None
+
