@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,8 @@ class MaintenanceRecord(Base):
     estado = Column(String(30), default="programado")  # programado | en_proceso | finalizado
     fecha_programada = Column(DateTime(timezone=True), nullable=True)
     fecha_finalizado = Column(DateTime(timezone=True), nullable=True)
+    foto = Column(String(300), nullable=True)  # ruta/URL de evidencia del mantenimiento
+    piezas = Column(Text, nullable=True)  # lista de repuestos/piezas usadas (texto libre)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     equipo = relationship("Equipment")

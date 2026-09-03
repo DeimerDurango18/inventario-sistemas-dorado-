@@ -10,6 +10,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(150), nullable=False)
     correo = Column(String(150), unique=True, nullable=False)
+    # El hash bcrypt de la contraseña se guarda directamente en `password`.
+    # Se asigna con hash_password() en los servicios/routers (app.core.security).
+    password = Column(String(255), nullable=True)
     rol = Column(String(30), default="operativo")  # admin | supervisor | operativo
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

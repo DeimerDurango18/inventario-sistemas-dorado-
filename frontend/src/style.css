@@ -1353,3 +1353,336 @@ th {
     justify-content: space-between;
   }
 }
+
+/* ============ LOGIN ============ */
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.14), transparent 45%),
+              radial-gradient(circle at 80% 80%, rgba(255, 78, 205, 0.12), transparent 45%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(180deg, var(--panel), rgba(6, 8, 21, 0.5));
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 32px;
+  box-shadow: var(--glow);
+}
+
+.login-card .form-grid {
+  grid-template-columns: 1fr;
+}
+
+.user-chip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-link-danger {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-link-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ============================================================
+   NUEVAS MEJORAS DE UI: FOTOS, DETALLE, ALERTAS Y SEED
+   ============================================================ */
+
+.maintenance-alert-banner {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.15), rgba(255, 78, 78, 0.15));
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 14px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+.maintenance-alert-banner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.2);
+  border-color: var(--warning);
+}
+.maintenance-alert-banner .alert-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.badge-danger {
+  background: rgba(255, 78, 78, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 78, 78, 0.4);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.badge-warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* Subida de fotos de equipos */
+.photo-upload-label {
+  grid-column: 1 / -1;
+}
+.photo-upload-box {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.photo-upload-box:hover {
+  border-color: var(--primary);
+  background: rgba(34, 211, 238, 0.04);
+}
+.photo-upload-box input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  pointer-events: none;
+}
+.photo-preview-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.photo-preview-img {
+  max-height: 140px;
+  max-width: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.btn-remove-photo {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 78, 78, 0.85);
+  color: white;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-remove-photo:hover {
+  background: var(--danger);
+}
+
+/* Miniatura en tablas de equipos y stock */
+.equipment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  vertical-align: middle;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.equipment-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.equipment-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Banner de Seeding inicial */
+.seed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(61, 58, 237, 0.12));
+  border: 1px dashed var(--primary);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.seed-banner-text h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--primary);
+}
+.seed-banner-text p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-soft);
+}
+
+/* Modal de Detalle e Historial */
+.detail-modal {
+  max-width: 720px !important;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+@media (max-width: 650px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.detail-photo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+.detail-photo-img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.detail-photo-placeholder {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.detail-info-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.detail-field span {
+  display: block;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-soft);
+  margin-bottom: 2px;
+}
+.detail-field strong {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+/* Línea de tiempo de movimientos */
+.timeline-wrap {
+  margin-top: 16px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.timeline-item {
+  position: relative;
+  padding-left: 24px;
+  padding-bottom: 16px;
+  border-left: 2px solid var(--border);
+}
+.timeline-item:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+.timeline-dot {
+  position: absolute;
+  left: -7px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
+}
+.timeline-item.SALIDA .timeline-dot {
+  background: var(--warning);
+  box-shadow: 0 0 10px var(--warning);
+}
+.timeline-item.MANTENIMIENTO .timeline-dot {
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger);
+}
+.timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.timeline-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--primary);
+}
+.timeline-date {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+.timeline-body {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+

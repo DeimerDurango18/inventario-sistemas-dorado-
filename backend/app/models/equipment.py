@@ -20,10 +20,11 @@ class Equipment(Base):
     ubicacion_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=True)
     valor_aprox = Column(Numeric(14, 2), nullable=True)
     observaciones = Column(String(255), nullable=True)
+    foto = Column(String(300), nullable=True)  # ruta/URL de la fotografía del equipo
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    movements = relationship("Movement", back_populates="equipo")
+    movements = relationship("Movement", back_populates="equipo", cascade="all, delete-orphan")
     categoria = relationship("Category")
     ubicacion_rel = relationship("Location")
 
@@ -32,10 +33,12 @@ class Movement(Base):
     __tablename__ = "movimientos"
 
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String(20), nullable=False)
-    folio_acta = Column(String(50), unique=True, index=True, nullable=False)
+    tipo = Column(String(20), nullable=False)  # ENTRADA | SALIDA | CAMBIO_ESTADO | MANTENIMIENTO
+    folio_acta = Column(String(50), nullable=True)  # ya no es único: puede haber varios por acta/equipo
     persona = Column(String(150), nullable=True)
     motivo = Column(String(255), nullable=True)
+    estado_anterior = Column(String(50), nullable=True)
+    estado_nuevo = Column(String(50), nullable=True)
     equipo_id = Column(Integer, ForeignKey("equipos.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

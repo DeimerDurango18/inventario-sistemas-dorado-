@@ -6,18 +6,31 @@ from sqlalchemy.orm import Session
 
 from app.core.config import COMPANY
 from app.core.database import get_db
+from app.core.security import require_roles
 from app.models.acta import Acta, ActaItem
+from app.models.equipment import Equipment, Movement
+from app.models.user import User
 from app.schemas import ActaIn
 from app.services.pdf_acta import generar_acta_pdf
 
 router = APIRouter()
 PDF_DIR = Path(__file__).resolve().parents[3] / "storage" / "actas"
 
+# Solo supervisor/admin pueden emitir o eliminar actas.
+MODIFY_ROLES = require_roles("admin", "supervisor")
+
 
 def _siguiente_numero(db: Session) -> str:
+    """Genera el siguiente consecutivo SIS-#### de forma correlativa y única."""
     ultimo = db.query(Acta).order_by(Acta.id.desc()).first()
-    consecutivo = (ultimo.id if ultimo else 0) + 1760  # arranca en el mismo rango que el ejemplo físico
-    return f"SIS-{consecutivo}"
+    base = 1760
+    if ultimo and ultimo.numero:
+        try:
+            parte = ultimo.numero.split("-", 1)[1]
+            base = int(parte)
+        except (ValueError, IndexError):
+            base = int(ultimo.id or 0) + 1760
+    return f"SIS-{base + 1}"
 
 
 def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
@@ -69,7 +82,11 @@ def obtener_acta(acta_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("")
-def crear(payload: ActaIn, db: Session = Depends(get_db)):
+def crear(
+    payload: ActaIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
     if payload.tipo not in ("SALIDA", "ENTRADA"):
         raise HTTPException(status_code=400, detail="El tipo debe ser SALIDA o ENTRADA")
     if not payload.items:
@@ -90,8 +107,47 @@ def crear(payload: ActaIn, db: Session = Depends(get_db)):
     db.add(acta)
     db.flush()  # obtener acta.id antes de crear los items
 
+    # Validar y actualizar estado de equipos vinculados + registrar movimiento.
     for item in payload.items:
         db.add(ActaItem(acta_id=acta.id, **item.model_dump()))
+
+        if item.equipo_id:
+            equipo = db.query(Equipment).filter(Equipment.id == item.equipo_id).first()
+            if not equipo:
+                continue
+            if payload.tipo == "SALIDA" and equipo.estado == "reparacion":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El equipo {equipo.folio} está en reparación y no puede despacharse",
+                )
+            if payload.tipo == "SALIDA":
+                estado_anterior = equipo.estado
+                equipo.estado = "asignado"
+                db.add(
+                    Movement(
+                        tipo="SALIDA",
+                        folio_acta=acta.numero,
+                        persona=current_user.nombre,
+                        motivo=item.detalle or "Despacho en acta",
+                        estado_anterior=estado_anterior,
+                        estado_nuevo="asignado",
+                        equipo_id=equipo.id,
+                    )
+                )
+            elif payload.tipo == "ENTRADA":
+                estado_anterior = equipo.estado
+                equipo.estado = "disponible"
+                db.add(
+                    Movement(
+                        tipo="ENTRADA",
+                        folio_acta=acta.numero,
+                        persona=current_user.nombre,
+                        motivo=item.detalle or "Reingreso en acta",
+                        estado_anterior=estado_anterior,
+                        estado_nuevo="disponible",
+                        equipo_id=equipo.id,
+                    )
+                )
 
     db.commit()
     db.refresh(acta)

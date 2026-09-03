@@ -1,5 +1,9 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
     auth,
@@ -10,8 +14,26 @@ from app.api.routes import (
     ubicaciones,
     usuarios,
     mantenimientos,
+    seed,
 )
+from app.core.config import CORS_ORIGINS, DEBUG
 from app.core.database import init_db
+
+STORAGE_DIR = Path(__file__).resolve().parents[1] / "storage"
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "fotos").mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "actas").mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "mantenimientos").mkdir(parents=True, exist_ok=True)
+
+
+# ============================================================
+# CICLO DE VIDA (LIFESPAN)
+# ============================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 
 # ============================================================
@@ -20,8 +42,9 @@ from app.core.database import init_db
 
 app = FastAPI(
     title="Inventario Equipos API",
-    version="1.1.0",
+    version="1.2.0",
     description="API para la gestión del inventario de equipos",
+    lifespan=lifespan,
 )
 
 
@@ -31,7 +54,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,12 +62,10 @@ app.add_middleware(
 
 
 # ============================================================
-# INICIALIZACIÓN DE LA BASE DE DATOS
+# ARCHIVOS ESTÁTICOS (FOTOS Y DOCUMENTOS)
 # ============================================================
 
-@app.on_event("startup")
-def startup_event():
-    init_db()
+app.mount("/storage", StaticFiles(directory=str(STORAGE_DIR)), name="storage")
 
 
 # ============================================================
@@ -97,6 +118,12 @@ app.include_router(
     mantenimientos.router,
     prefix="/api/mantenimientos",
     tags=["mantenimientos"],
+)
+
+app.include_router(
+    seed.router,
+    prefix="/api/catalogo",
+    tags=["catalogo"],
 )
 
 

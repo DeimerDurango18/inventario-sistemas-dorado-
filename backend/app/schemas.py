@@ -18,8 +18,28 @@ class LocationIn(BaseModel):
 class UserIn(BaseModel):
     nombre: str
     correo: str
+    password: Optional[str] = None
     rol: str = "operativo"
     activo: bool = True
+
+
+class UserUpdate(BaseModel):
+    nombre: Optional[str] = None
+    correo: Optional[str] = None
+    password: Optional[str] = None
+    rol: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class LoginIn(BaseModel):
+    correo: str
+    password: str
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
 
 
 class MaintenanceIn(BaseModel):
@@ -30,6 +50,8 @@ class MaintenanceIn(BaseModel):
     costo: Optional[float] = None
     estado: str = "programado"
     fecha_programada: Optional[datetime] = None
+    fecha_finalizado: Optional[datetime] = None
+    piezas: Optional[str] = None
 
 
 class ActaItemIn(BaseModel):
@@ -55,7 +77,7 @@ class ActaIn(BaseModel):
 
 
 class EquipmentIn(BaseModel):
-    folio: str
+    folio: Optional[str] = None  # Si no se envía, se genera automáticamente (EQ-####)
     marca: str
     modelo: str
     serie: Optional[str] = None
@@ -65,6 +87,7 @@ class EquipmentIn(BaseModel):
     ubicacion_id: Optional[int] = None
     valor_aprox: Optional[float] = None
     observaciones: Optional[str] = None
+    foto: Optional[str] = None
 
 
 class EquipmentUpdate(BaseModel):
@@ -78,4 +101,5 @@ class EquipmentUpdate(BaseModel):
     ubicacion_id: Optional[int] = None
     valor_aprox: Optional[float] = None
     observaciones: Optional[str] = None
+    foto: Optional[str] = None
 

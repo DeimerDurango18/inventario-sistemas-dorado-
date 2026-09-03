@@ -1,13 +1,57 @@
-# Inventario Equipos - Comandos de ejecución
-# Backend
+# ============================================================
+# INVENTARIO DE EQUIPOS - COMANDOS DE EJECUCIÓN
+# ============================================================
+# NOTA: El backend está configurado para SQL Server (DB_ENGINE=mssql)
+# con la base InventarioEquipos ya migrada (alembic upgrade head)
+# y con el usuario administrador creado.
+# Para desarrollo local rápido puedes usar sqlite con $env:DB_ENGINE="sqlite".
+
+# -------------------------------
+# 1) BACKEND (FastAPI, puerto 8010)
+# -------------------------------
+# Producción (SQL Server - config por defecto en .env):
+#   NOTA: marca el puerto 8010 se libera solo con el .bat.
 Set-Location "D:\proyectos\InventarioEquipos\backend"
 & "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+# (esto usa DB_ENGINE=mssql desde .env; si no, fuerza:)
+# $env:DB_ENGINE = "mssql"
 
-# Frontend
+# Aplicar migraciones a la base actual (alembic - solo si cambiaste modelos):
+# Set-Location "D:\proyectos\InventarioEquipos\backend"
+# & "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m alembic upgrade head
+
+# -------------------------------
+# 2) FRONTEND (Vite + React, puerto 5173)
+# -------------------------------
 Set-Location "D:\proyectos\InventarioEquipos\frontend"
 npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 
-# Verificación rápida
+# -------------------------------
+# 3) VERIFICACIÓN RÁPIDA
+# -------------------------------
 # Backend health: http://127.0.0.1:8010/health
-# Frontend: http://localhost:5173
+# API docs:       http://127.0.0.1:8010/docs
+# Frontend App:   http://localhost:5173
+
+# -------------------------------
+# 4) ADMIN LOGIN (datos de acceso)
+# -------------------------------
+# Usuario administrador (creado en la BD SQL Server InventarioEquipos):
+#   Correo:      admin@sistemasbogota.com
+#   Contraseña:  Admin2026!
+#   URL login:   http://localhost:5173  (o el puerto del frontend)
+
+# Para desarrollo con SQLite (sin SQL Server) y echar el login:
+# Set-Location "D:\proyectos\InventarioEquipos\backend"
+# $env:DB_ENGINE = "sqlite"
+# & "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+
+# Crear/resetear un usuario administrador en la BD activa (ajusta DB_ENGINE):
+#   Set-Location "D:\proyectos\InventarioEquipos\backend"
+#   $env:DB_ENGINE = "mssql"
+#   $env:PYTHONPATH = "D:\proyectos\InventarioEquipos\backend"
+#   & "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -c "from app.core.database import SessionLocal; from app.core.security import hash_password; from app.models.user import User; db=SessionLocal(); u=db.query(User).filter(User.correo=='tu@correo.com').first(); u.password=hash_password('NuevaClave123'); db.commit(); print('ok')"
+
+# Registrar un admin nuevo por API (sin token):
+#   POST http://127.0.0.1:8010/api/auth/register  (JSON: nombre, correo, password, rol="admin")
