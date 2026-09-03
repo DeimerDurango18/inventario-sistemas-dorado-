@@ -1,0 +1,24 @@
+# ============================================================
+# Cloudflare Pages - Configuración del proyecto
+# ============================================================
+# Frontend: React/Vite (carpeta /frontend)
+# Sitio: https://inventario-equipos.pages.dev
+# API:   detrás del túnel Cloudflare (VITE_API_URL)
+#
+# Este archivo va en la RAIZ del repo. En Cloudflare Pages, cuando el
+# proyecto está conectado al repo GitHub, usa el "Build configuration":
+#   - Root directory:  frontend
+#   - Build command:   npm ci && npm run build
+#   - Output directory: dist
+#
+# Variable de entorno (obligatoria) en Cloudflare Pages:
+#   Settings > Environment variables > Scope Production y Preview:
+#     VITE_API_URL = https://<subdominio>.trycloudflare.com
+# y volver a desplegar.
+
+name = "inventario-equipos"
+
+[build]
+  root = "frontend"
+  command = "npm ci && npm run build"
+  output_directory = "dist"
