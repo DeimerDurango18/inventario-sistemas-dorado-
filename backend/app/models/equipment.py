@@ -22,6 +22,14 @@ class Equipment(Base):
     observaciones = Column(String(255), nullable=True)
     foto = Column(String(300), nullable=True)  # ruta/URL de la fotografía del equipo
 
+    # FASE 10: préstamos y bajas/ventas
+    prestamo_a = Column(String(150), nullable=True)
+    prestamo_desde = Column(DateTime(timezone=True), nullable=True)
+    prestamo_hasta = Column(DateTime(timezone=True), nullable=True)
+    baja_motivo = Column(String(255), nullable=True)
+    precio_venta = Column(Numeric(14, 2), nullable=True)
+    fecha_baja = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     movements = relationship("Movement", back_populates="equipo", cascade="all, delete-orphan")

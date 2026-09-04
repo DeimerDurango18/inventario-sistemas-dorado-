@@ -15,6 +15,7 @@ from app.api.routes import (
     usuarios,
     mantenimientos,
     seed,
+    notificaciones,
 )
 from app.core.config import CORS_ORIGINS, DEBUG
 from app.core.database import init_db
@@ -124,6 +125,12 @@ app.include_router(
     seed.router,
     prefix="/api/catalogo",
     tags=["catalogo"],
+)
+
+app.include_router(
+    notificaciones.router,
+    prefix="/api/notificaciones",
+    tags=["notificaciones"],
 )
 
 

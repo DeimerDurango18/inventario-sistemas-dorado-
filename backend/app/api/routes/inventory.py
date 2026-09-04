@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -10,7 +11,7 @@ from app.core.security import require_roles
 from app.models.catalog import Category, Location
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
-from app.schemas import BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate
+from app.schemas import BajaEquipoIn, BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate, PrestamoIn
 from app.services.qr import generar_qr_png
 from app.services.exports import exportar_xlsx
 
@@ -41,6 +42,12 @@ def _serialize_equipo(equipo: Equipment) -> dict:
         "valor_aprox": float(equipo.valor_aprox) if equipo.valor_aprox is not None else None,
         "observaciones": equipo.observaciones,
         "foto": equipo.foto,
+        "prestamo_a": equipo.prestamo_a,
+        "prestamo_desde": equipo.prestamo_desde.isoformat() if equipo.prestamo_desde else None,
+        "prestamo_hasta": equipo.prestamo_hasta.isoformat() if equipo.prestamo_hasta else None,
+        "baja_motivo": equipo.baja_motivo,
+        "precio_venta": float(equipo.precio_venta) if equipo.precio_venta is not None else None,
+        "fecha_baja": equipo.fecha_baja.isoformat() if equipo.fecha_baja else None,
         "qr_url": f"/api/inventory/equipos/{equipo.id}/qr" if equipo.id else None,
         "created_at": equipo.created_at.isoformat() if equipo.created_at else None,
     }
@@ -381,6 +388,101 @@ def actualizar_equipo(
             estado_nuevo=update_data["estado"],
         )
 
+    db.commit()
+    db.refresh(equipo)
+    return _serialize_equipo(equipo)
+
+
+@router.post("/equipos/{equipo_id}/baja")
+def dar_baja_equipo(
+    equipo_id: int,
+    payload: BajaEquipoIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Registra la baja o venta de un equipo y actualiza su estado."""
+    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+
+    estado_anterior = equipo.estado
+    equipo.estado = "baja"
+    equipo.baja_motivo = payload.motivo
+    equipo.precio_venta = payload.precio_venta if payload.tipo_baja == "venta" else None
+    equipo.fecha_baja = datetime.now(timezone.utc)
+    equipo.observaciones = payload.motivo or equipo.observaciones
+    db.flush()
+    _registrar_movimiento(
+        db, equipo, tipo="BAJA" if payload.tipo_baja == "baja" else "VENTA",
+        persona=current_user.nombre,
+        motivo=payload.motivo or f"Baja por {payload.tipo_baja}",
+        estado_anterior=estado_anterior,
+        estado_nuevo="baja",
+    )
+    db.commit()
+    db.refresh(equipo)
+    return _serialize_equipo(equipo)
+
+
+@router.post("/equipos/{equipo_id}/prestamo")
+def registrar_prestamo(
+    equipo_id: int,
+    payload: PrestamoIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Registra un préstamo del equipo a una persona/ubicación."""
+    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if equipo.estado not in ("disponible",):
+        raise HTTPException(status_code=400, detail="Solo se puede prestar un equipo disponible")
+
+    estado_anterior = equipo.estado
+    equipo.estado = "prestamo"
+    equipo.prestamo_a = payload.prestamo_a
+    equipo.prestamo_desde = datetime.now(timezone.utc)
+    equipo.prestamo_hasta = payload.fecha_fin
+    equipo.observaciones = payload.motivo or equipo.observaciones
+    db.flush()
+    _registrar_movimiento(
+        db, equipo, tipo="PRESTAMO",
+        persona=current_user.nombre,
+        motivo=f"Préstamo a {payload.prestamo_a}" if payload.motivo is None else payload.motivo,
+        estado_anterior=estado_anterior,
+        estado_nuevo="prestamo",
+    )
+    db.commit()
+    db.refresh(equipo)
+    return _serialize_equipo(equipo)
+
+
+@router.post("/equipos/{equipo_id}/retorno-prestamo")
+def retornar_prestamo(
+    equipo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Registra el retorno de un equipo en préstamo."""
+    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if equipo.estado != "prestamo":
+        raise HTTPException(status_code=400, detail="El equipo no está en préstamo")
+
+    estado_anterior = equipo.estado
+    equipo.estado = "disponible"
+    equipo.observaciones = f"Retorno de préstamo ({equipo.prestamo_a})" if equipo.prestamo_a else equipo.observaciones
+    equipo.prestamo_a = None
+    equipo.prestamo_hasta = None
+    equipo.prestamo_desde = None
+    db.flush()
+    _registrar_movimiento(
+        db, equipo, tipo="RETORNO", persona=current_user.nombre,
+        motivo="Retorno de préstamo",
+        estado_anterior=estado_anterior,
+        estado_nuevo="disponible",
+    )
     db.commit()
     db.refresh(equipo)
     return _serialize_equipo(equipo)

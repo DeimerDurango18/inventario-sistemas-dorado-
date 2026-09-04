@@ -122,3 +122,15 @@ class BulkEditEquipos(BaseModel):
     ubicacion: Optional[str] = None
     categoria_id: Optional[int] = None
 
+
+class BajaEquipoIn(BaseModel):
+    tipo_baja: str = "baja"  # baja | venta
+    motivo: Optional[str] = None
+    precio_venta: Optional[float] = None
+
+
+class PrestamoIn(BaseModel):
+    prestamo_a: str
+    motivo: Optional[str] = None
+    fecha_fin: Optional[datetime] = None
+

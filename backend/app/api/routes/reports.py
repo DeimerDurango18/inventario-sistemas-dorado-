@@ -43,7 +43,7 @@ def dashboard(db: Session = Depends(get_db)):
         .group_by(Equipment.estado)
         .all()
     )
-    result = {"disponibles": 0, "asignados": 0, "reparacion": 0, "baja": 0}
+    result = {"disponibles": 0, "asignados": 0, "reparacion": 0, "baja": 0, "prestamo": 0}
     for estado, count in totals:
         raw = (estado or "").lower()
         # Los estados se almacenan en singular; el reporte agrupa en plural.

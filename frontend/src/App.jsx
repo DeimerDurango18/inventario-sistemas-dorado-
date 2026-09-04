@@ -5,6 +5,7 @@ const statLabels = {
   asignados: 'Asignados',
   reparacion: 'En reparación',
   baja: 'Baja',
+  prestamo: 'Préstamo',
 }
 
 const navItems = [
@@ -275,6 +276,18 @@ function App() {
   const [equipmentHistory, setEquipmentHistory] = useState([])
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
+  // Estados para Escáner QR (FASE 1b) con cámara
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [scannerStatus, setScannerStatus] = useState('')
+  const [scannerSupported, setScannerSupported] = useState(true)
+  const scannerStreamRef = useRef(null)
+  const videoRef = useRef(null)
+  const scannerActiveRef = useRef(false)
+
+  // FASE 10: baja/venta y préstamo
+  const [bajaPrestamoModal, setBajaPrestamoModal] = useState(null) // {tipo:'baja'|'venta'|'prestamo', equipo}
+  const [bajaPrestamoForm, setBajaPrestamoForm] = useState({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+
   // Estados para Actas, Visor Modal y Creación
   const [actas, setActas] = useState([])
   const [selectedActa, setSelectedActa] = useState(null)
@@ -294,6 +307,13 @@ function App() {
   const [stockSelected, setStockSelected] = useState([])
   const [bulkAction, setBulkAction] = useState({ tipo: '', valor: '' })
   const [bulkProcessing, setBulkProcessing] = useState(false)
+
+  // Notificaciones (FASE 7)
+  const [notificaciones, setNotificaciones] = useState([])
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifLeidas, setNotifLeidas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('inv_notif_leidas') || '[]') } catch { return [] }
+  })
 
   // Filtros para el Módulo de Historial
   const [historialSearchQuery, setHistorialSearchQuery] = useState('')
@@ -417,6 +437,21 @@ function App() {
       .catch(() => {})
   }
 
+  const loadNotificaciones = () => {
+    api('/api/notificaciones')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setNotificaciones(data) })
+      .catch(() => {})
+  }
+
+  const markNotifRead = (id) => {
+    setNotifLeidas((current) => {
+      const next = current.includes(id) ? current : [...current, id]
+      localStorage.setItem('inv_notif_leidas', JSON.stringify(next))
+      return next
+    })
+  }
+
   const handleSeedCatalogos = async () => {
     try {
       const res = await api('/api/catalogo/seed', { method: 'POST' })
@@ -449,6 +484,148 @@ function App() {
     }
   }
 
+  const handleBajaPrestamoSubmit = async () => {
+    if (!bajaPrestamoModal) return
+    const { tipo, equipo } = bajaPrestamoModal
+    const body = {}
+    let url = ''
+    if (tipo === 'baja') {
+      body.tipo_baja = 'baja'
+      body.motivo = bajaPrestamoForm.motivo
+      url = `/api/inventory/equipos/${equipo.id}/baja`
+    } else if (tipo === 'venta') {
+      body.tipo_baja = 'venta'
+      body.motivo = bajaPrestamoForm.motivo
+      body.precio_venta = bajaPrestamoForm.precio_venta ? Number(bajaPrestamoForm.precio_venta) : null
+      url = `/api/inventory/equipos/${equipo.id}/baja`
+    } else if (tipo === 'prestamo') {
+      body.prestamo_a = bajaPrestamoForm.prestamo_a
+      body.motivo = bajaPrestamoForm.motivo
+      body.fecha_fin = bajaPrestamoForm.fecha_fin ? new Date(bajaPrestamoForm.fecha_fin).toISOString() : null
+      url = `/api/inventory/equipos/${equipo.id}/prestamo`
+    }
+    if (!url) return
+    if (tipo === 'prestamo' && !body.prestamo_a) {
+      showToast('Indica a quién se presta el equipo')
+      return
+    }
+    try {
+      const res = await api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (res.ok) {
+        showToast(tipo === 'baja' ? 'Equipo dado de baja' : tipo === 'venta' ? 'Venta registrada' : 'Préstamo registrado')
+        setBajaPrestamoModal(null)
+        setBajaPrestamoForm({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+        setIsDetailModalOpen(false)
+        loadEquipos()
+        loadStats()
+      } else {
+        const e = await res.json().catch(() => ({}))
+        showToast(e.detail || 'No se pudo completar la acción')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleRetornoPrestamo = async (equipo) => {
+    if (!window.confirm('¿Marcar el retorno del préstamo de este equipo?')) return
+    try {
+      const res = await api(`/api/inventory/equipos/${equipo.id}/retorno-prestamo`, { method: 'POST' })
+      if (res.ok) {
+        showToast('Retorno de préstamo registrado')
+        setIsDetailModalOpen(false)
+        loadEquipos()
+        loadStats()
+      } else {
+        const e = await res.json().catch(() => ({}))
+        showToast(e.detail || 'No se pudo registrar el retorno')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const stopScanner = () => {
+    scannerActiveRef.current = false
+    if (scannerStreamRef.current) {
+      scannerStreamRef.current.getTracks().forEach((t) => t.stop())
+      scannerStreamRef.current = null
+    }
+    setScannerStatus('')
+  }
+
+  const openScanner = async () => {
+    if (!('BarcodeDetector' in window)) {
+      setScannerSupported(false)
+      setIsScannerOpen(true)
+      setScannerStatus('Tu navegador no soporta el escáner con cámara. Usa un equipo con cámara o actualiza el navegador.')
+      return
+    }
+    setScannerSupported(true)
+    setIsScannerOpen(true)
+    scannerActiveRef.current = true
+    setScannerStatus('Esperando acceso a la cámara…')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      scannerStreamRef.current = stream
+    } catch {
+      scannerActiveRef.current = false
+      setScannerStatus('No se pudo acceder a la cámara. Verifica los permisos.')
+      return
+    }
+    setScannerStatus('Apuntando la cámara al código QR…')
+
+    const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+    const video = videoRef.current
+    if (!video) return
+    video.srcObject = scannerStreamRef.current
+    await video.play()
+
+    const tick = async () => {
+      if (!scannerActiveRef.current) return
+      if (video.readyState >= 2) {
+        try {
+          const codes = await detector.detect(video)
+          if (codes && codes.length > 0 && codes[0].rawValue) {
+            const value = codes[0].rawValue
+            await handleScannedQr(value)
+            return
+          }
+        } catch { /* sigue intentando */ }
+      }
+      window.setTimeout(tick, 200)
+    }
+    tick()
+  }
+
+  const handleScannedQr = async (raw) => {
+    stopScanner()
+    // El QR backend tiene formato: EQUIPO|folio|marca modelo|serie|estado|ubicacion
+    const parts = String(raw).split('|').map((s) => s.trim())
+    const folio = parts[1] && parts[1] !== 'undefined' ? parts[1] : (parts[3] || '')
+    if (!folio) {
+      setScannerStatus('El QR escaneado no corresponde a un equipo del sistema.')
+      return
+    }
+    try {
+      const res = await api(`/api/inventory/equipos/buscar?q=${encodeURIComponent(folio)}`)
+      if (res.ok) {
+        const lista = await res.json()
+        const data = Array.isArray(lista) && lista.length ? lista[0] : null
+        if (data && data.id) {
+          setScannerStatus('Equipo encontrado: ' + (data.folio || folio))
+          handleOpenEquipmentDetail(data)
+        } else {
+          setScannerStatus('Equipo no encontrado en el inventario.')
+        }
+      } else {
+        setScannerStatus('Equipo no encontrado en el inventario.')
+      }
+    } catch {
+      setScannerStatus('Sin conexión con el servidor al procesar el QR.')
+    }
+  }
+
   // Carga los datos iniciales al iniciar sesión con token.
   useEffect(() => {
     if (!token) return
@@ -458,6 +635,7 @@ function App() {
     loadCatalogos()
     loadUsuarios()
     loadMantenimientos()
+    loadNotificaciones()
   }, [token])
 
   const loadEquipos = () => {
@@ -1342,7 +1520,7 @@ function App() {
       const t = stats.totales || {}
       const al = stats.alertas || { vencidas: 0, proximas: 0 }
       const totalEquipos =
-        (t.disponibles || 0) + (t.asignados || 0) + (t.reparacion || 0) + (t.baja || 0)
+        (t.disponibles || 0) + (t.asignados || 0) + (t.reparacion || 0) + (t.baja || 0) + (t.prestamo || 0)
       const pctDisp = totalEquipos ? Math.round(((t.disponibles || 0) / totalEquipos) * 100) : 0
 
       const barChart = (label, items, colorKey) => {
@@ -1400,6 +1578,11 @@ function App() {
               <span>En Reparación</span>
               <strong style={{ fontSize: '2rem', color: 'var(--warning)' }}>{t.reparacion || 0}</strong>
               <small>Mantenimiento activo</small>
+            </div>
+            <div className="action-card">
+              <span>Préstamo</span>
+              <strong style={{ fontSize: '2rem', color: '#fbbf24' }}>{t.prestamo || 0}</strong>
+              <small>Equipos en préstamo</small>
             </div>
             <div className="action-card">
               <span>Total en Inventario</span>
@@ -1614,6 +1797,7 @@ function App() {
                   <option value="disponible">Disponible</option>
                   <option value="asignado">Asignado</option>
                   <option value="reparacion">En reparación</option>
+                  <option value="prestamo">Préstamo</option>
                   <option value="baja">Baja</option>
                 </select>
 
@@ -1675,6 +1859,7 @@ function App() {
                   <option value="disponible">Disponible</option>
                   <option value="asignado">Asignado</option>
                   <option value="reparacion">En reparación</option>
+                  <option value="prestamo">Préstamo</option>
                   <option value="baja">Baja</option>
                 </select>
                 <select
@@ -3554,6 +3739,76 @@ function App() {
                 {currentUser.nombre} · {currentUser.rol}
               </span>
             )}
+            <div style={{ position: 'relative' }} className="notif-wrap">
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => { setNotifOpen((v) => !v); loadNotificaciones() }}
+                title="Notificaciones"
+                style={{ fontSize: '1.1rem', lineHeight: 1 }}
+              >
+                🔔
+              </button>
+              {(() => {
+                const unread = notificaciones.filter((n) => !notifLeidas.includes(n.id)).length
+                if (unread > 0) {
+                  return (
+                    <span
+                      className="notif-badge"
+                      style={{ position: 'absolute', top: '-6px', right: '-8px' }}
+                    >
+                      {unread}
+                    </span>
+                  )
+                }
+                return null
+              })()}
+              {notifOpen && (
+                <div className="notif-popover">
+                  <div className="notif-popover-header">
+                    <strong>Notificaciones</strong>
+                    <button type="button" className="link-button" style={{ fontSize: '0.72rem' }} onClick={() => setNotifOpen(false)}>
+                      Cerrar
+                    </button>
+                  </div>
+                  <div className="notif-list">
+                    {notificaciones.length === 0 && (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-soft)', margin: '6px 0' }}>
+                        Sin notificaciones por ahora.
+                      </p>
+                    )}
+                    {notificaciones.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => markNotifRead(n.id)}
+                        style={{
+                          padding: '8px 10px',
+                          borderBottom: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          background: notifLeidas.includes(n.id) ? 'transparent' : 'rgba(134,59,255,.06)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                          <strong style={{ fontSize: '0.82rem', textTransform: 'capitalize' }}>{n.titulo}</strong>
+                          <span className="status-pill" style={{ textTransform: 'capitalize', fontSize: '0.65rem' }}>
+                            {n.nivel}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.78rem', margin: '3px 0 0', color: 'var(--text-soft)' }}>{n.mensaje}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="link-button"
+              onClick={openScanner}
+              title="Escanear código QR con la cámara"
+            >
+              📷 Escanear QR
+            </button>
             <button
               type="button"
               className="theme-toggle"
@@ -4174,6 +4429,51 @@ function App() {
                   + Emitir Acta con este equipo
                 </button>
               )}
+              {canModify && selectedEquipmentForDetail?.estado === 'disponible' && (
+                <>
+                  <button
+                    type="button"
+                    className="btn-quick-status"
+                    onClick={() => {
+                      setBajaPrestamoForm({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+                      setBajaPrestamoModal({ tipo: 'prestamo', equipo: selectedEquipmentForDetail })
+                    }}
+                  >
+                    🔁 Prestar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-quick-status"
+                    style={{ color: 'var(--danger)' }}
+                    onClick={() => {
+                      setBajaPrestamoForm({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+                      setBajaPrestamoModal({ tipo: 'baja', equipo: selectedEquipmentForDetail })
+                    }}
+                  >
+                    ⤵ Baja
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-quick-status"
+                    style={{ color: 'var(--accent)' }}
+                    onClick={() => {
+                      setBajaPrestamoForm({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+                      setBajaPrestamoModal({ tipo: 'venta', equipo: selectedEquipmentForDetail })
+                    }}
+                  >
+                    💰 Venta
+                  </button>
+                </>
+              )}
+              {canModify && selectedEquipmentForDetail?.estado === 'prestamo' && (
+                <button
+                  type="button"
+                  className="btn-quick-status"
+                  onClick={() => handleRetornoPrestamo(selectedEquipmentForDetail)}
+                >
+                  ↺ Retorno de préstamo
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-primary small"
@@ -4225,6 +4525,135 @@ function App() {
             </div>
             <div className="modal-footer">
               <button type="button" className="btn-primary small" onClick={() => setMtHistorialOpen(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ESCÁNER QR (FASE 1b) */}
+      {isScannerOpen && (
+        <div className="modal-overlay" onClick={() => { stopScanner(); setIsScannerOpen(false) }}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>Escanear QR</h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>
+                  Apunta la cámara al código QR de un equipo
+                </span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => { stopScanner(); setIsScannerOpen(false) }}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {scannerSupported ? (
+                <>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '260px',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      backgroundColor: '#000',
+                      border: '2px dashed var(--primary)',
+                    }}
+                  >
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      muted
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', textAlign: 'center', margin: 0 }}>
+                    {scannerStatus}
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--danger)', margin: 0 }}>{scannerStatus}</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-primary small"
+                onClick={() => { stopScanner(); setIsScannerOpen(false) }}
+              >
+                Cerrar cámara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BAJA / VENTA / PRÉSTAMO (FASE 10) */}
+      {bajaPrestamoModal && (
+        <div className="modal-overlay" onClick={() => setBajaPrestamoModal(null)}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  {bajaPrestamoModal.tipo === 'prestamo' ? 'Registrar préstamo' :
+                    bajaPrestamoModal.tipo === 'venta' ? 'Registrar venta' : 'Dar de baja'}
+                </h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>
+                  {bajaPrestamoModal.equipo.folio} · {bajaPrestamoModal.equipo.marca} {bajaPrestamoModal.equipo.modelo}
+                </span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => setBajaPrestamoModal(null)}>✕</button>
+            </div>
+            <form
+              className="modal-body"
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+              onSubmit={(e) => { e.preventDefault(); handleBajaPrestamoSubmit() }}
+            >
+              {bajaPrestamoModal.tipo === 'prestamo' && (
+                <label className="field">
+                  <span>¿A quién se presta? *</span>
+                  <input
+                    type="text"
+                    value={bajaPrestamoForm.prestamo_a}
+                    onChange={(e) => setBajaPrestamoForm((f) => ({ ...f, prestamo_a: e.target.value }))}
+                    placeholder="Nombre de la persona o área"
+                  />
+                </label>
+              )}
+              <label className="field">
+                <span>Motivo / observaciones</span>
+                <input
+                  type="text"
+                  value={bajaPrestamoForm.motivo}
+                  onChange={(e) => setBajaPrestamoForm((f) => ({ ...f, motivo: e.target.value }))}
+                  placeholder={bajaPrestamoModal.tipo === 'venta' ? 'Comprador y condiciones de la venta' : 'Razón del registro'}
+                />
+              </label>
+              {bajaPrestamoModal.tipo === 'venta' && (
+                <label className="field">
+                  <span>Precio de venta</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={bajaPrestamoForm.precio_venta}
+                    onChange={(e) => setBajaPrestamoForm((f) => ({ ...f, precio_venta: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </label>
+              )}
+              {bajaPrestamoModal.tipo === 'prestamo' && (
+                <label className="field">
+                  <span>Fecha límite (opcional)</span>
+                  <input
+                    type="date"
+                    value={bajaPrestamoForm.fecha_fin}
+                    onChange={(e) => setBajaPrestamoForm((f) => ({ ...f, fecha_fin: e.target.value }))}
+                  />
+                </label>
+              )}
+            </form>
+            <div className="modal-footer">
+              <button type="button" className="btn-link-danger" onClick={() => setBajaPrestamoModal(null)}>Cancelar</button>
+              <button type="button" className="btn-primary small" onClick={handleBajaPrestamoSubmit}>
+                {bajaPrestamoModal.tipo === 'prestamo' ? 'Registrar préstamo' :
+                  bajaPrestamoModal.tipo === 'venta' ? 'Registrar venta' : 'Confirmar baja'}
+              </button>
             </div>
           </div>
         </div>
