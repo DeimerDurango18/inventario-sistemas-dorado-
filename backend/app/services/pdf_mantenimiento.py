@@ -65,30 +65,7 @@ def _draw_watermark(c: canvas.Canvas, text: str):
 def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = None):
     top = PAGE_H - MARGIN
 
-    logo_x, logo_y, logo_w, logo_h = MARGIN, top - 24, 46, 24
-    logo_path = company.get("logo_path")
-    if logo_path and Path(logo_path).exists():
-        try:
-            c.drawImage(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
-        except Exception:
-            logo_path = None
-    if not (logo_path and Path(logo_path).exists()):
-        c.setFillColorRGB(*BLUE)
-        c.roundRect(logo_x, logo_y, logo_w, logo_h, 4, fill=1, stroke=0)
-        c.setFillColorRGB(*WHITE)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(logo_x + logo_w / 2, logo_y + 8, company["nombre"].split()[0][:4].upper())
-
-    text_x = logo_x + logo_w + 10
-    c.setFillColorRGB(*BLACK)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(text_x, top - 8, company["nombre"].upper())
-    c.setFont("Helvetica", 7.5)
-    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
-    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
-    c.drawString(text_x, top - 36, company["direccion"].upper())
-
-    # --- QR de Verificación ---
+    # --- QR de Verificación (A la izquierda) ---
     if registro_id:
         verify_url = f"{VERIFY_URL}/api/mantenimientos/{registro_id}/verify"
         qr = qrcode.QRCode(version=1, box_size=10, border=0)
@@ -102,12 +79,39 @@ def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = Non
         qr_image = ImageReader(qr_buf)
 
         qr_size = 25 * mm
-        qr_x = PAGE_W - MARGIN - 60 * mm
+        qr_x = MARGIN
         qr_y = top - 25 * mm
         c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
         c.setFont("Helvetica", 6)
         c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Registro")
 
+    # --- Logo (desplazado a la derecha del QR) ---
+    qr_offset = (25 * mm + 10 * mm) if registro_id else 0
+    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_offset, top - 24, 46, 24
+    logo_path = company.get("logo_path")
+    if logo_path and Path(logo_path).exists():
+        try:
+            c.drawImage(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            logo_path = None
+    if not (logo_path and Path(logo_path).exists()):
+        c.setFillColorRGB(*BLUE)
+        c.roundRect(logo_x, logo_y, logo_w, logo_h, 4, fill=1, stroke=0)
+        c.setFillColorRGB(*WHITE)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(logo_x + logo_w / 2, logo_y + 8, company["nombre"].split()[0][:4].upper())
+
+    # --- Datos de la empresa (a la derecha del logo) ---
+    text_x = logo_x + logo_w + 10
+    c.setFillColorRGB(*BLACK)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(text_x, top - 8, company["nombre"].upper())
+    c.setFont("Helvetica", 7.5)
+    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
+    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
+    c.drawString(text_x, top - 36, company["direccion"].upper())
+
+    # --- Caja "MANTENIMIENTO N° ..." arriba a la derecha ---
     box_w, box_h = 60 * mm, 15 * mm
     box_x = PAGE_W - MARGIN - box_w
     box_y = top - box_h

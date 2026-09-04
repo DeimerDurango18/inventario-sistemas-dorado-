@@ -59,8 +59,27 @@ def _draw_watermark(c: canvas.Canvas, text: str):
 def _header(c: canvas.Canvas, acta, company: dict, numero: str):
     top = PAGE_H - MARGIN
 
-    # --- Logo (imagen real si está disponible, si no marca genérica) ---
-    logo_x, logo_y, logo_w, logo_h = MARGIN, top - 24, 46, 24
+    # --- QR de Verificación (A la izquierda) ---
+    verify_url = f"{VERIFY_URL}/api/reports/actas/{acta.id}/verify"
+    qr = qrcode.QRCode(version=1, box_size=10, border=0)
+    qr.add_data(verify_url)
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="black", back_color="white")
+
+    qr_buf = BytesIO()
+    img_qr.save(qr_buf, format='PNG')
+    qr_buf.seek(0)
+    qr_image = ImageReader(qr_buf)
+
+    qr_size = 25 * mm
+    qr_x = MARGIN
+    qr_y = top - 25 * mm
+    c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
+    c.setFont("Helvetica", 6)
+    c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Acta")
+
+    # --- Logo (desplazado a la derecha del QR) ---
+    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_size + 10*mm, top - 24, 46, 24
     logo_path = company.get("logo_path")
     if logo_path and Path(logo_path).exists():
         try:
@@ -83,26 +102,6 @@ def _header(c: canvas.Canvas, acta, company: dict, numero: str):
     c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
     c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
     c.drawString(text_x, top - 36, company["direccion"].upper())
-
-    # --- QR de Verificación ---
-    # El QR apunta al endpoint público de verificación del acta
-    verify_url = f"{VERIFY_URL}/api/reports/actas/{acta.id}/verify"
-    qr = qrcode.QRCode(version=1, box_size=10, border=0)
-    qr.add_data(verify_url)
-    qr.make(fit=True)
-    img_qr = qr.make_image(fill_color="black", back_color="white")
-
-    qr_buf = BytesIO()
-    img_qr.save(qr_buf, format='PNG')
-    qr_buf.seek(0)
-    qr_image = ImageReader(qr_buf)
-
-    qr_size = 25 * mm
-    qr_x = PAGE_W - MARGIN - 60 * mm # A la izquierda de la caja de número
-    qr_y = top - 25 * mm
-    c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
-    c.setFont("Helvetica", 6)
-    c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Acta")
 
     # --- Caja "SALIDA N° ..." arriba a la derecha ---
     box_w, box_h = 55 * mm, 15 * mm
