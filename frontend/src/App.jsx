@@ -4009,8 +4009,8 @@ function App() {
           <button
             type="button"
             className="hamburger-btn"
-            onClick={() => setIsSidebarOpen(true)}
-            title="Abrir menú"
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            title="Abrir/Cerrar menú"
           >
             <Icon name="menu" />
           </button>
