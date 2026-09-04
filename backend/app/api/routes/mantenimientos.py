@@ -189,6 +189,22 @@ def subir_evidencia(
     return {"message": "Evidencia subida", "foto": registro.foto}
 
 
+@router.get("/{registro_id}/verify")
+def verificar_mantenimiento(registro_id: int, db: Session = Depends(get_db)):
+    """Endpoint público para verificar la autenticidad de un acta de mantenimiento mediante QR."""
+    registro = db.query(MaintenanceRecord).filter(MaintenanceRecord.id == registro_id).first()
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro de mantenimiento no encontrado o inválido")
+
+    return {
+        "estado": "Auténtico",
+        "tipo": registro.tipo,
+        "tecnico": registro.tecnico,
+        "estado_mantenimiento": registro.estado,
+        "fecha_programada": registro.fecha_programada.isoformat() if registro.fecha_programada else "N/A",
+        "equipo": registro.equipo.folio if registro.equipo else "Desconocido"
+    }
+
 @router.get("/{registro_id}/pdf")
 def descargar_pdf(
     registro_id: int,

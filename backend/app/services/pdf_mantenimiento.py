@@ -11,10 +11,14 @@ pero orientado a servicios de mantenimiento:
 
 from datetime import datetime, timezone
 from pathlib import Path
+import qrcode
+from io import BytesIO
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from app.core.config import VERIFY_URL
 
 PAGE_W, PAGE_H = A4
 MARGIN = 15 * mm
@@ -58,7 +62,7 @@ def _draw_watermark(c: canvas.Canvas, text: str):
     c.restoreState()
 
 
-def _header(c: canvas.Canvas, company: dict, numero: str):
+def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = None):
     top = PAGE_H - MARGIN
 
     logo_x, logo_y, logo_w, logo_h = MARGIN, top - 24, 46, 24
@@ -83,6 +87,26 @@ def _header(c: canvas.Canvas, company: dict, numero: str):
     c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
     c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
     c.drawString(text_x, top - 36, company["direccion"].upper())
+
+    # --- QR de Verificación ---
+    if registro_id:
+        verify_url = f"{VERIFY_URL}/api/mantenimientos/{registro_id}/verify"
+        qr = qrcode.QRCode(version=1, box_size=10, border=0)
+        qr.add_data(verify_url)
+        qr.make(fit=True)
+        img_qr = qr.make_image(fill_color="black", back_color="white")
+
+        qr_buf = BytesIO()
+        img_qr.save(qr_buf, format='PNG')
+        qr_buf.seek(0)
+        qr_image = ImageReader(qr_buf)
+
+        qr_size = 25 * mm
+        qr_x = PAGE_W - MARGIN - 60 * mm
+        qr_y = top - 25 * mm
+        c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
+        c.setFont("Helvetica", 6)
+        c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Registro")
 
     box_w, box_h = 60 * mm, 15 * mm
     box_x = PAGE_W - MARGIN - box_w
@@ -204,7 +228,7 @@ def generar_acta_mantenimiento_pdf(
     _draw_watermark(c, company.get("marca_agua") or company["nombre"])
 
     numero = f"MT-{registro.id}"
-    y = _header(c, company, numero)
+    y = _header(c, company, numero, registro.id)
     y = _title(c, y)
 
     y = _section(c, y, "Identificación del equipo")
