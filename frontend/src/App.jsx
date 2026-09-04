@@ -3865,7 +3865,11 @@ function App() {
 
         <nav className="nav" aria-label="Navegación principal">
           {navItems
-            .filter((item) => (item.id === 'usuarios' || item.id === 'empresas') && currentUser?.rol === 'admin')
+            .filter((item) => {
+              if (item.id === 'usuarios') return currentUser?.rol === 'admin'
+              if (item.id === 'empresas') return currentUser?.rol === 'admin'
+              return true
+            })
             .map((item) => (
               <button
                 key={item.id}
