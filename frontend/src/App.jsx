@@ -102,6 +102,11 @@ function Icon({ name }) {
         <path d="M4 4h7v7H4zm9 0h7v4h-7zm0 6h7v10h-7zM4 13h7v7H4z" />
       </svg>
     ),
+    menu: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+      </svg>
+    ),
     devices: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 5h9a2 2 0 0 1 2 2v5H9a2 2 0 0 0-2 2v3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm10 7h4a2 2 0 0 1 2 2v5h-6v-7zm-8 9h6v-4H7v4z" />
@@ -201,6 +206,7 @@ function App() {
   })
   const [activeSection, setActiveSection] = useState('dashboard')
   const [token, setToken] = useState(() => localStorage.getItem('inv_token') || '')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inv_user') || 'null') } catch { return null }
   })
@@ -2027,17 +2033,17 @@ function App() {
                   {pageEquipos.length ? (
                     pageEquipos.map((item) => (
                       <tr key={item.id}>
-                        <td style={{ textAlign: 'center' }}>
+                        <td data-label="Seleccionar" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
                             checked={stockSelected.includes(item.id)}
                             onChange={() => toggleStockSelect(item.id)}
                           />
                         </td>
-                        <td>
+                        <td data-label="Folio">
                           <span className="badge-numero">{item.folio}</span>
                         </td>
-                        <td>
+                        <td data-label="Equipo / Marca">
                           <div className="equipment-cell">
                             <div className="equipment-avatar">
                               {item.foto ? (
@@ -2051,28 +2057,28 @@ function App() {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="N° Serie">
                           <code style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
                             {item.serie || 'S/N'}
                           </code>
                         </td>
-                        <td>
+                        <td data-label="Categoría">
                           <span className="chip" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>
                             {item.categoria_nombre || 'General'}
                           </span>
                         </td>
-                        <td>{item.ubicacion_nombre || item.ubicacion || 'Bodega Central'}</td>
-                        <td>
+                        <td data-label="Ubicación">{item.ubicacion_nombre || item.ubicacion || 'Bodega Central'}</td>
+                        <td data-label="Valor Aprox.">
                           {item.valor_aprox
                             ? `$ ${Number(item.valor_aprox).toLocaleString('es-CO')}`
                             : '—'}
                         </td>
-                        <td>
+                        <td data-label="Estado">
                           <span className={`status-pill ${item.estado}`}>
                             {item.estado === 'disponible' ? 'En Stock' : item.estado.replace('_', ' ')}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Acciones">
                           <div className="action-btns">
                             <button
                               type="button"
@@ -3458,7 +3464,7 @@ function App() {
               <div className="acta-header">
                 <div className="acta-brand">
                   <div className="acta-logo">
-                    <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+                    <img src="/logo_eticos.svg" alt="Logo" className="brand-logo-img" />
                   </div>
                   <div>
                     <strong>INV - Sistemas</strong>
@@ -3974,7 +3980,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="brand-block">
           <div className="brand-logo-full">
             <img src="/logo_eticos.svg" alt="Sistemas Bogotá" className="brand-logo-img" />
@@ -4003,6 +4009,14 @@ function App() {
 
       <main className="main-content">
         <header className="topbar">
+          <button
+            type="button"
+            className="hamburger-btn"
+            onClick={() => setIsSidebarOpen(true)}
+            title="Abrir menú"
+          >
+            <Icon name="menu" />
+          </button>
           <div>
             <p className="eyebrow">Resumen general</p>
             <h1>{navItems.find((item) => item.id === activeSection)?.label || 'Dashboard'}</h1>
@@ -4141,7 +4155,7 @@ function App() {
                 <div className="acta-doc-top">
                   <div className="acta-doc-brand">
                     <div className="acta-doc-logo">
-                      <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+                      <img src="/logo_eticos.svg" alt="Logo" className="brand-logo-img" />
                     </div>
                     <div className="acta-doc-company">
                       <h4>SISTEMAS BOGOTA</h4>
@@ -4937,6 +4951,23 @@ function App() {
       )}
 
       {/* MODAL: EMPRESA (FASE 8) */}
+      {/* Backdrop para Sidebar en móvil */}
+      {isSidebarOpen && <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+
+      {/* FAB: Nuevo Movimiento (Solo Móvil) */}
+      {canModify && (
+        <button
+          type="button"
+          className="fab-btn"
+          onClick={() => {
+            setActiveSection('entradas');
+            setIsSidebarOpen(false);
+          }}
+          title="Nuevo movimiento"
+        >
+          <Icon name="upload" />
+        </button>
+      )}
     </div>
   )
 }
