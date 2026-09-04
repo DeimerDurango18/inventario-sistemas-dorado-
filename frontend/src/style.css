@@ -114,21 +114,35 @@ button {
   margin-bottom: 18px;
 }
 
+.brand-logo-full {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.brand-logo-full img.brand-logo-img {
+  max-width: 100%;
+  height: 56px;
+  object-fit: contain;
+  display: block;
+}
+
 .brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 140px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  background: var(--primary-strong);
+  background: #ffffff;
   box-shadow: 0 4px 14px rgba(77, 163, 255, 0.4);
+  flex-shrink: 0;
 }
 
 .brand-mark img.brand-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -619,19 +633,19 @@ th {
 }
 
 .acta-logo {
-  width: 46px;
-  height: 46px;
+  width: 160px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  background: var(--primary-strong);
+  background: #ffffff;
 }
 
 .acta-logo img.brand-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -967,10 +981,9 @@ th {
 }
 
 .acta-doc-logo {
-  width: 50px;
-  height: 36px;
-  background: #0d3a75;
-  color: white;
+  width: 160px;
+  height: 34px;
+  background: #ffffff;
   display: grid;
   place-items: center;
   font-size: 14px;
@@ -981,7 +994,7 @@ th {
 .acta-doc-logo img.brand-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 }

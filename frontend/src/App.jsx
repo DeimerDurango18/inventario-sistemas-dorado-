@@ -3921,13 +3921,9 @@ function App() {
     return (
       <div className="login-shell">
         <div className="login-card">
-          <div className="brand-block" style={{ justifyContent: 'center', marginBottom: '18px' }}>
-            <div className="brand-mark">
-              <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
-            </div>
-            <div>
-              <div className="brand-name">INV - Sistemas</div>
-              <small>Inventario de Equipos</small>
+          <div className="brand-block login-logo" style={{ justifyContent: 'center', marginBottom: '18px', paddingBottom: '18px' }}>
+            <div className="brand-logo-full">
+              <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
             </div>
           </div>
 
@@ -3980,13 +3976,9 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-            <div className="brand-mark">
-              <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
-            </div>
-            <div>
-              <div className="brand-name">{appSettings.sistemaNombre || 'INV - Sistemas'}</div>
-              <small>Inventario</small>
-            </div>
+          <div className="brand-logo-full">
+            <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
+          </div>
         </div>
 
         <nav className="nav" aria-label="Navegación principal">
