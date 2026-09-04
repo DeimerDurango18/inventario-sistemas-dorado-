@@ -91,3 +91,8 @@ def require_roles(*roles: str):
 def require_admin(role_level: str) -> bool:
     """Compara si un rol tiene jerarquía igual o superior a admin."""
     return ROLES_ORDER.get(role_level, 0) >= ROLES_ORDER["admin"]
+
+
+def get_empresa_id(current_user: User) -> int | None:
+    """Extrae el empresa_id del usuario actual. None si es admin global."""
+    return current_user.empresa_id

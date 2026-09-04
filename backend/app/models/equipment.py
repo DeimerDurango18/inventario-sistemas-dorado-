@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -7,9 +7,13 @@ from app.core.database import Base
 
 class Equipment(Base):
     __tablename__ = "equipos"
+    __table_args__ = (
+        UniqueConstraint("folio", "empresa_id", name="uq_folio_empresa"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    folio = Column(String(50), unique=True, index=True, nullable=False)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
+    folio = Column(String(50), index=True, nullable=False)
     marca = Column(String(100), nullable=False)
     modelo = Column(String(100), nullable=False)
     serie = Column(String(100), nullable=True)
@@ -41,6 +45,7 @@ class Movement(Base):
     __tablename__ = "movimientos"
 
     id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
     tipo = Column(String(20), nullable=False)  # ENTRADA | SALIDA | CAMBIO_ESTADO | MANTENIMIENTO
     folio_acta = Column(String(50), nullable=True)  # ya no es único: puede haber varios por acta/equipo
     persona = Column(String(150), nullable=True)

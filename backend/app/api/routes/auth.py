@@ -21,6 +21,7 @@ def _serialize_user(u: User) -> dict:
         "correo": u.correo,
         "rol": u.rol,
         "activo": u.activo,
+        "empresa_id": u.empresa_id,
     }
 
 

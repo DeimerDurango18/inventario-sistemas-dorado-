@@ -7,10 +7,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.catalog import Category, Location
 from app.models.equipment import Equipment
 from app.models.maintenance import MaintenanceRecord
 from app.models.acta import Acta
+from app.models.user import User
 from app.services.exports import exportar_csv, exportar_xlsx, _filas_equipos, _filas_actas, _filas_mantenimientos
 from app.services.pdf_reports import (
     generar_inventario_por_ubicacion,
@@ -37,9 +39,20 @@ def _normalize_dt(dt: datetime) -> datetime:
 
 
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    eid = current_user.empresa_id
+
+    eq_query = db.query(Equipment)
+    mt_query = db.query(MaintenanceRecord)
+    acta_query = db.query(Acta)
+    cat_query = db.query(Category)
+    if eid:
+        eq_query = eq_query.filter(Equipment.empresa_id == eid)
+        mt_query = mt_query.filter(MaintenanceRecord.empresa_id == eid)
+        acta_query = acta_query.filter(Acta.empresa_id == eid)
+
     totals = (
-        db.query(Equipment.estado, func.count(Equipment.id))
+        eq_query.with_entities(Equipment.estado, func.count(Equipment.id))
         .group_by(Equipment.estado)
         .all()
     )
@@ -53,7 +66,7 @@ def dashboard(db: Session = Depends(get_db)):
 
     ahora = datetime.now(timezone.utc)
     mantenimientos_activos = (
-        db.query(MaintenanceRecord)
+        mt_query
         .filter(MaintenanceRecord.estado.in_(["programado", "en_proceso"]))
         .all()
     )
@@ -70,10 +83,13 @@ def dashboard(db: Session = Depends(get_db)):
             elif m.estado == "programado" and f_norm <= limite_proximas:
                 proximas += 1
 
-    actas_mes = db.query(Acta).count()
+    actas_mes = acta_query.count()
     mes_nombre = MESES_ES.get(datetime.now().month, "Mes actual")
 
     # Distribución por categoría (para gráficos del dashboard).
+    cat_e_query = db.query(Equipment)
+    if eid:
+        cat_e_query = cat_e_query.filter(Equipment.empresa_id == eid)
     por_categoria = (
         db.query(
             Category.nombre,
@@ -81,30 +97,31 @@ def dashboard(db: Session = Depends(get_db)):
             func.coalesce(func.sum(Equipment.valor_aprox), 0),
         )
         .outerjoin(Equipment, Equipment.categoria_id == Category.id)
-        .group_by(Category.id, Category.nombre)
-        .all()
     )
+    if eid:
+        por_categoria = por_categoria.filter(Equipment.empresa_id == eid)
+    por_categoria = por_categoria.group_by(Category.id, Category.nombre).all()
     categoria_series = [
         {"categoria": cat, "cantidad": int(cant or 0), "valor_total": float(val or 0)}
         for cat, cant, val in por_categoria
     ]
-    cant_sin_cat = int(
-        db.query(func.count(Equipment.id))
-        .filter(Equipment.categoria_id.is_(None))
-        .scalar()
-        or 0
-    )
+    cant_sin_cat_q = db.query(func.count(Equipment.id)).filter(Equipment.categoria_id.is_(None))
+    if eid:
+        cant_sin_cat_q = cant_sin_cat_q.filter(Equipment.empresa_id == eid)
+    cant_sin_cat = int(cant_sin_cat_q.scalar() or 0)
     if cant_sin_cat:
         categoria_series.append({"categoria": "Sin categoría", "cantidad": cant_sin_cat, "valor_total": 0.0})
     categoria_series.sort(key=lambda x: x["cantidad"], reverse=True)
 
     # Distribución por ubicación (nombre y/o registrada en el equipo).
     # Se agrega en Python para evitar diferencias de GROUP BY entre SQL Server/SQLite.
-    equipos_ubic = (
+    eq_ubic_query = (
         db.query(Equipment.ubicacion_id, Location.nombre, Equipment.ubicacion, Equipment.id)
         .outerjoin(Location, Location.id == Equipment.ubicacion_id)
-        .all()
     )
+    if eid:
+        eq_ubic_query = eq_ubic_query.filter(Equipment.empresa_id == eid)
+    equipos_ubic = eq_ubic_query.all()
     ubicacion_series = []
     ub_counts = {}
     for ub_id, loc_nombre, eq_ubicacion, _eid in equipos_ubic:
@@ -116,9 +133,10 @@ def dashboard(db: Session = Depends(get_db)):
     ubicacion_series.sort(key=lambda x: x["cantidad"], reverse=True)
 
     # Total del valor del inventario.
-    valor_total = float(
-        db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0)).scalar() or 0
-    )
+    val_query = db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0))
+    if eid:
+        val_query = val_query.filter(Equipment.empresa_id == eid)
+    valor_total = float(val_query.scalar() or 0)
 
     return {
         "totales": result,
@@ -133,13 +151,16 @@ def dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/mantenimiento/alertas")
-def alertas_mantenimiento(db: Session = Depends(get_db)):
+def alertas_mantenimiento(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Mantenimientos preventivos/correctivos vencidos o próximos a vencer."""
     ahora = datetime.now(timezone.utc)
     limite = ahora + timedelta(days=7)
 
+    query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        query = query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
     registros = (
-        db.query(MaintenanceRecord)
+        query
         .filter(MaintenanceRecord.estado.in_(["programado", "en_proceso"]))
         .all()
     )
@@ -175,23 +196,24 @@ def alertas_mantenimiento(db: Session = Depends(get_db)):
 
 
 @router.get("/depreciacion")
-def reporte_depreciacion(db: Session = Depends(get_db)):
+def reporte_depreciacion(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Valor total del inventario agrupado por categoría (valor aproximado)."""
-    categorias = db.query(Category).all()
+    eid = current_user.empresa_id
+    cat_query = db.query(Category)
+    if eid:
+        cat_query = cat_query.filter(Category.empresa_id == eid)
+    categorias = cat_query.all()
     resultado = []
     gran_total = 0.0
 
     for cat in categorias:
-        valor = (
-            db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0))
-            .filter(Equipment.categoria_id == cat.id)
-            .scalar()
-        )
-        cantidad = (
-            db.query(func.count(Equipment.id))
-            .filter(Equipment.categoria_id == cat.id)
-            .scalar()
-        )
+        val_q = db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0)).filter(Equipment.categoria_id == cat.id)
+        cant_q = db.query(func.count(Equipment.id)).filter(Equipment.categoria_id == cat.id)
+        if eid:
+            val_q = val_q.filter(Equipment.empresa_id == eid)
+            cant_q = cant_q.filter(Equipment.empresa_id == eid)
+        valor = val_q.scalar()
+        cantidad = cant_q.scalar()
         valor = float(valor or 0)
         gran_total += valor
         resultado.append(
@@ -204,15 +226,13 @@ def reporte_depreciacion(db: Session = Depends(get_db)):
         )
 
     # Equipos sin categoría.
-    valor_sin_cat = float(
-        db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0))
-        .filter(Equipment.categoria_id.is_(None))
-        .scalar()
-        or 0
-    )
-    cantidad_sin_cat = int(
-        db.query(func.count(Equipment.id)).filter(Equipment.categoria_id.is_(None)).scalar() or 0
-    )
+    val_sin_q = db.query(func.coalesce(func.sum(Equipment.valor_aprox), 0)).filter(Equipment.categoria_id.is_(None))
+    cant_sin_q = db.query(func.count(Equipment.id)).filter(Equipment.categoria_id.is_(None))
+    if eid:
+        val_sin_q = val_sin_q.filter(Equipment.empresa_id == eid)
+        cant_sin_q = cant_sin_q.filter(Equipment.empresa_id == eid)
+    valor_sin_cat = float(val_sin_q.scalar() or 0)
+    cantidad_sin_cat = int(cant_sin_q.scalar() or 0)
     if cantidad_sin_cat:
         resultado.append(
             {
@@ -238,10 +258,17 @@ def _media_type(formato: str) -> str:
 
 
 @router.get("/exportar/equipos")
-def exportar_equipos(formato: str = "csv", db: Session = Depends(get_db)):
+def exportar_equipos(
+    formato: str = "csv",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if formato not in ("csv", "xlsx"):
         raise HTTPException(status_code=400, detail="Formato debe ser csv o xlsx")
-    equipos = db.query(Equipment).order_by(Equipment.folio).all()
+    query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+    equipos = query.order_by(Equipment.folio).all()
     filas = _filas_equipos(equipos)
     contenido = exportar_xlsx(filas) if formato == "xlsx" else exportar_csv(filas)
     return Response(
@@ -254,10 +281,17 @@ def exportar_equipos(formato: str = "csv", db: Session = Depends(get_db)):
 
 
 @router.get("/exportar/actas")
-def exportar_actas(formato: str = "csv", db: Session = Depends(get_db)):
+def exportar_actas(
+    formato: str = "csv",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if formato not in ("csv", "xlsx"):
         raise HTTPException(status_code=400, detail="Formato debe ser csv o xlsx")
-    actas = db.query(Acta).order_by(Acta.id.desc()).all()
+    query = db.query(Acta)
+    if current_user.empresa_id:
+        query = query.filter(Acta.empresa_id == current_user.empresa_id)
+    actas = query.order_by(Acta.id.desc()).all()
     filas = _filas_actas(actas)
     contenido = exportar_xlsx(filas) if formato == "xlsx" else exportar_csv(filas)
     return Response(
@@ -270,10 +304,17 @@ def exportar_actas(formato: str = "csv", db: Session = Depends(get_db)):
 
 
 @router.get("/exportar/mantenimientos")
-def exportar_mantenimientos(formato: str = "csv", db: Session = Depends(get_db)):
+def exportar_mantenimientos(
+    formato: str = "csv",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if formato not in ("csv", "xlsx"):
         raise HTTPException(status_code=400, detail="Formato debe ser csv o xlsx")
-    registros = db.query(MaintenanceRecord).order_by(MaintenanceRecord.id.desc()).all()
+    query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        query = query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
+    registros = query.order_by(MaintenanceRecord.id.desc()).all()
     filas = _filas_mantenimientos(registros)
     contenido = exportar_xlsx(filas) if formato == "xlsx" else exportar_csv(filas)
     return Response(
@@ -286,11 +327,17 @@ def exportar_mantenimientos(formato: str = "csv", db: Session = Depends(get_db))
 
 
 @router.get("/pdf/inventario-por-ubicacion")
-def pdf_inventario_por_ubicacion(db: Session = Depends(get_db)):
+def pdf_inventario_por_ubicacion(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Reporte PDF del inventario agrupado por ubicación, con logo de la empresa."""
     from app.core.config import COMPANY
 
-    equipos = db.query(Equipment).all()
+    query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+    equipos = query.all()
     por_ubicacion = {}
     valor_total = 0.0
     for eq in equipos:
@@ -317,11 +364,17 @@ def pdf_inventario_por_ubicacion(db: Session = Depends(get_db)):
 
 
 @router.get("/pdf/resumen-mantenimientos")
-def pdf_resumen_mantenimientos(db: Session = Depends(get_db)):
+def pdf_resumen_mantenimientos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Reporte PDF con el resumen de los registros de mantenimiento, con logo."""
     from app.core.config import COMPANY
 
-    registros = db.query(MaintenanceRecord).order_by(MaintenanceRecord.id.desc()).all()
+    query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        query = query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
+    registros = query.order_by(MaintenanceRecord.id.desc()).all()
     filas = []
     for r in registros:
         equipo = r.equipo
@@ -343,9 +396,12 @@ def pdf_resumen_mantenimientos(db: Session = Depends(get_db)):
 
 
 @router.get("/acta/latest")
-def get_latest_acta(db: Session = Depends(get_db)):
+def get_latest_acta(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Devuelve la última acta generada; si el PDF en disco falta, lo regenera."""
-    ultima = db.query(Acta).order_by(Acta.id.desc()).first()
+    query = db.query(Acta)
+    if current_user.empresa_id:
+        query = query.filter(Acta.empresa_id == current_user.empresa_id)
+    ultima = query.order_by(Acta.id.desc()).first()
     if ultima:
         pdf_path = Path(ultima.pdf_path) if ultima.pdf_path else PDF_DIR / f"acta_{ultima.numero}.pdf"
         if not pdf_path.exists():

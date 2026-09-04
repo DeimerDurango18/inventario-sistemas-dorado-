@@ -32,19 +32,26 @@ DEFAULT_LOCATIONS = [
 @router.post("/seed")
 def seed_catalogos(
     db: Session = Depends(get_db),
-    _: User = Depends(MODIFY_ROLES),
+    current_user: User = Depends(MODIFY_ROLES),
 ):
     """Puebla categorías y ubicaciones por defecto si no existen."""
+    eid = current_user.empresa_id
     creadas_cat = 0
     for cat in DEFAULT_CATEGORIES:
-        if not db.query(Category).filter(Category.nombre == cat["nombre"]).first():
-            db.add(Category(nombre=cat["nombre"], descripcion=cat["descripcion"]))
+        dup = db.query(Category).filter(Category.nombre == cat["nombre"])
+        if eid:
+            dup = dup.filter(Category.empresa_id == eid)
+        if not dup.first():
+            db.add(Category(nombre=cat["nombre"], descripcion=cat["descripcion"], empresa_id=eid))
             creadas_cat += 1
 
     creadas_loc = 0
     for loc in DEFAULT_LOCATIONS:
-        if not db.query(Location).filter(Location.nombre == loc["nombre"]).first():
-            db.add(Location(nombre=loc["nombre"], ciudad=loc["ciudad"], direccion=loc["direccion"]))
+        dup = db.query(Location).filter(Location.nombre == loc["nombre"])
+        if eid:
+            dup = dup.filter(Location.empresa_id == eid)
+        if not dup.first():
+            db.add(Location(nombre=loc["nombre"], ciudad=loc["ciudad"], direccion=loc["direccion"], empresa_id=eid))
             creadas_loc += 1
 
     db.commit()

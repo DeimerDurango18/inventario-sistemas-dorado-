@@ -1,5 +1,6 @@
 """Database models package."""
 
+from app.models.empresa import Empresa
 from app.models.equipment import Equipment, Movement
 from app.models.catalog import Category, Location
 from app.models.user import User

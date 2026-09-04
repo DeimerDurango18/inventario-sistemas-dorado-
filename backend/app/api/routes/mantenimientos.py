@@ -57,6 +57,7 @@ def _registrar_movimiento(
     motivo: str = None,
     estado_anterior: str = None,
     estado_nuevo: str = None,
+    empresa_id: int = None,
 ) -> None:
     db.add(
         Movement(
@@ -66,13 +67,17 @@ def _registrar_movimiento(
             estado_anterior=estado_anterior,
             estado_nuevo=estado_nuevo,
             equipo_id=equipo.id,
+            empresa_id=empresa_id,
         )
     )
 
 
 @router.get("")
-def listar(db: Session = Depends(get_db)):
-    registros = db.query(MaintenanceRecord).order_by(MaintenanceRecord.id.desc()).all()
+def listar(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        query = query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
+    registros = query.order_by(MaintenanceRecord.id.desc()).all()
     return [_serialize_registro(r) for r in registros]
 
 
@@ -82,11 +87,15 @@ def crear(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
-    equipo = db.query(Equipment).filter(Equipment.id == payload.equipo_id).first()
+    eid = current_user.empresa_id
+    eq_query = db.query(Equipment).filter(Equipment.id == payload.equipo_id)
+    if eid:
+        eq_query = eq_query.filter(Equipment.empresa_id == eid)
+    equipo = eq_query.first()
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    registro = MaintenanceRecord(**payload.model_dump())
+    registro = MaintenanceRecord(**payload.model_dump(), empresa_id=eid)
     if registro.estado == "en_proceso":
         estado_anterior = equipo.estado
         equipo.estado = "reparacion"
@@ -98,6 +107,7 @@ def crear(
             motivo=f"Mantenimiento {registro.tipo} iniciado",
             estado_anterior=estado_anterior,
             estado_nuevo="reparacion",
+            empresa_id=eid,
         )
 
     db.add(registro)
@@ -117,6 +127,7 @@ def cambiar_estado(
     if not registro:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
 
+    eid = current_user.empresa_id
     estado_anterior = registro.estado
     registro.estado = estado
     if estado == "finalizado":
@@ -130,6 +141,7 @@ def cambiar_estado(
                 motivo=f"Mantenimiento {registro.tipo} finalizado",
                 estado_anterior=registro.equipo.estado,
                 estado_nuevo="disponible",
+                empresa_id=eid,
             )
             registro.equipo.estado = "disponible"
     elif estado == "en_proceso" and registro.equipo:
@@ -142,6 +154,7 @@ def cambiar_estado(
                 motivo=f"Mantenimiento {registro.tipo} iniciado",
                 estado_anterior=registro.equipo.estado,
                 estado_nuevo="reparacion",
+                empresa_id=eid,
             )
             registro.equipo.estado = "reparacion"
 

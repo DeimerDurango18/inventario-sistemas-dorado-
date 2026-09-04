@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -9,9 +9,13 @@ class Acta(Base):
     """Encabezado del acta de salida/entrada de equipos (orden física que se imprime)."""
 
     __tablename__ = "actas"
+    __table_args__ = (
+        UniqueConstraint("numero", "empresa_id", name="uq_numero_empresa"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    numero = Column(String(30), unique=True, index=True, nullable=False)  # Ej: SIS-1760
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
+    numero = Column(String(30), index=True, nullable=False)  # Ej: SIS-1760
     tipo = Column(String(10), default="SALIDA")  # SALIDA | ENTRADA
 
     # Persona que entrega/despacha (autoriza el envío)
@@ -41,6 +45,7 @@ class ActaItem(Base):
     __tablename__ = "acta_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
     acta_id = Column(Integer, ForeignKey("actas.id"), nullable=False)
     equipo_id = Column(Integer, ForeignKey("equipos.id"), nullable=True)
 

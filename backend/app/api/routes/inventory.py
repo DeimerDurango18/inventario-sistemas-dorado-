@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.security import get_current_user, require_roles
 from app.models.catalog import Category, Location
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
@@ -53,9 +53,12 @@ def _serialize_equipo(equipo: Equipment) -> dict:
     }
 
 
-def _siguiente_folio(db: Session) -> str:
+def _siguiente_folio(db: Session, empresa_id: int = None) -> str:
     """Genera el siguiente folio correlativo EQ-#### basado en los folios existentes."""
-    folios = db.query(Equipment.folio).all()
+    query = db.query(Equipment.folio)
+    if empresa_id:
+        query = query.filter(Equipment.empresa_id == empresa_id)
+    folios = query.all()
     max_num = 0
     for (folio,) in folios:
         if folio and folio.upper().startswith("EQ-"):
@@ -74,6 +77,7 @@ def _registrar_movimiento(
     estado_anterior: str = None,
     estado_nuevo: str = None,
     folio_acta: str = None,
+    empresa_id: int = None,
 ) -> None:
     db.add(
         Movement(
@@ -84,13 +88,17 @@ def _registrar_movimiento(
             estado_anterior=estado_anterior,
             estado_nuevo=estado_nuevo,
             equipo_id=equipo.id,
+            empresa_id=empresa_id,
         )
     )
 
 
 @router.get("/equipos")
-def get_equipos(db: Session = Depends(get_db)):
-    equipos = db.query(Equipment).order_by(Equipment.id.desc()).all()
+def get_equipos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+    equipos = query.order_by(Equipment.id.desc()).all()
     return [_serialize_equipo(equipo) for equipo in equipos]
 
 
@@ -101,8 +109,11 @@ def buscar_equipos(
     categoria_id: int = None,
     ubicacion_id: int = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
     if q.strip():
         termino = q.strip().lower()
         query = query.filter(
@@ -151,7 +162,11 @@ def plantilla_importacion(
 
 
 @router.get("/equipos/historial/{equipo_id}")
-def historial_equipo(equipo_id: int, db: Session = Depends(get_db)):
+def historial_equipo(
+    equipo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
@@ -211,8 +226,12 @@ def crear_equipo(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
-    folio = (payload.folio or "").strip() or _siguiente_folio(db)
-    existente = db.query(Equipment).filter(Equipment.folio == folio).first()
+    eid = current_user.empresa_id
+    folio = (payload.folio or "").strip() or _siguiente_folio(db, eid)
+    existente_q = db.query(Equipment).filter(Equipment.folio == folio)
+    if eid:
+        existente_q = existente_q.filter(Equipment.empresa_id == eid)
+    existente = existente_q.first()
     if existente:
         raise HTTPException(status_code=400, detail=f"Ya existe un equipo con el folio '{folio}'")
 
@@ -227,6 +246,7 @@ def crear_equipo(
         ubicacion_id=payload.ubicacion_id,
         valor_aprox=payload.valor_aprox,
         observaciones=payload.observaciones,
+        empresa_id=eid,
     )
     db.add(equipo)
     db.flush()
@@ -237,6 +257,7 @@ def crear_equipo(
         persona=current_user.nombre,
         motivo="Alta de equipo en inventario",
         estado_nuevo=equipo.estado,
+        empresa_id=eid,
     )
     db.commit()
     db.refresh(equipo)
@@ -258,8 +279,14 @@ def importar_equipos(
     if not payload:
         raise HTTPException(status_code=400, detail="Debes enviar una lista de equipos no vacía")
 
-    categorias = {c.nombre.lower(): c for c in db.query(Category).all()}
-    ubicaciones = {u.nombre.lower(): u for u in db.query(Location).all()}
+    eid = current_user.empresa_id
+    cat_query = db.query(Category)
+    loc_query = db.query(Location)
+    if eid:
+        cat_query = cat_query.filter(Category.empresa_id == eid)
+        loc_query = loc_query.filter(Location.empresa_id == eid)
+    categorias = {c.nombre.lower(): c for c in cat_query.all()}
+    ubicaciones = {u.nombre.lower(): u for u in loc_query.all()}
 
     creados = 0
     errores = []
@@ -283,7 +310,7 @@ def importar_equipos(
                 errores.append({"fila": idx, "error": f"Ya existe un equipo con serie '{serie}'"})
                 continue
 
-        folio = _siguiente_folio(db)
+        folio = _siguiente_folio(db, eid)
         equipo = Equipment(
             folio=folio,
             marca=marca,
@@ -295,6 +322,7 @@ def importar_equipos(
             ubicacion_id=ubicacion.id if ubicacion else None,
             valor_aprox=fila.valor_aprox,
             observaciones=(fila.observaciones or "").strip() or None,
+            empresa_id=eid,
         )
         db.add(equipo)
         db.flush()
@@ -305,6 +333,7 @@ def importar_equipos(
             persona=current_user.nombre,
             motivo="Importación masiva",
             estado_nuevo=equipo.estado,
+            empresa_id=eid,
         )
         creados += 1
 
@@ -322,12 +351,16 @@ def editar_equipos_lote(
     if not payload.ids:
         raise HTTPException(status_code=400, detail="Selecciona al menos un equipo")
 
+    eid = current_user.empresa_id
     cambios = 0
     errores = []
-    for eid in payload.ids:
-        equipo = db.query(Equipment).filter(Equipment.id == eid).first()
+    for eid_item in payload.ids:
+        eq_query = db.query(Equipment).filter(Equipment.id == eid_item)
+        if eid:
+            eq_query = eq_query.filter(Equipment.empresa_id == eid)
+        equipo = eq_query.first()
         if not equipo:
-            errores.append({"id": eid, "error": "Equipo no encontrado"})
+            errores.append({"id": eid_item, "error": "Equipo no encontrado"})
             continue
         estado_anterior = equipo.estado
         if payload.estado is not None and payload.estado != equipo.estado:
@@ -348,6 +381,7 @@ def editar_equipos_lote(
                 motivo="Edición en lote",
                 estado_anterior=estado_anterior,
                 estado_nuevo=payload.estado,
+                empresa_id=eid,
             )
         cambios += 1
 
@@ -368,7 +402,10 @@ def actualizar_equipo(
 
     update_data = payload.model_dump(exclude_unset=True)
     if "folio" in update_data and update_data["folio"] != equipo.folio:
-        otro = db.query(Equipment).filter(Equipment.folio == update_data["folio"]).first()
+        otro_q = db.query(Equipment).filter(Equipment.folio == update_data["folio"])
+        if current_user.empresa_id:
+            otro_q = otro_q.filter(Equipment.empresa_id == current_user.empresa_id)
+        otro = otro_q.first()
         if otro:
             raise HTTPException(status_code=400, detail=f"Ya existe otro equipo con el folio '{update_data['folio']}'")
 

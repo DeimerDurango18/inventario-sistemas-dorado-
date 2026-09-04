@@ -4,6 +4,23 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class EmpresaIn(BaseModel):
+    nombre: str
+    nit: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    logo_path: Optional[str] = None
+
+
+class EmpresaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    nit: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    logo_path: Optional[str] = None
+    activo: Optional[bool] = None
+
+
 class CategoryIn(BaseModel):
     nombre: str
     descripcion: Optional[str] = None

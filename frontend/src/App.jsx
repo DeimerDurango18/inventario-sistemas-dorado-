@@ -19,6 +19,7 @@ const navItems = [
   { id: 'categorias', label: 'Categorías', icon: 'tag' },
   { id: 'ubicaciones', label: 'Ubicaciones', icon: 'pin' },
   { id: 'usuarios', label: 'Usuarios', icon: 'user' },
+  { id: 'empresas', label: 'Empresas', icon: 'building' },
   { id: 'reportes', label: 'Reportes', icon: 'chart' },
   { id: 'configuracion', label: 'Configuración', icon: 'settings' },
 ]
@@ -147,6 +148,11 @@ function Icon({ name }) {
     user: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-9 2.2-9 5v2h18v-2c0-2.8-4.6-5-9-5z" />
+      </svg>
+    ),
+    building: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16h5v2H2v-2h2zm4 0h4v-4H8v4zm0-8h4V9H8v4zm6 0h2V9h-2v4z" />
       </svg>
     ),
     box: (
@@ -308,6 +314,12 @@ function App() {
   const [bulkAction, setBulkAction] = useState({ tipo: '', valor: '' })
   const [bulkProcessing, setBulkProcessing] = useState(false)
 
+  // FASE 8: multi-empresa
+  const [empresas, setEmpresas] = useState([])
+  const [empresaForm, setEmpresaForm] = useState({ nombre: '', nit: '', telefono: '', direccion: '', logo_path: '' })
+  const [empresaModalOpen, setEmpresaModalOpen] = useState(false)
+  const [empresaEditingId, setEmpresaEditingId] = useState(null)
+
   // Notificaciones (FASE 7)
   const [notificaciones, setNotificaciones] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
@@ -423,6 +435,70 @@ function App() {
         .then((res) => res.json())
         .then((data) => { if (Array.isArray(data)) setUsuarios(data) })
         .catch(() => {})
+    }
+  }
+
+  const loadEmpresas = () => {
+    api('/api/empresas/')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setEmpresas(data) })
+      .catch(() => {})
+  }
+
+  const handleEmpresaSubmit = async (e) => {
+    e.preventDefault()
+    if (!empresaForm.nombre.trim()) {
+      showToast('El nombre de la empresa es obligatorio')
+      return
+    }
+    try {
+      if (empresaEditingId) {
+        const res = await api(`/api/empresas/${empresaEditingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(empresaForm),
+        })
+        if (res.ok) {
+          showToast('Empresa actualizada')
+        } else {
+          const err = await res.json().catch(() => ({}))
+          showToast(err.detail || 'No se pudo actualizar la empresa')
+        }
+      } else {
+        const res = await api('/api/empresas/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(empresaForm),
+        })
+        if (res.ok) {
+          showToast('Empresa creada')
+        } else {
+          const err = await res.json().catch(() => ({}))
+          showToast(err.detail || 'No se pudo crear la empresa')
+        }
+      }
+      setEmpresaForm({ nombre: '', nit: '', telefono: '', direccion: '', logo_path: '' })
+      setEmpresaEditingId(null)
+      setEmpresaModalOpen(false)
+      loadEmpresas()
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleDeleteEmpresa = async (empresa) => {
+    if (!window.confirm(`¿Eliminar la empresa "${empresa.nombre}"?`)) return
+    try {
+      const res = await api(`/api/empresas/${empresa.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Empresa eliminada')
+        loadEmpresas()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo eliminar la empresa')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
     }
   }
 
@@ -636,6 +712,7 @@ function App() {
     loadUsuarios()
     loadMantenimientos()
     loadNotificaciones()
+    loadEmpresas()
   }, [token])
 
   const loadEquipos = () => {
@@ -3480,6 +3557,83 @@ function App() {
       )
     }
 
+    if (activeSection === 'empresas') {
+      return (
+        <section className="section-grid">
+          <article className="panel">
+            <div className="panel-header">
+              <h2>Empresas</h2>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  setEmpresaEditingId(null)
+                  setEmpresaForm({ nombre: '', nit: '', telefono: '', direccion: '', logo_path: '' })
+                  setEmpresaModalOpen(true)
+                }}
+              >
+                + Nueva empresa
+              </button>
+            </div>
+            {empresas.length === 0 ? (
+              <p style={{ color: 'var(--text-soft)' }}>No hay empresas registradas.</p>
+            ) : (
+              <div className="table-wrap">
+                <table className="inv-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>NIT</th>
+                      <th>Teléfono</th>
+                      <th>Dirección</th>
+                      <th style={{ textAlign: 'right' }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {empresas.map((emp) => (
+                      <tr key={emp.id}>
+                        <td><span className="chip">{emp.nombre}</span></td>
+                        <td>{emp.nit || '—'}</td>
+                        <td>{emp.telefono || '—'}</td>
+                        <td>{emp.direccion || '—'}</td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            className="link-button"
+                            style={{ marginRight: '10px' }}
+                            onClick={() => {
+                              setEmpresaEditingId(emp.id)
+                              setEmpresaForm({
+                                nombre: emp.nombre,
+                                nit: emp.nit || '',
+                                telefono: emp.telefono || '',
+                                direccion: emp.direccion || '',
+                                logo_path: emp.logo_path || '',
+                              })
+                              setEmpresaModalOpen(true)
+                            }}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-link-danger"
+                            onClick={() => handleDeleteEmpresa(emp)}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </section>
+      )
+    }
+
     if (activeSection === 'configuracion') {
       return (
         <section className="section-grid">
@@ -3711,7 +3865,7 @@ function App() {
 
         <nav className="nav" aria-label="Navegación principal">
           {navItems
-            .filter((item) => item.id !== 'usuarios' || currentUser?.rol === 'admin')
+            .filter((item) => (item.id === 'usuarios' || item.id === 'empresas') && currentUser?.rol === 'admin')
             .map((item) => (
               <button
                 key={item.id}
@@ -4653,6 +4807,65 @@ function App() {
               <button type="button" className="btn-primary small" onClick={handleBajaPrestamoSubmit}>
                 {bajaPrestamoModal.tipo === 'prestamo' ? 'Registrar préstamo' :
                   bajaPrestamoModal.tipo === 'venta' ? 'Registrar venta' : 'Confirmar baja'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EMPRESA (FASE 8) */}
+      {empresaModalOpen && (
+        <div className="modal-overlay" onClick={() => setEmpresaModalOpen(false)}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>{empresaEditingId ? 'Editar empresa' : 'Nueva empresa'}</h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>Datos de la empresa</span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => setEmpresaModalOpen(false)}>✕</button>
+            </div>
+            <form className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onSubmit={handleEmpresaSubmit}>
+              <label className="field">
+                <span>Nombre *</span>
+                <input
+                  type="text"
+                  value={empresaForm.nombre}
+                  onChange={(e) => setEmpresaForm((f) => ({ ...f, nombre: e.target.value }))}
+                  placeholder="Nombre de la empresa"
+                />
+              </label>
+              <label className="field">
+                <span>NIT</span>
+                <input
+                  type="text"
+                  value={empresaForm.nit}
+                  onChange={(e) => setEmpresaForm((f) => ({ ...f, nit: e.target.value }))}
+                  placeholder="000000000-0"
+                />
+              </label>
+              <label className="field">
+                <span>Teléfono</span>
+                <input
+                  type="text"
+                  value={empresaForm.telefono}
+                  onChange={(e) => setEmpresaForm((f) => ({ ...f, telefono: e.target.value }))}
+                  placeholder="Número de contacto"
+                />
+              </label>
+              <label className="field">
+                <span>Dirección</span>
+                <input
+                  type="text"
+                  value={empresaForm.direccion}
+                  onChange={(e) => setEmpresaForm((f) => ({ ...f, direccion: e.target.value }))}
+                  placeholder="Dirección de la empresa"
+                />
+              </label>
+            </form>
+            <div className="modal-footer">
+              <button type="button" className="btn-link-danger" onClick={() => setEmpresaModalOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary small" onClick={handleEmpresaSubmit}>
+                {empresaEditingId ? 'Guardar cambios' : 'Crear empresa'}
               </button>
             </div>
           </div>

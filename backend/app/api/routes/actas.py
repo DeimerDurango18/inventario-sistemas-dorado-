@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import COMPANY
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.security import get_current_user, require_roles
 from app.models.acta import Acta, ActaItem
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
@@ -20,9 +20,12 @@ PDF_DIR = Path(__file__).resolve().parents[3] / "storage" / "actas"
 MODIFY_ROLES = require_roles("admin", "supervisor")
 
 
-def _siguiente_numero(db: Session) -> str:
+def _siguiente_numero(db: Session, empresa_id: int = None) -> str:
     """Genera el siguiente consecutivo SIS-#### de forma correlativa y única."""
-    ultimo = db.query(Acta).order_by(Acta.id.desc()).first()
+    query = db.query(Acta)
+    if empresa_id:
+        query = query.filter(Acta.empresa_id == empresa_id)
+    ultimo = query.order_by(Acta.id.desc()).first()
     base = 1760
     if ultimo and ultimo.numero:
         try:
@@ -67,8 +70,11 @@ def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
 
 
 @router.get("")
-def listar(db: Session = Depends(get_db)):
-    actas = db.query(Acta).order_by(Acta.id.desc()).all()
+def listar(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(Acta)
+    if current_user.empresa_id:
+        query = query.filter(Acta.empresa_id == current_user.empresa_id)
+    actas = query.order_by(Acta.id.desc()).all()
     return [_serialize_acta(a, include_items=True) for a in actas]
 
 
@@ -92,8 +98,9 @@ def crear(
     if not payload.items:
         raise HTTPException(status_code=400, detail="El acta debe tener al menos un ítem")
 
+    eid = current_user.empresa_id
     acta = Acta(
-        numero=_siguiente_numero(db),
+        numero=_siguiente_numero(db, eid),
         tipo=payload.tipo,
         entregado_por=payload.entregado_por,
         proyecto=payload.proyecto,
@@ -103,6 +110,7 @@ def crear(
         observaciones=payload.observaciones,
         valor_aprox=payload.valor_aprox,
         cajas=payload.cajas,
+        empresa_id=eid,
     )
     db.add(acta)
     db.flush()  # obtener acta.id antes de crear los items
@@ -132,6 +140,7 @@ def crear(
                         estado_anterior=estado_anterior,
                         estado_nuevo="asignado",
                         equipo_id=equipo.id,
+                        empresa_id=eid,
                     )
                 )
             elif payload.tipo == "ENTRADA":
@@ -146,6 +155,7 @@ def crear(
                         estado_anterior=estado_anterior,
                         estado_nuevo="disponible",
                         equipo_id=equipo.id,
+                        empresa_id=eid,
                     )
                 )
 

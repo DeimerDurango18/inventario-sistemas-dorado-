@@ -9,6 +9,7 @@ class MaintenanceRecord(Base):
     __tablename__ = "mantenimientos"
 
     id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
     equipo_id = Column(Integer, ForeignKey("equipos.id"), nullable=False)
     tipo = Column(String(30), default="preventivo")  # preventivo | correctivo
     descripcion = Column(String(255), nullable=True)

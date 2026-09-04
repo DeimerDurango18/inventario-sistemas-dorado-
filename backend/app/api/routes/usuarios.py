@@ -23,13 +23,16 @@ def _serialize_user(u: User) -> dict:
 
 
 @router.get("")
-def listar(db: Session = Depends(get_db), _=Depends(ADMIN_ONLY)):
-    usuarios = db.query(User).order_by(User.nombre).all()
+def listar(db: Session = Depends(get_db), current_user: User = Depends(ADMIN_ONLY)):
+    query = db.query(User)
+    if current_user.empresa_id:
+        query = query.filter(User.empresa_id == current_user.empresa_id)
+    usuarios = query.order_by(User.nombre).all()
     return [_serialize_user(u) for u in usuarios]
 
 
 @router.post("")
-def crear(payload: UserIn, db: Session = Depends(get_db), _=Depends(ADMIN_ONLY)):
+def crear(payload: UserIn, db: Session = Depends(get_db), current_user: User = Depends(ADMIN_ONLY)):
     if db.query(User).filter(User.correo == payload.correo.lower().strip()).first():
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
 
@@ -38,6 +41,7 @@ def crear(payload: UserIn, db: Session = Depends(get_db), _=Depends(ADMIN_ONLY))
     if not data.get("password"):
         raise HTTPException(status_code=400, detail="La contraseña es obligatoria")
     data["password"] = hash_password(data["password"])
+    data["empresa_id"] = current_user.empresa_id
 
     usuario = User(**data)
     db.add(usuario)
@@ -51,7 +55,7 @@ def actualizar(
     usuario_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    _=Depends(ADMIN_ONLY),
+    current_user: User = Depends(ADMIN_ONLY),
 ):
     usuario = db.query(User).filter(User.id == usuario_id).first()
     if not usuario:
@@ -78,7 +82,7 @@ def actualizar(
 def eliminar(
     usuario_id: int,
     db: Session = Depends(get_db),
-    _=Depends(ADMIN_ONLY),
+    current_user: User = Depends(ADMIN_ONLY),
 ):
     usuario = db.query(User).filter(User.id == usuario_id).first()
     if not usuario:

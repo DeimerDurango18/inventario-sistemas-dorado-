@@ -15,8 +15,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.equipment import Equipment
 from app.models.maintenance import MaintenanceRecord
+from app.models.user import User
 
 router = APIRouter()
 
@@ -30,14 +32,22 @@ def _normalize_dt(dt) -> datetime:
 
 
 @router.get("/")
-def listar_notificaciones(db: Session = Depends(get_db)):
+def listar_notificaciones(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     ahora = datetime.now(timezone.utc)
     limite = ahora + timedelta(days=7)
     items = []
 
-    # Mantenimientos activos (programado / en_proceso)
+    eq_query = db.query(Equipment)
+    mt_query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        eq_query = eq_query.filter(Equipment.empresa_id == current_user.empresa_id)
+        mt_query = mt_query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
+
     registros = (
-        db.query(MaintenanceRecord)
+        mt_query
         .filter(MaintenanceRecord.estado.in_(["programado", "en_proceso"]))
         .all()
     )
@@ -68,9 +78,8 @@ def listar_notificaciones(db: Session = Depends(get_db)):
                 "fecha": f_norm.isoformat(),
             })
 
-    # Equipos dados de baja (hasta los últimos 30 movimientos marcados como BAJA)
     bajas = (
-        db.query(Equipment)
+        eq_query
         .filter(Equipment.estado == "baja")
         .all()
     )
@@ -84,9 +93,8 @@ def listar_notificaciones(db: Session = Depends(get_db)):
             "fecha": (eq.created_at.isoformat() if eq.created_at else None),
         })
 
-    # Equipos sin categoría asignada
     sin_cat = (
-        db.query(Equipment)
+        eq_query
         .filter(Equipment.categoria_id.is_(None))
         .limit(20)
         .all()
@@ -101,7 +109,6 @@ def listar_notificaciones(db: Session = Depends(get_db)):
             "fecha": (eq.created_at.isoformat() if eq.created_at else None),
         })
 
-    # Ordenar: vencidas primero, luego próximas, por fecha ascendente.
     peso = {"vencida": 0, "proxima": 1, "info": 2}
     items.sort(key=lambda n: (peso.get(n["nivel"], 3), n["fecha"] or ""))
     return items
