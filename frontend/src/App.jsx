@@ -362,6 +362,14 @@ function App() {
     document.body.dataset.theme = theme
   }, [theme])
 
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+  }, [isSidebarOpen])
+
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8010'
 
   const canModify = !!currentUser && (currentUser.rol === 'admin' || currentUser.rol === 'supervisor')
