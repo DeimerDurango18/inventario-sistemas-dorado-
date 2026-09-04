@@ -93,8 +93,10 @@ button {
 }
 
 .app-shell {
-  display: flex;
+  display: block;
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -278,9 +280,10 @@ button {
 }
 
 .main-content {
-  flex: 1;
+  width: 100%;
   padding: 28px;
   background: var(--bg);
+  box-sizing: border-box;
 }
 
 .topbar {
@@ -289,6 +292,7 @@ button {
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 28px;
+  min-height: 60px;
 }
 
 .eyebrow {
