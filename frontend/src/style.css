@@ -1439,6 +1439,23 @@ th {
   grid-template-columns: 1fr;
 }
 
+.login-card .brand-block {
+  justify-content: center;
+  border-bottom: none;
+}
+
+.login-card .brand-name {
+  color: var(--primary-strong);
+}
+
+.login-card .brand-block small {
+  color: var(--text-soft);
+}
+
+.login-card h2 {
+  color: var(--text);
+}
+
 .user-chip {
   background: var(--accent-soft);
   border: 1px solid var(--border);
