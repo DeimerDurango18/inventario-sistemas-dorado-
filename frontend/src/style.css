@@ -145,7 +145,7 @@ button {
   border-radius: 28px;
   background: linear-gradient(135deg, #4da3ff, #0b73d0);
   color: white;
-  display: grid;
+  display: none;
   place-items: center;
   box-shadow: 0 4px 14px rgba(33, 150, 243, 0.4);
   cursor: pointer;
@@ -1539,6 +1539,11 @@ th {
     inset: 0 auto 0 0;
     transform: translateX(-100%);
     box-shadow: 10px 0 30px rgba(0,0,0,0.2);
+    pointer-events: none;
+  }
+
+  .sidebar.open {
+    pointer-events: auto;
   }
 
   .hamburger-btn {

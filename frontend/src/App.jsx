@@ -2624,10 +2624,10 @@ function App() {
                   {equipos.length ? (
                     equipos.map((equipo) => (
                       <tr key={equipo.id}>
-                        <td>
+                        <td data-label="Folio">
                           <span className="badge-numero">{equipo.folio}</span>
                         </td>
-                        <td>
+                        <td data-label="Equipo">
                           <div className="equipment-cell">
                             <div className="equipment-avatar">
                               {equipo.foto ? (
@@ -2646,16 +2646,16 @@ function App() {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="N° Serie">
                           <code style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
                             {equipo.serie || 'S/N'}
                           </code>
                         </td>
-                        <td>{equipo.ubicacion_nombre || equipo.ubicacion || 'Sin ubicación'}</td>
-                        <td>
+                        <td data-label="Ubicación">{equipo.ubicacion_nombre || equipo.ubicacion || 'Sin ubicación'}</td>
+                        <td data-label="Estado">
                           <span className={`status-pill ${equipo.estado}`}>{equipo.estado}</span>
                         </td>
-                        <td>
+                        <td data-label="Acciones">
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button
                               type="button"
@@ -3011,15 +3011,15 @@ function App() {
                   {mantenimientos.length ? (
                     mantenimientos.map((item) => (
                       <tr key={item.id}>
-                        <td>{item.equipo_folio}</td>
-                        <td style={{ textTransform: 'capitalize' }}>{item.tipo}</td>
-                        <td>{item.tecnico || '—'}</td>
-                        <td>{item.descripcion || '—'}</td>
-                        <td>
+                        <td data-label="Equipo">{item.equipo_folio}</td>
+                        <td data-label="Tipo" style={{ textTransform: 'capitalize' }}>{item.tipo}</td>
+                        <td data-label="Técnico">{item.tecnico || '—'}</td>
+                        <td data-label="Descripción">{item.descripcion || '—'}</td>
+                        <td data-label="Estado">
                           <span className={`status-pill ${item.estado}`}>{item.estado.replace('_', ' ')}</span>
                         </td>
-                        <td>{item.costo != null ? `$ ${Number(item.costo).toLocaleString('es-CO')}` : '—'}</td>
-                        <td>
+                        <td data-label="Costo">{item.costo != null ? `$ ${Number(item.costo).toLocaleString('es-CO')}` : '—'}</td>
+                        <td data-label="Acciones">
                           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button
                               type="button"
@@ -3326,17 +3326,17 @@ function App() {
                 <tbody>
                   {usuarios.map((u) => (
                     <tr key={u.id}>
-                      <td>{u.nombre}</td>
-                      <td>{u.correo}</td>
-                      <td>
+                      <td data-label="Nombre">{u.nombre}</td>
+                      <td data-label="Correo">{u.correo}</td>
+                      <td data-label="Rol">
                         <span className={`status-pill ${u.rol}`}>{u.rol}</span>
                       </td>
-                      <td>
+                      <td data-label="Estado">
                         <span className={`status-pill ${u.activo ? 'activo' : 'inactivo'}`}>
                           {u.activo ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Acciones">
                         <div style={{ display: 'flex', gap: '10px' }}>
                           <button type="button" className="link-button" onClick={() => handleEditUsuario(u)}>
                             Editar
@@ -3741,11 +3741,11 @@ function App() {
                   <tbody>
                     {ubicaciones.map((u) => (
                       <tr key={u.id}>
-                        <td>{u.nombre}</td>
-                        <td>{u.ciudad || '—'}</td>
-                        <td>{u.direccion || '—'}</td>
+                        <td data-label="Nombre">{u.nombre}</td>
+                        <td data-label="Ciudad">{u.ciudad || '—'}</td>
+                        <td data-label="Dirección">{u.direccion || '—'}</td>
                         {canModify && (
-                          <td>
+                          <td data-label="Acciones">
                             <button
                               type="button"
                               className="link-button"
@@ -3981,12 +3981,6 @@ function App() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="brand-block">
-          <div className="brand-logo-full">
-            <img src="/logo_eticos.svg" alt="Sistemas Bogotá" className="brand-logo-img" />
-          </div>
-        </div>
-
         <nav className="nav" aria-label="Navegación principal">
           {navItems
             .filter((item) => {
