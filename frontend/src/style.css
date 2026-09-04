@@ -101,7 +101,7 @@ button {
   width: 270px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 80px 20px;
+  padding: 120px 20px 20px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
   z-index: 1000;
   position: fixed;
@@ -237,7 +237,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 18px;
+  margin-top: 30px;
 }
 
 .nav-item {
