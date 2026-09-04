@@ -319,6 +319,7 @@ function App() {
   const [stockSelected, setStockSelected] = useState([])
   const [bulkAction, setBulkAction] = useState({ tipo: '', valor: '' })
   const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   // FASE 8: multi-empresa
   const [empresas, setEmpresas] = useState([])
@@ -1820,7 +1821,13 @@ function App() {
                   <span>Solo Disponibles / En Stock</span>
                   {stockFilterOnlyAvailable && <Icon name="check" />}
                 </button>
-
+                <button
+                  type="button"
+                  className="mobile-filter-btn"
+                  onClick={() => setIsFilterOpen(true)}
+                >
+                  <Icon name="search" /> Filtros
+                </button>
                 <select
                   className="filter-select"
                   value={stockCategoryFilter}
@@ -1998,17 +2005,17 @@ function App() {
                   {pageEquipos.length ? (
                     pageEquipos.map((item) => (
                       <tr key={item.id}>
-                        <td data-label="Seleccionar" style={{ textAlign: 'center' }}>
+                        <td data-label="✅ Seleccionar" style={{ textAlign: 'center' }}>
                           <input
                             type="checkbox"
                             checked={stockSelected.includes(item.id)}
                             onChange={() => toggleStockSelect(item.id)}
                           />
                         </td>
-                        <td data-label="Folio">
+                        <td data-label="🆔 Folio">
                           <span className="badge-numero">{item.folio}</span>
                         </td>
-                        <td data-label="Equipo / Marca">
+                        <td data-label="💻 Equipo / Marca">
                           <div className="equipment-cell">
                             <div className="equipment-avatar">
                               {item.foto ? (
@@ -2022,28 +2029,28 @@ function App() {
                             </div>
                           </div>
                         </td>
-                        <td data-label="N° Serie">
+                        <td data-label="🔢 N° Serie">
                           <code style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
                             {item.serie || 'S/N'}
                           </code>
                         </td>
-                        <td data-label="Categoría">
+                        <td data-label="🏷️ Categoría">
                           <span className="chip" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>
                             {item.categoria_nombre || 'General'}
                           </span>
                         </td>
-                        <td data-label="Ubicación">{item.ubicacion_nombre || item.ubicacion || 'Bodega Central'}</td>
-                        <td data-label="Valor Aprox.">
+                        <td data-label="📍 Ubicación">{item.ubicacion_nombre || item.ubicacion || 'Bodega Central'}</td>
+                        <td data-label="💰 Valor Aprox.">
                           {item.valor_aprox
                             ? `$ ${Number(item.valor_aprox).toLocaleString('es-CO')}`
                             : '—'}
                         </td>
-                        <td data-label="Estado">
+                        <td data-label="🚥 Estado">
                           <span className={`status-pill ${item.estado}`}>
                             {item.estado === 'disponible' ? 'En Stock' : item.estado.replace('_', ' ')}
                           </span>
                         </td>
-                        <td data-label="Acciones">
+                        <td data-label="⚙️ Acciones">
                           <div className="action-btns">
                             <button
                               type="button"
@@ -4915,6 +4922,99 @@ function App() {
       {/* MODAL: EMPRESA (FASE 8) */}
       {/* Backdrop para Sidebar en móvil */}
       {isSidebarOpen && <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+
+      {/* BOTTOM SHEET: FILTROS DE STOCK (MÓVIL) */}
+      {isFilterOpen && (
+        <div className={`bottom-sheet ${isFilterOpen ? 'open' : ''}`}>
+          <div className="bottom-sheet-overlay" onClick={() => setIsFilterOpen(false)} />
+          <div className="bottom-sheet-content">
+            <div className="bottom-sheet-handle" onClick={() => setIsFilterOpen(false)} />
+            <div className="panel-header" style={{ padding: 0, marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>Filtros de Stock</h3>
+              <button type="button" className="btn-modal-close" onClick={() => setIsFilterOpen(false)}>✕</button>
+            </div>
+            <div className="filter-grid">
+              <div className="filter-group">
+                <label>Disponibilidad</label>
+                <button
+                  type="button"
+                  className={`filter-pill ${stockFilterOnlyAvailable ? 'active' : ''}`}
+                  onClick={() => setStockFilterOnlyAvailable(!stockFilterOnlyAvailable)}
+                >
+                  <Icon name="box" />
+                  <span>Solo Disponibles / En Stock</span>
+                  {stockFilterOnlyAvailable && <Icon name="check" />}
+                </button>
+              </div>
+              <div className="filter-group">
+                <label>Categoría</label>
+                <select
+                  className="filter-select"
+                  value={stockCategoryFilter}
+                  onChange={(e) => setStockCategoryFilter(e.target.value)}
+                >
+                  <option value="todas">Todas las categorías</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>Ubicación</label>
+                <select
+                  className="filter-select"
+                  value={stockLocationFilter}
+                  onChange={(e) => setStockLocationFilter(e.target.value)}
+                >
+                  <option value="todas">Todas las ubicaciones</option>
+                  {ubicaciones.map((u) => (
+                    <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>Estado</label>
+                <select
+                  className="filter-select"
+                  value={stockStatusFilter}
+                  onChange={(e) => setStockStatusFilter(e.target.value)}
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="disponible">Disponible</option>
+                  <option value="asignado">Asignado</option>
+                  <option value="reparacion">En reparación</option>
+                  <option value="prestamo">Préstamo</option>
+                  <option value="baja">Baja</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  className="btn-primary small"
+                  style={{ flex: 1 }}
+                  onClick={() => setIsFilterOpen(false)}
+                >
+                  Aplicar Filtros
+                </button>
+                <button
+                  type="button"
+                  className="link-button small"
+                  style={{ flex: 1, textAlign: 'center', color: 'var(--danger)' }}
+                  onClick={() => {
+                    setStockFilterOnlyAvailable(false)
+                    setStockCategoryFilter('todas')
+                    setStockLocationFilter('todas')
+                    setStockStatusFilter('todos')
+                    setIsFilterOpen(false)
+                  }}
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FAB: Nuevo Movimiento (Solo Móvil) */}
       {canModify && (

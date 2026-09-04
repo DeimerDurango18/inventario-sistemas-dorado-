@@ -967,9 +967,23 @@ th {
   }
 
   .modal-window {
-    width: 95%;
-    margin: 0 auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    animation: slideUpFast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
+
+  .modal-overlay {
+    padding: 0 !important;
+  }
+}
+
+@keyframes slideUpFast {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 .modal-overlay {
   position: fixed;
@@ -1959,4 +1973,102 @@ th {
 .timeline-body {
   font-size: 0.85rem;
   color: var(--text);
+}
+
+.bottom-sheet {
+  position: fixed;
+  inset: 0 0 0 0;
+  display: flex;
+  align-items: flex-end;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.bottom-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+.bottom-sheet.open .bottom-sheet-overlay {
+  opacity: 1;
+}
+
+.bottom-sheet-content {
+  position: relative;
+  width: 100%;
+  background: var(--panel);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 24px 20px 40px;
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.bottom-sheet.open .bottom-sheet-content {
+  transform: translateY(0);
+}
+
+.bottom-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 20px;
+  cursor: pointer;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .stock-filters-left {
+    display: none !important;
+  }
+  .mobile-filter-btn {
+    display: flex !important;
+  }
+}
+
+.mobile-filter-btn {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.mobile-filter-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
