@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -69,6 +69,24 @@ def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
     return data
 
 
+def generate_pdf_background(acta_id: int):
+    """Genera el PDF en segundo plano y actualiza la ruta en la DB."""
+    from app.core.database import SessionLocal
+    db = SessionLocal()
+    try:
+        acta = db.query(Acta).filter(Acta.id == acta_id).first()
+        if acta:
+            pdf_path = PDF_DIR / f"acta_{acta.numero}.pdf"
+            generar_acta_pdf(acta, acta.items, COMPANY, pdf_path)
+            acta.pdf_path = str(pdf_path)
+            db.commit()
+    except Exception as e:
+        # En un entorno real, usaríamos un logger.
+        print(f"Error generando PDF para acta {acta_id}: {e}")
+    finally:
+        db.close()
+
+
 @router.get("")
 def listar(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(Acta)
@@ -90,6 +108,7 @@ def obtener_acta(acta_id: int, db: Session = Depends(get_db)):
 @router.post("")
 def crear(
     payload: ActaIn,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
@@ -162,10 +181,7 @@ def crear(
     db.commit()
     db.refresh(acta)
 
-    pdf_path = PDF_DIR / f"acta_{acta.numero}.pdf"
-    generar_acta_pdf(acta, acta.items, COMPANY, pdf_path)
-    acta.pdf_path = str(pdf_path)
-    db.commit()
+    background_tasks.add_task(generate_pdf_background, acta.id)
 
     return {"id": acta.id, "numero": acta.numero, "pdf_url": f"/api/reports/actas/{acta.id}/pdf"}
 

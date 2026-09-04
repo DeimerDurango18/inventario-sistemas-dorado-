@@ -3923,7 +3923,7 @@ function App() {
         <div className="login-card">
           <div className="brand-block login-logo" style={{ justifyContent: 'center', marginBottom: '18px', paddingBottom: '18px' }}>
             <div className="brand-logo-full">
-              <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
+              <img src="/logo_eticos.svg" alt="Sistemas Bogotá" className="brand-logo-img" />
             </div>
           </div>
 
@@ -3977,7 +3977,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand-block">
           <div className="brand-logo-full">
-            <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
+            <img src="/logo_eticos.svg" alt="Sistemas Bogotá" className="brand-logo-img" />
           </div>
         </div>
 

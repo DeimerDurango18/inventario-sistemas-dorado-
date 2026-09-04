@@ -18,7 +18,6 @@ class Equipment(Base):
     modelo = Column(String(100), nullable=False)
     serie = Column(String(100), nullable=True)
     estado = Column(String(50), default="disponible")
-    ubicacion = Column(String(100), nullable=True)
 
     categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=True)
     ubicacion_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=True)

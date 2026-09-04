@@ -60,7 +60,6 @@ CREATE TABLE dbo.equipos (
     modelo NVARCHAR(100) NOT NULL,
     serie NVARCHAR(100) NULL,
     estado NVARCHAR(50) NULL DEFAULT 'disponible',
-    ubicacion NVARCHAR(100) NULL,
     categoria_id INT NULL,
     ubicacion_id INT NULL,
     valor_aprox DECIMAL(14,2) NULL,
@@ -85,7 +84,6 @@ CREATE TABLE dbo.movimientos (
     equipo_id INT NOT NULL,
     created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT PK_movimientos PRIMARY KEY (id),
-    CONSTRAINT UQ_movimientos_folio_acta UNIQUE (folio_acta),
     CONSTRAINT FK_movimientos_equipos FOREIGN KEY (equipo_id) REFERENCES dbo.equipos(id)
 );
 GO
