@@ -119,12 +119,17 @@ button {
   height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #4da3ff, #0b73d0);
-  color: white;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--primary-strong);
   box-shadow: 0 4px 14px rgba(77, 163, 255, 0.4);
+}
+
+.brand-mark img.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .brand-name {
@@ -619,10 +624,15 @@ th {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0d3a75, #2196F3);
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  overflow: hidden;
+  background: var(--primary-strong);
+}
+
+.acta-logo img.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .acta-brand strong {
@@ -963,10 +973,17 @@ th {
   color: white;
   display: grid;
   place-items: center;
-  font-weight: 800;
   font-size: 14px;
   border-radius: 4px;
-  letter-spacing: 1px;
+  overflow: hidden;
+}
+
+.acta-doc-logo img.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 }
 
 .acta-doc-company h4 {

@@ -3457,7 +3457,9 @@ function App() {
             <div className="acta-card">
               <div className="acta-header">
                 <div className="acta-brand">
-                  <div className="acta-logo">INV</div>
+                  <div className="acta-logo">
+                    <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+                  </div>
                   <div>
                     <strong>INV - Sistemas</strong>
                     <small>Inventario y control de activos</small>
@@ -3920,7 +3922,9 @@ function App() {
       <div className="login-shell">
         <div className="login-card">
           <div className="brand-block" style={{ justifyContent: 'center', marginBottom: '18px' }}>
-            <div className="brand-mark">INV</div>
+            <div className="brand-mark">
+              <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+            </div>
             <div>
               <div className="brand-name">INV - Sistemas</div>
               <small>Inventario de Equipos</small>
@@ -3976,11 +3980,13 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-mark">INV</div>
-          <div>
-            <div className="brand-name">{appSettings.sistemaNombre || 'INV - Sistemas'}</div>
-            <small>Inventario</small>
-          </div>
+            <div className="brand-mark">
+              <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+            </div>
+            <div>
+              <div className="brand-name">{appSettings.sistemaNombre || 'INV - Sistemas'}</div>
+              <small>Inventario</small>
+            </div>
         </div>
 
         <nav className="nav" aria-label="Navegación principal">
@@ -4142,7 +4148,9 @@ function App() {
 
                 <div className="acta-doc-top">
                   <div className="acta-doc-brand">
-                    <div className="acta-doc-logo">INV</div>
+                    <div className="acta-doc-logo">
+                      <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
+                    </div>
                     <div className="acta-doc-company">
                       <h4>SISTEMAS BOGOTA</h4>
                       <p>NIT: 892300678-1 • TEL: 3157736033</p>
