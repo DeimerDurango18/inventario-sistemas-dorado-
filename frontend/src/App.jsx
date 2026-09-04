@@ -2304,15 +2304,15 @@ function App() {
                   {filteredActas.length ? (
                     filteredActas.map((acta) => (
                       <tr key={acta.id}>
-                        <td>
+                        <td data-label="N° Acta">
                           <span className="badge-numero">{acta.numero}</span>
                         </td>
-                        <td>
+                        <td data-label="Tipo">
                           <span className={acta.tipo === 'SALIDA' ? 'badge-salida' : 'badge-entrada'}>
                             {acta.tipo}
                           </span>
                         </td>
-                        <td style={{ fontSize: '0.85rem' }}>
+                        <td data-label="Fecha" style={{ fontSize: '0.85rem' }}>
                           {acta.created_at
                             ? new Date(acta.created_at).toLocaleString('es-CO', {
                                 dateStyle: 'short',
@@ -2320,27 +2320,27 @@ function App() {
                               })
                             : '—'}
                         </td>
-                        <td>
+                        <td data-label="Autorizado / Entregado por">
                           <strong>{acta.entregado_por}</strong>
                         </td>
-                        <td>
+                        <td data-label="Proyecto & Destino">
                           <div>{acta.proyecto || 'General'}</div>
                           <small style={{ color: 'var(--text-soft)' }}>
                             {acta.ciudad_destino ? `${acta.ciudad_destino} - ${acta.direccion_destino || ''}` : '—'}
                           </small>
                         </td>
-                        <td>{acta.responsable_destino || '—'}</td>
-                        <td>
+                        <td data-label="Responsable Destino">{acta.responsable_destino || '—'}</td>
+                        <td data-label="Dispositivos">
                           <span className="chip" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>
                             {acta.items_count || acta.items?.length || 1} equipos • {acta.cajas || 1} caja(s)
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Valor Aprox.">
                           {acta.valor_aprox
                             ? `$ ${Number(acta.valor_aprox).toLocaleString('es-CO')}`
                             : '—'}
                         </td>
-                        <td>
+                        <td data-label="Acciones">
                           <div className="action-btns">
                             <button
                               type="button"
@@ -3998,7 +3998,10 @@ function App() {
                 key={item.id}
                 type="button"
                 className={activeSection === item.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                  setActiveSection(item.id);
+                  setIsSidebarOpen(false);
+                }}
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
