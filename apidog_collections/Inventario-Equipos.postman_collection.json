@@ -1,0 +1,1065 @@
+{
+  "info": {
+    "name": "Inventario Equipos API",
+    "description": "Coleccion generada desde openapi.json. Base URL (tunel): https://its-songs-cosmetic-example.trycloudflare.com\nNota: la URL trycloudflare cambia en cada reinicio del servicio; actualiza la base si hace falta.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/login",
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "[auth] Login",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"admin@sistemasbogota.com\",\n  \"password\": \"Admin2026!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/me",
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "[auth] Me",
+            "response": []
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/register",
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "[auth] Register",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Nuevo Usuario\",\n  \"correo\": \"nuevo@correo.com\",\n  \"password\": \"temp1234\",\n  \"rol\": \"inventario\",\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalogo",
+      "item": [
+        {
+          "name": "Listar Categorias",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias",
+              "path": [
+                "api",
+                "catalogo",
+                "categorias"
+              ]
+            },
+            "description": "[Catalogo] Listar Categorias",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Categoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias",
+              "path": [
+                "api",
+                "catalogo",
+                "categorias"
+              ]
+            },
+            "description": "[Catalogo] Crear Categoria",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Laptop\",\n  \"descripcion\": \"Equipos portatiles\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Actualizar Categoria",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias/{categoria_id}",
+              "path": [
+                "api",
+                "catalogo",
+                "categorias",
+                "{categoria_id}"
+              ]
+            },
+            "description": "[Catalogo] Actualizar Categoria",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Categoria",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias/{categoria_id}",
+              "path": [
+                "api",
+                "catalogo",
+                "categorias",
+                "{categoria_id}"
+              ]
+            },
+            "description": "[Catalogo] Eliminar Categoria",
+            "response": []
+          }
+        },
+        {
+          "name": "Seed Catalogos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/seed",
+              "path": [
+                "api",
+                "catalogo",
+                "seed"
+              ]
+            },
+            "description": "[Catalogo] Seed Catalogos",
+            "response": []
+          }
+        },
+        {
+          "name": "Listar Ubicaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones",
+              "path": [
+                "api",
+                "catalogo",
+                "ubicaciones"
+              ]
+            },
+            "description": "[Catalogo] Listar Ubicaciones",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Ubicacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones",
+              "path": [
+                "api",
+                "catalogo",
+                "ubicaciones"
+              ]
+            },
+            "description": "[Catalogo] Crear Ubicacion",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Principal\",\n  \"ciudad\": \"Bogota\",\n  \"direccion\": \"Calle 1 #2-3\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Actualizar Ubicacion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones/{ubicacion_id}",
+              "path": [
+                "api",
+                "catalogo",
+                "ubicaciones",
+                "{ubicacion_id}"
+              ]
+            },
+            "description": "[Catalogo] Actualizar Ubicacion",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Ubicacion",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones/{ubicacion_id}",
+              "path": [
+                "api",
+                "catalogo",
+                "ubicaciones",
+                "{ubicacion_id}"
+              ]
+            },
+            "description": "[Catalogo] Eliminar Ubicacion",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventario",
+      "item": [
+        {
+          "name": "Listar Equipos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos",
+              "path": [
+                "api",
+                "inventory",
+                "equipos"
+              ]
+            },
+            "description": "[Inventario] Listar Equipos",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos",
+              "path": [
+                "api",
+                "inventory",
+                "equipos"
+              ]
+            },
+            "description": "[Inventario] Crear Equipo",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"HP\",\n  \"modelo\": \"ProBook 450\",\n  \"serie\": \"SN12345\",\n  \"estado\": \"disponible\",\n  \"categoria_id\": 1,\n  \"ubicacion_id\": 1,\n  \"valor_aprox\": 1500000,\n  \"observaciones\": \"Nuevo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener Equipo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}"
+              ]
+            },
+            "description": "[Inventario] Obtener Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "Actualizar Equipo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}"
+              ]
+            },
+            "description": "[Inventario] Actualizar Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Equipo",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}"
+              ]
+            },
+            "description": "[Inventario] Eliminar Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "Subir Foto Equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}/foto",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "foto"
+              ]
+            },
+            "description": "[Inventario] Subir Foto Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "QR Equipo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}/qr",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "qr"
+              ]
+            },
+            "description": "[Inventario] QR Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "Buscar Equipos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/buscar?q=",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "[Inventario] Buscar Equipos",
+            "response": []
+          }
+        },
+        {
+          "name": "Historial Equipo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/historial/{equipo_id}",
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "historial",
+                "{equipo_id}"
+              ]
+            },
+            "description": "[Inventario] Historial Equipo",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mantenimiento",
+      "item": [
+        {
+          "name": "Listar Mantenimientos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos",
+              "path": [
+                "api",
+                "mantenimientos"
+              ]
+            },
+            "description": "[Mantenimiento] Listar Mantenimientos",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Mantenimiento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos",
+              "path": [
+                "api",
+                "mantenimientos"
+              ]
+            },
+            "description": "[Mantenimiento] Crear Mantenimiento",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipo_id\": 1,\n  \"tipo\": \"preventivo\",\n  \"descripcion\": \"Mantenimiento anual\",\n  \"tecnico\": \"Juan Perez\",\n  \"estado\": \"en_proceso\",\n  \"fecha_programada\": \"2026-09-10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cambiar Estado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/estado",
+              "path": [
+                "api",
+                "mantenimientos",
+                "{registro_id}",
+                "estado"
+              ]
+            },
+            "description": "[Mantenimiento] Cambiar Estado",
+            "response": []
+          }
+        },
+        {
+          "name": "Subir Evidencia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/evidencia",
+              "path": [
+                "api",
+                "mantenimientos",
+                "{registro_id}",
+                "evidencia"
+              ]
+            },
+            "description": "[Mantenimiento] Subir Evidencia",
+            "response": []
+          }
+        },
+        {
+          "name": "Descargar Acta PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/pdf",
+              "path": [
+                "api",
+                "mantenimientos",
+                "{registro_id}",
+                "pdf"
+              ]
+            },
+            "description": "[Mantenimiento] Descargar Acta PDF",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "item": [
+        {
+          "name": "Ultima Acta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/acta/latest",
+              "path": [
+                "api",
+                "reports",
+                "acta",
+                "latest"
+              ]
+            },
+            "description": "[Reportes] Ultima Acta",
+            "response": []
+          }
+        },
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/dashboard",
+              "path": [
+                "api",
+                "reports",
+                "dashboard"
+              ]
+            },
+            "description": "[Reportes] Dashboard",
+            "response": []
+          }
+        },
+        {
+          "name": "Depreciacion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/depreciacion",
+              "path": [
+                "api",
+                "reports",
+                "depreciacion"
+              ]
+            },
+            "description": "[Reportes] Depreciacion",
+            "response": []
+          }
+        },
+        {
+          "name": "Alertas Mantenimiento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/mantenimiento/alertas",
+              "path": [
+                "api",
+                "reports",
+                "mantenimiento",
+                "alertas"
+              ]
+            },
+            "description": "[Reportes] Alertas Mantenimiento",
+            "response": []
+          }
+        },
+        {
+          "name": "Listar Actas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas",
+              "path": [
+                "api",
+                "reports",
+                "actas"
+              ]
+            },
+            "description": "[Reportes] Listar Actas",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Acta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas",
+              "path": [
+                "api",
+                "reports",
+                "actas"
+              ]
+            },
+            "description": "[Reportes] Crear Acta",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"ENTRADA\",\n  \"entregado_por\": \"Proveedor\",\n  \"proyecto\": \"Remodelacion\",\n  \"responsable_destino\": \"Area TI\",\n  \"ciudad_destino\": \"Bogota\",\n  \"items\": [\n    {\n      \"dispositivo\": \"Mouse\",\n      \"marca\": \"Logitech\",\n      \"cantidad\": 2,\n      \"serial\": \"M001\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener Acta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas/{acta_id}",
+              "path": [
+                "api",
+                "reports",
+                "actas",
+                "{acta_id}"
+              ]
+            },
+            "description": "[Reportes] Obtener Acta",
+            "response": []
+          }
+        },
+        {
+          "name": "Acta PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas/{acta_id}/pdf",
+              "path": [
+                "api",
+                "reports",
+                "actas",
+                "{acta_id}",
+                "pdf"
+              ]
+            },
+            "description": "[Reportes] Acta PDF",
+            "response": []
+          }
+        },
+        {
+          "name": "Exportar Actas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/actas",
+              "path": [
+                "api",
+                "reports",
+                "exportar",
+                "actas"
+              ]
+            },
+            "description": "[Reportes] Exportar Actas",
+            "response": []
+          }
+        },
+        {
+          "name": "Exportar Equipos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/equipos",
+              "path": [
+                "api",
+                "reports",
+                "exportar",
+                "equipos"
+              ]
+            },
+            "description": "[Reportes] Exportar Equipos",
+            "response": []
+          }
+        },
+        {
+          "name": "Exportar Mantenimientos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/mantenimientos",
+              "path": [
+                "api",
+                "reports",
+                "exportar",
+                "mantenimientos"
+              ]
+            },
+            "description": "[Reportes] Exportar Mantenimientos",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Listar Usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios",
+              "path": [
+                "api",
+                "usuarios"
+              ]
+            },
+            "description": "[Usuarios] Listar Usuarios",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios",
+              "path": [
+                "api",
+                "usuarios"
+              ]
+            },
+            "description": "[Usuarios] Crear Usuario",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Carlos\",\n  \"correo\": \"carlos@correo.com\",\n  \"password\": \"temp1234\",\n  \"rol\": \"inventario\",\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Actualizar Usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios/{usuario_id}",
+              "path": [
+                "api",
+                "usuarios",
+                "{usuario_id}"
+              ]
+            },
+            "description": "[Usuarios] Actualizar Usuario",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios/{usuario_id}",
+              "path": [
+                "api",
+                "usuarios",
+                "{usuario_id}"
+              ]
+            },
+            "description": "[Usuarios] Eliminar Usuario",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Salud",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/health",
+              "path": [
+                "health"
+              ]
+            },
+            "description": "[Salud] Health Check",
+            "response": []
+          }
+        }
+      ]
+    }
+  ]
+}
