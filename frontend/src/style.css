@@ -126,11 +126,14 @@ button {
 }
 
 .hamburger-btn {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  padding: 8px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
