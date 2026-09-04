@@ -4109,6 +4109,17 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  className="btn-acta-view"
+                  style={{ background: 'var(--accent)', color: 'white' }}
+                  onClick={() => {
+                    const verifyUrl = `${API_BASE}/api/reports/actas/${selectedActa.id}/verify`;
+                    window.open(verifyUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <Icon name="eye" /> Verificar
+                </button>
+                <button
+                  type="button"
                   className="modal-close-btn"
                   onClick={() => setIsViewModalOpen(false)}
                 >

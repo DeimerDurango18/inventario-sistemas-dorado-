@@ -186,6 +186,23 @@ def crear(
     return {"id": acta.id, "numero": acta.numero, "pdf_url": f"/api/reports/actas/{acta.id}/pdf"}
 
 
+@router.get("/{acta_id}/verify")
+def verificar_acta(acta_id: int, db: Session = Depends(get_db)):
+    """Endpoint público para verificar la autenticidad de un acta mediante QR."""
+    acta = db.query(Acta).filter(Acta.id == acta_id).first()
+    if not acta:
+        raise HTTPException(status_code=404, detail="Acta no encontrada o inválida")
+
+    return {
+        "estado": "Auténtico",
+        "numero": acta.numero,
+        "tipo": acta.tipo,
+        "fecha": acta.created_at.isoformat() if acta.created_at else "N/A",
+        "entregado_por": acta.entregado_por,
+        "proyecto": acta.proyecto,
+        "items_count": len(acta.items)
+    }
+
 @router.get("/{acta_id}/pdf")
 def descargar_pdf(acta_id: int, db: Session = Depends(get_db)):
     acta = db.query(Acta).filter(Acta.id == acta_id).first()

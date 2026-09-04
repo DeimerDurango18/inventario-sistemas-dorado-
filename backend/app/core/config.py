@@ -40,6 +40,9 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
+# URL base para la verificación de actas mediante QR
+VERIFY_URL = os.getenv("VERIFY_URL", "http://localhost:8010")
+
 # Datos de la empresa usados en la generación de actas (SALIDA / ENTRADA) en PDF.
 _COMPANY_LOGO_DEFAULT = Path(__file__).resolve().parent.parent / "services" / "logo.jpg"
 COMPANY = {
