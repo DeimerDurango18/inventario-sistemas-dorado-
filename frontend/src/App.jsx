@@ -290,13 +290,11 @@ function App() {
   const [equipmentHistory, setEquipmentHistory] = useState([])
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
-  // Estados para Escáner QR (FASE 1b) con cámara
+  // Estados para Escáner QR (Soporte Lector Hardware)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [scannerStatus, setScannerStatus] = useState('')
-  const [scannerSupported, setScannerSupported] = useState(true)
-  const scannerStreamRef = useRef(null)
-  const videoRef = useRef(null)
-  const scannerActiveRef = useRef(false)
+  const [scannerInput, setScannerInput] = useState('')
+  const scannerInputRef = useRef(null)
 
   // FASE 10: baja/venta y préstamo
   const [bajaPrestamoModal, setBajaPrestamoModal] = useState(null) // {tipo:'baja'|'venta'|'prestamo', equipo}
@@ -633,61 +631,22 @@ function App() {
     }
   }
 
-  const stopScanner = () => {
-    scannerActiveRef.current = false
-    if (scannerStreamRef.current) {
-      scannerStreamRef.current.getTracks().forEach((t) => t.stop())
-      scannerStreamRef.current = null
-    }
-    setScannerStatus('')
+  const openScanner = () => {
+    setIsScannerOpen(true)
+    setScannerStatus('Listo para escanear... Use el lector de barras/QR')
+    setScannerInput('')
   }
 
-  const openScanner = async () => {
-    if (!('BarcodeDetector' in window)) {
-      setScannerSupported(false)
-      setIsScannerOpen(true)
-      setScannerStatus('Tu navegador no soporta el escáner con cámara. Usa un equipo con cámara o actualiza el navegador.')
-      return
+  const handleScannerSubmit = (e) => {
+    e.preventDefault()
+    if (scannerInput.trim()) {
+      handleScannedQr(scannerInput)
     }
-    setScannerSupported(true)
-    setIsScannerOpen(true)
-    scannerActiveRef.current = true
-    setScannerStatus('Esperando acceso a la cámara…')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      scannerStreamRef.current = stream
-    } catch {
-      scannerActiveRef.current = false
-      setScannerStatus('No se pudo acceder a la cámara. Verifica los permisos.')
-      return
-    }
-    setScannerStatus('Apuntando la cámara al código QR…')
-
-    const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
-    const video = videoRef.current
-    if (!video) return
-    video.srcObject = scannerStreamRef.current
-    await video.play()
-
-    const tick = async () => {
-      if (!scannerActiveRef.current) return
-      if (video.readyState >= 2) {
-        try {
-          const codes = await detector.detect(video)
-          if (codes && codes.length > 0 && codes[0].rawValue) {
-            const value = codes[0].rawValue
-            await handleScannedQr(value)
-            return
-          }
-        } catch { /* sigue intentando */ }
-      }
-      window.setTimeout(tick, 200)
-    }
-    tick()
+    setScannerInput('')
+    setIsScannerOpen(false)
   }
 
   const handleScannedQr = async (raw) => {
-    stopScanner()
     // El QR backend tiene formato: EQUIPO|folio|marca modelo|serie|estado|ubicacion
     const parts = String(raw).split('|').map((s) => s.trim())
     const folio = parts[1] && parts[1] !== 'undefined' ? parts[1] : (parts[3] || '')
@@ -753,6 +712,12 @@ function App() {
     const timer = window.setTimeout(() => setToast(''), 2200)
     return () => window.clearTimeout(timer)
   }, [toast])
+
+  useEffect(() => {
+    if (isScannerOpen && scannerInputRef.current) {
+      scannerInputRef.current.focus()
+    }
+  }, [isScannerOpen])
 
   const showToast = (message) => setToast(message)
 
@@ -4818,54 +4783,54 @@ function App() {
         </div>
       )}
 
-      {/* MODAL: ESCÁNER QR (FASE 1b) */}
+      {/* MODAL: ESCÁNER QR (Lector Hardware) */}
       {isScannerOpen && (
-        <div className="modal-overlay" onClick={() => { stopScanner(); setIsScannerOpen(false) }}>
+        <div className="modal-overlay" onClick={() => setIsScannerOpen(false)}>
           <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h3 style={{ margin: 0 }}>Escanear QR</h3>
+                <h3 style={{ margin: 0 }}>Escanear QR / Código de Barras</h3>
                 <span className="text-soft" style={{ fontSize: '0.8rem' }}>
-                  Apunta la cámara al código QR de un equipo
+                  Use el lector físico. El sistema procesará el código automáticamente al leerlo.
                 </span>
               </div>
-              <button type="button" className="btn-modal-close" onClick={() => { stopScanner(); setIsScannerOpen(false) }}>✕</button>
+              <button type="button" className="btn-modal-close" onClick={() => setIsScannerOpen(false)}>✕</button>
             </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {scannerSupported ? (
-                <>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '260px',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      backgroundColor: '#000',
-                      border: '2px dashed var(--primary)',
-                    }}
-                  >
-                    <video
-                      ref={videoRef}
-                      playsInline
-                      muted
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  </div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', textAlign: 'center', margin: 0 }}>
-                    {scannerStatus}
-                  </p>
-                </>
-              ) : (
-                <p style={{ fontSize: '0.85rem', color: 'var(--danger)', margin: 0 }}>{scannerStatus}</p>
-              )}
-            </div>
+            <form onSubmit={handleScannerSubmit} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⌨️</div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: 0 }}>
+                  {scannerStatus}
+                </p>
+              </div>
+              <input
+                ref={scannerInputRef}
+                type="text"
+                value={scannerInput}
+                onChange={(e) => setScannerInput(e.target.value)}
+                autoFocus
+                placeholder="Esperando lectura del lector..."
+                style={{
+                  padding: '12px',
+                  fontSize: '1rem',
+                  borderRadius: '8px',
+                  border: '2px solid var(--primary)',
+                  textAlign: 'center',
+                  backgroundColor: 'var(--card, rgba(255,255,255,.02))',
+                  color: 'var(--text)',
+                }}
+              />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', textAlign: 'center', margin: 0 }}>
+                El lector debe estar configurado para enviar "Enter" al final del escaneo.
+              </p>
+            </form>
             <div className="modal-footer">
               <button
                 type="button"
                 className="btn-primary small"
-                onClick={() => { stopScanner(); setIsScannerOpen(false) }}
+                onClick={() => setIsScannerOpen(false)}
               >
-                Cerrar cámara
+                Cancelar
               </button>
             </div>
           </div>
