@@ -16,10 +16,7 @@ const navItems = [
   { id: 'entradas', label: 'Entradas', icon: 'download' },
   { id: 'salidas', label: 'Salidas', icon: 'upload' },
   { id: 'mantenimiento', label: 'Mantenimiento', icon: 'wrench' },
-  { id: 'categorias', label: 'Categorías', icon: 'tag' },
-  { id: 'ubicaciones', label: 'Ubicaciones', icon: 'pin' },
   { id: 'usuarios', label: 'Usuarios', icon: 'user' },
-  { id: 'empresas', label: 'Empresas', icon: 'building' },
   { id: 'reportes', label: 'Reportes', icon: 'chart' },
   { id: 'configuracion', label: 'Configuración', icon: 'settings' },
 ]
@@ -196,7 +193,12 @@ function Icon({ name }) {
 }
 
 function App() {
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState(() => {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('inv_app_settings') || '{}')
+      return cfg.tema === 'dark' ? 'dark' : 'light'
+    } catch { return 'light' }
+  })
   const [activeSection, setActiveSection] = useState('dashboard')
   const [token, setToken] = useState(() => localStorage.getItem('inv_token') || '')
   const [currentUser, setCurrentUser] = useState(() => {
@@ -319,6 +321,10 @@ function App() {
   const [empresaForm, setEmpresaForm] = useState({ nombre: '', nit: '', telefono: '', direccion: '', logo_path: '' })
   const [empresaModalOpen, setEmpresaModalOpen] = useState(false)
   const [empresaEditingId, setEmpresaEditingId] = useState(null)
+  // Configuración consolidada
+  const [appSettings, setAppSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('inv_app_settings') || '{}') } catch { return {} }
+  })
 
   // Notificaciones (FASE 7)
   const [notificaciones, setNotificaciones] = useState([])
@@ -712,7 +718,6 @@ function App() {
     loadUsuarios()
     loadMantenimientos()
     loadNotificaciones()
-    loadEmpresas()
   }, [token])
 
   const loadEquipos = () => {
@@ -885,11 +890,13 @@ function App() {
   const handleSaveConfig = () => {
     setConfigSaved(true)
     try {
+      localStorage.setItem('inv_app_settings', JSON.stringify(appSettings))
       localStorage.setItem(
         'inventario_config',
         JSON.stringify({ guardada: new Date().toISOString(), usuario: currentUser?.correo || '' })
       )
     } catch { /* ignore */ }
+    setTimeout(() => setConfigSaved(false), 2500)
     showToast('Configuración guardada')
   }
 
@@ -3557,101 +3564,214 @@ function App() {
       )
     }
 
-    if (activeSection === 'empresas') {
-      return (
-        <section className="section-grid">
-          <article className="panel">
-            <div className="panel-header">
-              <h2>Empresas</h2>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => {
-                  setEmpresaEditingId(null)
-                  setEmpresaForm({ nombre: '', nit: '', telefono: '', direccion: '', logo_path: '' })
-                  setEmpresaModalOpen(true)
-                }}
-              >
-                + Nueva empresa
-              </button>
-            </div>
-            {empresas.length === 0 ? (
-              <p style={{ color: 'var(--text-soft)' }}>No hay empresas registradas.</p>
-            ) : (
-              <div className="table-wrap">
-                <table className="inv-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>NIT</th>
-                      <th>Teléfono</th>
-                      <th>Dirección</th>
-                      <th style={{ textAlign: 'right' }}>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {empresas.map((emp) => (
-                      <tr key={emp.id}>
-                        <td><span className="chip">{emp.nombre}</span></td>
-                        <td>{emp.nit || '—'}</td>
-                        <td>{emp.telefono || '—'}</td>
-                        <td>{emp.direccion || '—'}</td>
-                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <button
-                            type="button"
-                            className="link-button"
-                            style={{ marginRight: '10px' }}
-                            onClick={() => {
-                              setEmpresaEditingId(emp.id)
-                              setEmpresaForm({
-                                nombre: emp.nombre,
-                                nit: emp.nit || '',
-                                telefono: emp.telefono || '',
-                                direccion: emp.direccion || '',
-                                logo_path: emp.logo_path || '',
-                              })
-                              setEmpresaModalOpen(true)
-                            }}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-link-danger"
-                            onClick={() => handleDeleteEmpresa(emp)}
-                          >
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-        </section>
-      )
-    }
-
     if (activeSection === 'configuracion') {
       return (
         <section className="section-grid">
           <article className="panel">
             <div className="panel-header">
               <h2>Configuración</h2>
-              <button type="button" className="link-button" onClick={handleSaveConfig}>
-                {configSaved ? 'Guardado' : 'Guardar'}
+              <button type="button" className="btn-primary small" onClick={handleSaveConfig}>
+                {configSaved ? 'Guardado ✓' : 'Guardar'}
               </button>
             </div>
-            <div className="mini-grid">
+
+            {/* Ajustes de la aplicación */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                Ajustes de la aplicación
+              </h3>
+              <div className="form-grid">
+                <label>
+                  <span>Nombre del sistema</span>
+                  <input
+                    value={appSettings.sistemaNombre || 'INV - Sistemas'}
+                    onChange={(e) => setAppSettings((s) => ({ ...s, sistemaNombre: e.target.value }))}
+                    placeholder="INV - Sistemas"
+                  />
+                </label>
+                <label>
+                  <span>Nombre de la empresa</span>
+                  <input
+                    value={appSettings.empresaNombre || ''}
+                    onChange={(e) => setAppSettings((s) => ({ ...s, empresaNombre: e.target.value }))}
+                    placeholder="Sistemas Bogotá"
+                  />
+                </label>
+                <label>
+                  <span>Moneda / símbolo</span>
+                  <input
+                    value={appSettings.moneda || '$'}
+                    onChange={(e) => setAppSettings((s) => ({ ...s, moneda: e.target.value }))}
+                    placeholder="$"
+                  />
+                </label>
+                <label>
+                  <span>Tema por defecto</span>
+                  <select
+                    value={appSettings.tema || 'light'}
+                    onChange={(e) => setAppSettings((s) => ({ ...s, tema: e.target.value }))}
+                  >
+                    <option value="light">Claro</option>
+                    <option value="dark">Oscuro</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Días aviso mantenimiento</span>
+                  <input
+                    type="number"
+                    value={appSettings.diasAviso || '7'}
+                    onChange={(e) => setAppSettings((s) => ({ ...s, diasAviso: e.target.value }))}
+                    placeholder="7"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Catálogo: Categorías */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                Categorías de equipos
+              </h3>
+              {canModify ? (
+                <form className="form-grid" onSubmit={handleCategoriaSubmit}>
+                  <label>
+                    <span>Nombre</span>
+                    <input
+                      value={categoriaForm.nombre}
+                      onChange={(event) => setCategoriaForm({ ...categoriaForm, nombre: event.target.value })}
+                      placeholder="Cómputo"
+                    />
+                  </label>
+                  <label>
+                    <span>Descripción</span>
+                    <input
+                      value={categoriaForm.descripcion}
+                      onChange={(event) => setCategoriaForm({ ...categoriaForm, descripcion: event.target.value })}
+                      placeholder="Portátiles, PC de escritorio"
+                    />
+                  </label>
+                  <div className="form-actions">
+                    <button type="submit" className="btn-primary small">Agregar categoría</button>
+                  </div>
+                </form>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: '0 0 14px' }}>
+                  Tu rol ({currentUser?.rol}) es de solo lectura.
+                </p>
+              )}
+              <div className="chip-list">
+                {categorias.map((cat) => (
+                  <span key={cat.id} className="chip">
+                    {cat.nombre}
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) {
+                            handleDeleteCategoria(cat.id, cat.nombre)
+                          }
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Catálogo: Ubicaciones */}
+            <div>
+              <h3 style={{ margin: '0 0 14px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                Ubicaciones y bodegas
+              </h3>
+              {canModify ? (
+                <form className="form-grid" onSubmit={handleUbicacionSubmit}>
+                  <label>
+                    <span>Nombre</span>
+                    <input
+                      value={ubicacionForm.nombre}
+                      onChange={(event) => setUbicacionForm({ ...ubicacionForm, nombre: event.target.value })}
+                      placeholder="Bodega Central"
+                    />
+                  </label>
+                  <label>
+                    <span>Ciudad</span>
+                    <input
+                      value={ubicacionForm.ciudad}
+                      onChange={(event) => setUbicacionForm({ ...ubicacionForm, ciudad: event.target.value })}
+                      placeholder="Bogotá"
+                    />
+                  </label>
+                  <label>
+                    <span>Dirección</span>
+                    <input
+                      value={ubicacionForm.direccion}
+                      onChange={(event) => setUbicacionForm({ ...ubicacionForm, direccion: event.target.value })}
+                      placeholder="Calle 26 N 68C-61"
+                    />
+                  </label>
+                  <div className="form-actions">
+                    <button type="submit" className="btn-primary small">Agregar ubicación</button>
+                  </div>
+                </form>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: '0 0 14px' }}>
+                  Tu rol ({currentUser?.rol}) es de solo lectura.
+                </p>
+              )}
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Ciudad</th>
+                      <th>Dirección</th>
+                      {canModify && <th></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ubicaciones.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.nombre}</td>
+                        <td>{u.ciudad || '—'}</td>
+                        <td>{u.direccion || '—'}</td>
+                        {canModify && (
+                          <td>
+                            <button
+                              type="button"
+                              className="link-button"
+                              style={{ color: 'var(--danger, #c62828)' }}
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar la ubicación "${u.nombre}"?`)) {
+                                  handleDeleteUbicacion(u.id, u.nombre)
+                                }
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Resumen de parámetros */}
+            <div className="mini-grid" style={{ marginTop: '28px' }}>
               <div className="action-card">
                 <strong>{new Set(usuarios.map((u) => u.rol)).size}</strong>
                 <span>Roles activos en uso</span>
               </div>
               <div className="action-card">
-                <strong>{categorias.length + ubicaciones.length + new Set(usuarios.map((u) => u.rol)).size}</strong>
-                <span>Parámetros del sistema</span>
+                <strong>{categorias.length}</strong>
+                <span>Categorías del sistema</span>
+              </div>
+              <div className="action-card">
+                <strong>{ubicaciones.length}</strong>
+                <span>Ubicaciones configuradas</span>
               </div>
             </div>
           </article>
@@ -3858,7 +3978,7 @@ function App() {
         <div className="brand-block">
           <div className="brand-mark">INV</div>
           <div>
-            <div className="brand-name">INV - Sistemas</div>
+            <div className="brand-name">{appSettings.sistemaNombre || 'INV - Sistemas'}</div>
             <small>Inventario</small>
           </div>
         </div>
@@ -3867,7 +3987,6 @@ function App() {
           {navItems
             .filter((item) => {
               if (item.id === 'usuarios') return currentUser?.rol === 'admin'
-              if (item.id === 'empresas') return currentUser?.rol === 'admin'
               return true
             })
             .map((item) => (
@@ -4818,63 +4937,6 @@ function App() {
       )}
 
       {/* MODAL: EMPRESA (FASE 8) */}
-      {empresaModalOpen && (
-        <div className="modal-overlay" onClick={() => setEmpresaModalOpen(false)}>
-          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h3 style={{ margin: 0 }}>{empresaEditingId ? 'Editar empresa' : 'Nueva empresa'}</h3>
-                <span className="text-soft" style={{ fontSize: '0.8rem' }}>Datos de la empresa</span>
-              </div>
-              <button type="button" className="btn-modal-close" onClick={() => setEmpresaModalOpen(false)}>✕</button>
-            </div>
-            <form className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onSubmit={handleEmpresaSubmit}>
-              <label className="field">
-                <span>Nombre *</span>
-                <input
-                  type="text"
-                  value={empresaForm.nombre}
-                  onChange={(e) => setEmpresaForm((f) => ({ ...f, nombre: e.target.value }))}
-                  placeholder="Nombre de la empresa"
-                />
-              </label>
-              <label className="field">
-                <span>NIT</span>
-                <input
-                  type="text"
-                  value={empresaForm.nit}
-                  onChange={(e) => setEmpresaForm((f) => ({ ...f, nit: e.target.value }))}
-                  placeholder="000000000-0"
-                />
-              </label>
-              <label className="field">
-                <span>Teléfono</span>
-                <input
-                  type="text"
-                  value={empresaForm.telefono}
-                  onChange={(e) => setEmpresaForm((f) => ({ ...f, telefono: e.target.value }))}
-                  placeholder="Número de contacto"
-                />
-              </label>
-              <label className="field">
-                <span>Dirección</span>
-                <input
-                  type="text"
-                  value={empresaForm.direccion}
-                  onChange={(e) => setEmpresaForm((f) => ({ ...f, direccion: e.target.value }))}
-                  placeholder="Dirección de la empresa"
-                />
-              </label>
-            </form>
-            <div className="modal-footer">
-              <button type="button" className="btn-link-danger" onClick={() => setEmpresaModalOpen(false)}>Cancelar</button>
-              <button type="submit" className="btn-primary small" onClick={handleEmpresaSubmit}>
-                {empresaEditingId ? 'Guardar cambios' : 'Crear empresa'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
