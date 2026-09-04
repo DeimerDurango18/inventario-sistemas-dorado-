@@ -196,7 +196,7 @@ function Icon({ name }) {
 }
 
 function App() {
-  const [theme, setTheme] = useState('dark')
+  const [theme, setTheme] = useState('light')
   const [activeSection, setActiveSection] = useState('dashboard')
   const [token, setToken] = useState(() => localStorage.getItem('inv_token') || '')
   const [currentUser, setCurrentUser] = useState(() => {
@@ -1726,8 +1726,8 @@ function App() {
                 padding: '18px 4px 8px',
               }}
             >
-              {barChart('Por categoría', stats.por_categoria || [], 'linear-gradient(90deg,#22d3ee,#8b5cf6)')}
-              {barChart('Por ubicación', stats.por_ubicacion || [], 'linear-gradient(90deg,#34d399,#22d3ee)')}
+              {barChart('Por categoría', stats.por_categoria || [], 'linear-gradient(90deg,#163f91,#0082FF)')}
+              {barChart('Por ubicación', stats.por_ubicacion || [], 'linear-gradient(90deg,#16a34a,#163f91)')}
             </div>
           </article>
         </section>
