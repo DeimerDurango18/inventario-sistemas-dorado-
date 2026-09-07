@@ -33,6 +33,11 @@ class Acta(Base):
     valor_aprox = Column(Numeric(14, 2), nullable=True)
     cajas = Column(Integer, default=1)
 
+    # Firma del responsable que recibe el equipo en la sede (llenado al firmar)
+    firmado_por = Column(String(150), nullable=True)
+    documento_firma = Column(String(50), nullable=True)
+    fecha_firma = Column(DateTime(timezone=True), nullable=True)
+
     pdf_path = Column(String(300), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

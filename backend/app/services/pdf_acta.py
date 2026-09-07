@@ -247,6 +247,29 @@ def _observations(c: canvas.Canvas, y: float, acta):
     return y - 10
 
 
+def _recibido_conforme(c: canvas.Canvas, acta):
+    """Constancia de la firma del responsable del destino (se imprime bajo la tabla)."""
+    y = MARGIN + 58
+    col_w = PAGE_W - 2 * MARGIN
+
+    c.setStrokeColorRGB(*BLACK)
+    c.setLineWidth(0.6)
+    c.line(MARGIN + col_w / 4, y, MARGIN + 3 * col_w / 4 - 30, y)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColorRGB(*BLACK)
+    c.drawCentredString(PAGE_W / 2 - 15, y + 6, "RECIBIDO CONFORME POR EL RESPONSABLE DEL DESTINO")
+
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawCentredString(PAGE_W / 2 - 15, y - 10, acta.firmado_por or "")
+
+    c.setFont("Helvetica", 7.5)
+    c.setFillColorRGB(*GRAY_TEXT)
+    c.drawCentredString(PAGE_W / 2 - 15, y - 19, f"C.C./DOC.: {acta.documento_firma or '—'}")
+    if acta.fecha_firma:
+        c.drawCentredString(PAGE_W / 2 - 15, y - 27, f"FECHA: {acta.fecha_firma.strftime('%Y-%m-%d %H:%M')}")
+
+
 def _footer(c: canvas.Canvas, company: dict, acta, page_label="Pág. 1/1"):
     y = MARGIN + 26
     col_w = (PAGE_W - 2 * MARGIN) / 2
@@ -296,6 +319,8 @@ def generar_acta_pdf(acta, items, company: dict, output_path: Path) -> Path:
     y = _info_block(c, y, acta)
     y = _table(c, y, items)
     y = _observations(c, y, acta)
+    if acta.firmado_por:
+        _recibido_conforme(c, acta)
     _footer(c, company, acta)
 
     c.showPage()

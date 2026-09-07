@@ -10,7 +10,7 @@ from app.core.security import get_current_user, require_roles
 from app.models.acta import Acta, ActaItem
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
-from app.schemas import ActaIn
+from app.schemas import ActaFirmaIn, ActaIn
 from app.services.pdf_acta import generar_acta_pdf
 
 router = APIRouter()
@@ -49,6 +49,9 @@ def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
         "observaciones": a.observaciones,
         "cajas": a.cajas,
         "valor_aprox": float(a.valor_aprox) if a.valor_aprox is not None else None,
+        "firmado_por": a.firmado_por,
+        "documento_firma": a.documento_firma,
+        "fecha_firma": a.fecha_firma.isoformat() if a.fecha_firma else None,
         "created_at": a.created_at.isoformat() if a.created_at else None,
         "items_count": len(a.items),
         "pdf_url": f"/api/reports/actas/{a.id}/pdf",
@@ -202,6 +205,32 @@ def verificar_acta(acta_id: int, db: Session = Depends(get_db)):
         "proyecto": acta.proyecto,
         "items_count": len(acta.items)
     }
+
+
+@router.post("/{acta_id}/firmar")
+def firmar_acta(
+    acta_id: int,
+    payload: ActaFirmaIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Registra la firma del responsable del destino y regenera el PDF con la constancia."""
+    from datetime import datetime, timezone
+    acta = db.query(Acta).filter(Acta.id == acta_id).first()
+    if not acta:
+        raise HTTPException(status_code=404, detail="Acta no encontrada")
+    if not payload.nombre.strip():
+        raise HTTPException(status_code=400, detail="El nombre del responsable es obligatorio")
+
+    acta.firmado_por = payload.nombre.strip().upper()
+    acta.documento_firma = payload.documento
+    acta.fecha_firma = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(acta)
+
+    background_tasks.add_task(generate_pdf_background, acta.id)
+    return _serialize_acta(acta, include_items=True)
 
 @router.get("/{acta_id}/pdf")
 def descargar_pdf(acta_id: int, db: Session = Depends(get_db)):

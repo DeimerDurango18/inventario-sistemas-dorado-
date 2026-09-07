@@ -32,16 +32,35 @@ DB_ENGINE=mssql
 DB_HOST=localhost\SQLExpress
 DB_PORT=1433
 DB_NAME=InventarioEquipos
-DB_USER=sa
-DB_PASSWORD=Deimer180705*/
+DB_USER=inventario_app
+DB_PASSWORD=TuPasswordSeguroAqui
 DB_DRIVER=ODBC Driver 18 for SQL Server
-SECRET_KEY=change-me-in-production
+SECRET_KEY=genera-una-clave-aleatoria-de-al-menos-32-caracteres
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 FRONTEND_URL=http://localhost:5173
 ```
 
 Las credenciales van en variables de entorno en `.env`, no en el código del backend.
+**Nunca** versiones `.env` ni uses la cuenta `sa` de SQL Server en la aplicación.
+
+## Preparar la base de datos (primera vez)
+
+Desde `backend/`:
+
+```powershell
+$env:PYTHONPATH = "D:\proyectos\InventarioEquipos\backend"
+& "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m alembic upgrade head
+```
+
+Crea el primer administrador (el primero registrado siempre queda como `admin`):
+
+```
+POST /api/auth/register
+{ "nombre": "Administrador", "correo": "admin@empresa.com", "password": "ClaveSegura2026!", "rol": "admin" }
+```
+
+> La `SECRET_KEY` debe ser fija y secreta en producción. Si `DEBUG=False` y la clave es débil o falta, el backend no arranca a propósito.
 
 ## Módulos incluidos
 

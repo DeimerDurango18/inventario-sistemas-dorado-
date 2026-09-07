@@ -1,152 +1,346 @@
-USE master;
+-- ============================================================
+-- ESQUEMA ACTUAL DE LA BASE DE DATOS InventarioEquipos
+-- Generado automáticamente desde SQL Server (2026-09-07).
+-- NOTA: la fuente de verdad es Alembic (backend/alembic).
+-- ============================================================
+
+CREATE TABLE [acta_items] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [acta_id] int NOT NULL,
+    [equipo_id] int NULL,
+    [dispositivo] varchar(100) NOT NULL,
+    [marca] varchar(100) NULL,
+    [detalle] varchar(150) NULL,
+    [cantidad] int NULL,
+    [serial] varchar(100) NULL,
+    [empresa_id] int NULL,
+    CONSTRAINT [PK_acta_items] PRIMARY KEY ([id])
+)
+
 GO
 
-IF DB_ID('InventarioEquipos') IS NULL
-BEGIN
-    CREATE DATABASE InventarioEquipos;
-END
+CREATE TABLE [actas] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [numero] varchar(30) NOT NULL,
+    [tipo] varchar(10) NULL,
+    [entregado_por] varchar(150) NOT NULL,
+    [proyecto] varchar(200) NULL,
+    [responsable_destino] varchar(150) NULL,
+    [ciudad_destino] varchar(100) NULL,
+    [direccion_destino] varchar(200) NULL,
+    [observaciones] varchar(max) NULL,
+    [valor_aprox] numeric(14,2) NULL,
+    [cajas] int NULL,
+    [pdf_path] varchar(300) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [empresa_id] int NULL,
+    [firmado_por] varchar(150) NULL,
+    [documento_firma] varchar(50) NULL,
+    [fecha_firma] datetimeoffset NULL,
+    CONSTRAINT [PK_actas] PRIMARY KEY ([id])
+)
+
 GO
 
-USE InventarioEquipos;
+CREATE TABLE [adjuntos_equipos] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [tipo] varchar(20) NOT NULL,
+    [equipo_id] int NULL,
+    [registro_id] int NULL,
+    [ticket_id] int NULL,
+    [archivo] varchar(300) NOT NULL,
+    [descripcion] varchar(150) NULL,
+    [creado_por] varchar(150) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_adjuntos_equipos] PRIMARY KEY ([id])
+)
+
 GO
 
-IF OBJECT_ID('dbo.acta_items', 'U') IS NOT NULL DROP TABLE dbo.acta_items;
-IF OBJECT_ID('dbo.actas', 'U') IS NOT NULL DROP TABLE dbo.actas;
-IF OBJECT_ID('dbo.mantenimientos', 'U') IS NOT NULL DROP TABLE dbo.mantenimientos;
-IF OBJECT_ID('dbo.movimientos', 'U') IS NOT NULL DROP TABLE dbo.movimientos;
-IF OBJECT_ID('dbo.equipos', 'U') IS NOT NULL DROP TABLE dbo.equipos;
-IF OBJECT_ID('dbo.categorias', 'U') IS NOT NULL DROP TABLE dbo.categorias;
-IF OBJECT_ID('dbo.ubicaciones', 'U') IS NOT NULL DROP TABLE dbo.ubicaciones;
-IF OBJECT_ID('dbo.usuarios', 'U') IS NOT NULL DROP TABLE dbo.usuarios;
+CREATE TABLE [alembic_version] (
+[version_num] varchar(32) NOT NULL,
+    CONSTRAINT [PK_alembic_version] PRIMARY KEY ([version_num])
+)
+
 GO
 
-CREATE TABLE dbo.categorias (
-    id INT IDENTITY(1,1) NOT NULL,
-    nombre NVARCHAR(100) NOT NULL,
-    descripcion NVARCHAR(255) NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_categorias PRIMARY KEY (id),
-    CONSTRAINT UQ_categorias_nombre UNIQUE (nombre)
-);
+CREATE TABLE [atenciones_punto] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [punto_id] int NOT NULL,
+    [ticket_id] int NULL,
+    [fecha] datetimeoffset NULL DEFAULT (getdate()),
+    [tipo] varchar(30) NULL DEFAULT ('soporte'),
+    [descripcion] varchar(max) NULL,
+    [tecnico] varchar(150) NULL,
+    [resultado] varchar(300) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_atenciones_punto] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.ubicaciones (
-    id INT IDENTITY(1,1) NOT NULL,
-    nombre NVARCHAR(100) NOT NULL,
-    ciudad NVARCHAR(100) NULL,
-    direccion NVARCHAR(255) NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_ubicaciones PRIMARY KEY (id),
-    CONSTRAINT UQ_ubicaciones_nombre UNIQUE (nombre)
-);
+CREATE TABLE [audit_logs] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [user_id] int NULL,
+    [entity_type] varchar(50) NOT NULL,
+    [entity_id] int NOT NULL,
+    [action] varchar(20) NOT NULL,
+    [changes] varchar(max) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_audit_logs] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.usuarios (
-    id INT IDENTITY(1,1) NOT NULL,
-    nombre NVARCHAR(150) NOT NULL,
-    correo NVARCHAR(150) NOT NULL,
-    rol NVARCHAR(30) NULL DEFAULT 'operativo',
-    activo BIT NULL DEFAULT 1,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_usuarios PRIMARY KEY (id),
-    CONSTRAINT UQ_usuarios_correo UNIQUE (correo)
-);
+CREATE TABLE [categorias] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [nombre] varchar(100) NOT NULL,
+    [descripcion] varchar(255) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [empresa_id] int NULL,
+    CONSTRAINT [PK_categorias] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.equipos (
-    id INT IDENTITY(1,1) NOT NULL,
-    folio NVARCHAR(50) NOT NULL,
-    marca NVARCHAR(100) NOT NULL,
-    modelo NVARCHAR(100) NOT NULL,
-    serie NVARCHAR(100) NULL,
-    estado NVARCHAR(50) NULL DEFAULT 'disponible',
-    categoria_id INT NULL,
-    ubicacion_id INT NULL,
-    valor_aprox DECIMAL(14,2) NULL,
-    observaciones NVARCHAR(255) NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_equipos PRIMARY KEY (id),
-    CONSTRAINT UQ_equipos_folio UNIQUE (folio),
-    CONSTRAINT FK_equipos_categoria FOREIGN KEY (categoria_id) REFERENCES dbo.categorias(id),
-    CONSTRAINT FK_equipos_ubicacion FOREIGN KEY (ubicacion_id) REFERENCES dbo.ubicaciones(id)
-);
+CREATE TABLE [empresas] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [nombre] varchar(200) NOT NULL,
+    [nit] varchar(50) NULL,
+    [telefono] varchar(50) NULL,
+    [direccion] varchar(300) NULL,
+    [logo_path] varchar(300) NULL,
+    [activo] bit NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_empresas] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE INDEX IX_equipos_folio ON dbo.equipos(folio);
+CREATE TABLE [equipos] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [folio] varchar(50) NOT NULL,
+    [marca] varchar(100) NOT NULL,
+    [modelo] varchar(100) NOT NULL,
+    [serie] varchar(100) NULL,
+    [estado] varchar(50) NULL,
+    [ubicacion] varchar(100) NULL,
+    [categoria_id] int NULL,
+    [ubicacion_id] int NULL,
+    [valor_aprox] numeric(14,2) NULL,
+    [observaciones] varchar(255) NULL,
+    [foto] varchar(300) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [prestamo_a] varchar(150) NULL,
+    [prestamo_desde] datetimeoffset NULL,
+    [prestamo_hasta] datetimeoffset NULL,
+    [baja_motivo] varchar(255) NULL,
+    [precio_venta] numeric(14,2) NULL,
+    [fecha_baja] datetimeoffset NULL,
+    [empresa_id] int NULL,
+    [fecha_compra] datetimeoffset NULL,
+    [meses_garantia] int NULL,
+    CONSTRAINT [PK_equipos] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.movimientos (
-    id INT IDENTITY(1,1) NOT NULL,
-    tipo NVARCHAR(20) NOT NULL,
-    folio_acta NVARCHAR(50) NOT NULL,
-    persona NVARCHAR(150) NULL,
-    motivo NVARCHAR(255) NULL,
-    equipo_id INT NOT NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_movimientos PRIMARY KEY (id),
-    CONSTRAINT FK_movimientos_equipos FOREIGN KEY (equipo_id) REFERENCES dbo.equipos(id)
-);
+CREATE TABLE [instalaciones] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [punto_id] int NOT NULL,
+    [equipo_id] int NOT NULL,
+    [software] varchar(300) NULL,
+    [fecha_instalacion] datetimeoffset NULL,
+    [estado] varchar(20) NULL DEFAULT ('activa'),
+    [observaciones] varchar(max) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_instalaciones] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE INDEX IX_movimientos_folio_acta ON dbo.movimientos(folio_acta);
+CREATE TABLE [mantenimientos] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [equipo_id] int NOT NULL,
+    [tipo] varchar(30) NULL,
+    [descripcion] varchar(255) NULL,
+    [tecnico] varchar(150) NULL,
+    [costo] numeric(12,2) NULL,
+    [estado] varchar(30) NULL,
+    [fecha_programada] datetimeoffset NULL,
+    [fecha_finalizado] datetimeoffset NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [foto] varchar(300) NULL,
+    [piezas] varchar(max) NULL,
+    [empresa_id] int NULL,
+    [periodicidad] varchar(20) NULL,
+    [punto_id] int NULL,
+    CONSTRAINT [PK_mantenimientos] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE INDEX IX_movimientos_equipo_id ON dbo.movimientos(equipo_id);
+CREATE TABLE [movimientos] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [tipo] varchar(20) NOT NULL,
+    [folio_acta] varchar(50) NULL,
+    [persona] varchar(150) NULL,
+    [motivo] varchar(255) NULL,
+    [estado_anterior] varchar(50) NULL,
+    [estado_nuevo] varchar(50) NULL,
+    [equipo_id] int NOT NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [empresa_id] int NULL,
+    CONSTRAINT [PK_movimientos] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.mantenimientos (
-    id INT IDENTITY(1,1) NOT NULL,
-    equipo_id INT NOT NULL,
-    tipo NVARCHAR(30) NULL DEFAULT 'preventivo',
-    descripcion NVARCHAR(255) NULL,
-    tecnico NVARCHAR(150) NULL,
-    costo DECIMAL(12,2) NULL,
-    estado NVARCHAR(30) NULL DEFAULT 'programado',
-    fecha_programada DATETIME2 NULL,
-    fecha_finalizado DATETIME2 NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_mantenimientos PRIMARY KEY (id),
-    CONSTRAINT FK_mantenimientos_equipos FOREIGN KEY (equipo_id) REFERENCES dbo.equipos(id)
-);
+CREATE TABLE [puntos_venta] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [nombre] varchar(200) NOT NULL,
+    [tipo] varchar(30) NULL DEFAULT ('drogueria'),
+    [ciudad] varchar(150) NULL,
+    [direccion] varchar(300) NULL,
+    [telefono] varchar(50) NULL,
+    [responsable] varchar(150) NULL,
+    [estado] varchar(20) NULL DEFAULT ('activo'),
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_puntos_venta] PRIMARY KEY ([id])
+)
+
 GO
 
--- Actas de salida/entrada: encabezado (actas) + detalle de dispositivos (acta_items)
-CREATE TABLE dbo.actas (
-    id INT IDENTITY(1,1) NOT NULL,
-    numero NVARCHAR(30) NOT NULL,
-    tipo NVARCHAR(10) NULL DEFAULT 'SALIDA',
-    entregado_por NVARCHAR(150) NOT NULL,
-    proyecto NVARCHAR(200) NULL,
-    responsable_destino NVARCHAR(150) NULL,
-    ciudad_destino NVARCHAR(100) NULL,
-    direccion_destino NVARCHAR(200) NULL,
-    observaciones NVARCHAR(MAX) NULL,
-    valor_aprox DECIMAL(14,2) NULL,
-    cajas INT NULL DEFAULT 1,
-    pdf_path NVARCHAR(300) NULL,
-    created_at DATETIME2 NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_actas PRIMARY KEY (id),
-    CONSTRAINT UQ_actas_numero UNIQUE (numero)
-);
+CREATE TABLE [tickets_soporte] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [empresa_id] int NULL,
+    [equipo_id] int NULL,
+    [ubicacion_id] int NULL,
+    [titulo] varchar(150) NOT NULL,
+    [descripcion] varchar(max) NULL,
+    [prioridad] varchar(20) NULL DEFAULT ('media'),
+    [estado] varchar(20) NULL DEFAULT ('abierto'),
+    [tecnico] varchar(150) NULL,
+    [fecha_visita] datetimeoffset NULL,
+    [fecha_resolucion] datetimeoffset NULL,
+    [creado_por] varchar(150) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    CONSTRAINT [PK_tickets_soporte] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE TABLE dbo.acta_items (
-    id INT IDENTITY(1,1) NOT NULL,
-    acta_id INT NOT NULL,
-    equipo_id INT NULL,
-    dispositivo NVARCHAR(100) NOT NULL,
-    marca NVARCHAR(100) NULL,
-    detalle NVARCHAR(150) NULL,
-    cantidad INT NULL DEFAULT 1,
-    serial NVARCHAR(100) NULL,
-    CONSTRAINT PK_acta_items PRIMARY KEY (id),
-    CONSTRAINT FK_acta_items_actas FOREIGN KEY (acta_id) REFERENCES dbo.actas(id) ON DELETE CASCADE,
-    CONSTRAINT FK_acta_items_equipos FOREIGN KEY (equipo_id) REFERENCES dbo.equipos(id)
-);
+CREATE TABLE [ubicaciones] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [nombre] varchar(100) NOT NULL,
+    [ciudad] varchar(100) NULL,
+    [direccion] varchar(255) NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [empresa_id] int NULL,
+    CONSTRAINT [PK_ubicaciones] PRIMARY KEY ([id])
+)
+
 GO
 
-CREATE INDEX IX_acta_items_acta_id ON dbo.acta_items(acta_id);
+CREATE TABLE [usuarios] (
+[id] int IDENTITY(1,1) NOT NULL,
+    [nombre] varchar(150) NOT NULL,
+    [correo] varchar(150) NOT NULL,
+    [password] varchar(255) NULL,
+    [rol] varchar(30) NULL,
+    [activo] bit NULL,
+    [created_at] datetimeoffset NULL DEFAULT (getdate()),
+    [empresa_id] int NULL,
+    CONSTRAINT [PK_usuarios] PRIMARY KEY ([id])
+)
+
 GO
 
-SELECT 'Base creada y tablas listas' AS status;
+ALTER TABLE [acta_items] ADD CONSTRAINT [FK__acta_item__acta___5EBF139D] FOREIGN KEY ([acta_id]) REFERENCES [actas] ([id]);
+GO
+
+ALTER TABLE [acta_items] ADD CONSTRAINT [FK__acta_item__equip__5FB337D6] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [acta_items] ADD CONSTRAINT [fk_acta_items_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [actas] ADD CONSTRAINT [fk_actas_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [adjuntos_equipos] ADD CONSTRAINT [fk_adjuntos_equipo] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [adjuntos_equipos] ADD CONSTRAINT [fk_adjuntos_ticket] FOREIGN KEY ([ticket_id]) REFERENCES [tickets_soporte] ([id]);
+GO
+
+ALTER TABLE [atenciones_punto] ADD CONSTRAINT [fk_atenc_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [atenciones_punto] ADD CONSTRAINT [fk_atenc_punto] FOREIGN KEY ([punto_id]) REFERENCES [puntos_venta] ([id]);
+GO
+
+ALTER TABLE [atenciones_punto] ADD CONSTRAINT [fk_atenc_ticket] FOREIGN KEY ([ticket_id]) REFERENCES [tickets_soporte] ([id]);
+GO
+
+ALTER TABLE [audit_logs] ADD CONSTRAINT [fk_audit_logs_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [audit_logs] ADD CONSTRAINT [fk_audit_logs_usuario] FOREIGN KEY ([user_id]) REFERENCES [usuarios] ([id]);
+GO
+
+ALTER TABLE [categorias] ADD CONSTRAINT [fk_categorias_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [equipos] ADD CONSTRAINT [FK__equipos__categor__5AEE82B9] FOREIGN KEY ([categoria_id]) REFERENCES [categorias] ([id]);
+GO
+
+ALTER TABLE [equipos] ADD CONSTRAINT [FK__equipos__ubicaci__5BE2A6F2] FOREIGN KEY ([ubicacion_id]) REFERENCES [ubicaciones] ([id]);
+GO
+
+ALTER TABLE [equipos] ADD CONSTRAINT [fk_equipos_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [instalaciones] ADD CONSTRAINT [fk_inst_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [instalaciones] ADD CONSTRAINT [fk_inst_equipo] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [instalaciones] ADD CONSTRAINT [fk_inst_punto] FOREIGN KEY ([punto_id]) REFERENCES [puntos_venta] ([id]);
+GO
+
+ALTER TABLE [mantenimientos] ADD CONSTRAINT [FK__mantenimi__equip__6383C8BA] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [mantenimientos] ADD CONSTRAINT [fk_mant_punto] FOREIGN KEY ([punto_id]) REFERENCES [puntos_venta] ([id]);
+GO
+
+ALTER TABLE [mantenimientos] ADD CONSTRAINT [fk_mantenimientos_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [movimientos] ADD CONSTRAINT [FK__movimient__equip__6754599E] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [movimientos] ADD CONSTRAINT [fk_movimientos_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [puntos_venta] ADD CONSTRAINT [fk_puntos_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [tickets_soporte] ADD CONSTRAINT [fk_tickets_equipo] FOREIGN KEY ([equipo_id]) REFERENCES [equipos] ([id]);
+GO
+
+ALTER TABLE [tickets_soporte] ADD CONSTRAINT [fk_tickets_ubicacion] FOREIGN KEY ([ubicacion_id]) REFERENCES [ubicaciones] ([id]);
+GO
+
+ALTER TABLE [ubicaciones] ADD CONSTRAINT [fk_ubicaciones_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
+GO
+
+ALTER TABLE [usuarios] ADD CONSTRAINT [fk_usuarios_empresa] FOREIGN KEY ([empresa_id]) REFERENCES [empresas] ([id]);
 GO

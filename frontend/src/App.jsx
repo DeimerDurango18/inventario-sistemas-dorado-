@@ -16,6 +16,8 @@ const navItems = [
   { id: 'entradas', label: 'Entradas', icon: 'download' },
   { id: 'salidas', label: 'Salidas', icon: 'upload' },
   { id: 'mantenimiento', label: 'Mantenimiento', icon: 'wrench' },
+  { id: 'puntos', label: 'Puntos', icon: 'building' },
+  { id: 'soporte', label: 'Soporte', icon: 'support' },
   { id: 'usuarios', label: 'Usuarios', icon: 'user' },
   { id: 'reportes', label: 'Reportes', icon: 'chart' },
   { id: 'configuracion', label: 'Configuración', icon: 'settings' },
@@ -30,30 +32,6 @@ const initialStats = {
   },
   mes: 'Sin datos',
 }
-
-const actaItems = [
-  {
-    item: 'Computadora Dell OptiPlex 7090',
-    marca: 'Dell',
-    modelo: 'OptiPlex 7090',
-    serie: 'SN-12045',
-    estado: 'Nuevo',
-  },
-  {
-    item: 'Monitor Samsung 24"',
-    marca: 'Samsung',
-    modelo: 'S24F350',
-    serie: 'SM-9872',
-    estado: 'Usado',
-  },
-  {
-    item: 'Teclado Logitech K380',
-    marca: 'Logitech',
-    modelo: 'K380',
-    serie: 'LG-4456',
-    estado: 'Nuevo',
-  },
-]
 
 function parseImportCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
@@ -192,6 +170,11 @@ function Icon({ name }) {
         <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
       </svg>
     ),
+    support: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-9-9 7 7 0 0 1 7 7v2.5a2.5 2.5 0 0 1-5 0V12h2v1.5a1 1 0 0 0 2 0V10a5.5 5.5 0 0 0-11 0v5a2.5 2.5 0 0 1-2.5 2.5H4a9 9 0 0 0 17-5.5M12 9a2 2 0 0 0-2 2h4a2 2 0 0 0-2-2z" />
+      </svg>
+    ),
   }
 
   return <span className="nav-icon">{icons[name] || icons.grid}</span>
@@ -261,12 +244,15 @@ function App() {
   const [mantenimientoForm, setMantenimientoForm] = useState({
     equipo_id: '',
     equipo_folio: '',
+    punto_id: '',
+    punto_nombre: '',
     tipo: 'preventivo',
     descripcion: '',
     tecnico: '',
     costo: '',
     fecha_programada: '',
     piezas: '',
+    periodicidad: 'mensual',
   })
 
   // Alertas de mantenimiento por vencer
@@ -305,6 +291,55 @@ function App() {
   const [selectedActa, setSelectedActa] = useState(null)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  // Estados para Soporte (tickets internos)
+  const [tickets, setTickets] = useState([])
+  const [ticketForm, setTicketForm] = useState({
+    titulo: '',
+    descripcion: '',
+    prioridad: 'media',
+    estado: 'abierto',
+    tecnico: currentUser?.nombre || '',
+    equipo_id: '',
+    ubicacion_id: '',
+  })
+  const [ticketModalOpen, setTicketModalOpen] = useState(false)
+  const [ticketSeleccionado, setTicketSeleccionado] = useState(null)
+  const [ticketAdjuntos, setTicketAdjuntos] = useState([])
+  const [ticketFilterEstado, setTicketFilterEstado] = useState('todos')
+  const [firmaActaForm, setFirmaActaForm] = useState({ nombre: '', documento: '' })
+  const [firmaModalOpen, setFirmaModalOpen] = useState(false)
+  const [firmaAplicando, setFirmaAplicando] = useState(false)
+
+  // Estados para Puntos de Venta / Instalaciones
+  const [puntos, setPuntos] = useState([])
+  const [puntoForm, setPuntoForm] = useState({
+    nombre: '',
+    tipo: 'drogueria',
+    ciudad: '',
+    direccion: '',
+    telefono: '',
+    responsable: '',
+    estado: 'activo',
+  })
+  const [puntoModalOpen, setPuntoModalOpen] = useState(false)
+  const [puntoSeleccionado, setPuntoSeleccionado] = useState(null)
+  const [puntoModalMode, setPuntoModalMode] = useState('crear') // crear | detalle
+  const [puntoInstalacionForm, setPuntoInstalacionForm] = useState({
+    tipo: 'instalar',
+    equipo_id: '',
+    software: '',
+    observaciones: '',
+  })
+  const [puntoAtencionForm, setPuntoAtencionForm] = useState({
+    tipo: 'soporte',
+    descripcion: '',
+    tecnico: '',
+    resultado: '',
+  })
+  const [adjuntosEquipo, setAdjuntosEquipo] = useState([])
+  const [adjuntosUploading, setAdjuntosUploading] = useState(false)
+  const adjuntosInputRef = useRef(null)
 
   // Filtros para el Módulo de Stock
   const [stockFilterOnlyAvailable, setStockFilterOnlyAvailable] = useState(false)
@@ -555,6 +590,13 @@ function App() {
       .catch(() => {})
   }
 
+  const loadPuntos = () => {
+    api('/api/puntos')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setPuntos(data) })
+      .catch(() => {})
+  }
+
   const loadNotificaciones = () => {
     api('/api/notificaciones')
       .then((res) => res.json())
@@ -600,6 +642,7 @@ function App() {
     } catch {
       setEquipmentHistory([])
     }
+    abrirAdjuntosEquipo(equipo.id)
   }
 
   const handleBajaPrestamoSubmit = async () => {
@@ -715,6 +758,8 @@ function App() {
     loadUsuarios()
     loadMantenimientos()
     loadNotificaciones()
+    loadTickets()
+    loadPuntos()
   }, [token])
 
   const loadEquipos = () => {
@@ -736,6 +781,423 @@ function App() {
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch(() => setStats(initialStats))
+  }
+
+  const loadTickets = () => {
+    api('/api/soporte')
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setTickets(data) })
+      .catch(() => {})
+  }
+
+  const downloadViaApi = async (path) => {
+    try {
+      const res = await api(path)
+      if (!res.ok) {
+        showToast('Error al generar el archivo')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disp = res.headers.get('Content-Disposition') || ''
+      const m = disp.match(/filename="?([^";]+)"?/i)
+      a.download = m ? m[1] : 'descarga'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const openViaApi = async (path) => {
+    try {
+      const res = await api(path)
+      if (!res.ok) {
+        showToast('No se pudo generar el documento')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      showToast('Abriendo documento (PDF)')
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleTicketCrear = async (e) => {
+    e.preventDefault()
+    if (!ticketForm.titulo) {
+      showToast('Escribe el título del ticket')
+      return
+    }
+    try {
+      const res = await api('/api/soporte', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: ticketForm.titulo,
+          descripcion: ticketForm.descripcion || '',
+          prioridad: ticketForm.prioridad,
+          estado: ticketForm.estado,
+          tecnico: ticketForm.tecnico || null,
+          equipo_id: ticketForm.equipo_id ? Number(ticketForm.equipo_id) : null,
+          ubicacion_id: ticketForm.ubicacion_id ? Number(ticketForm.ubicacion_id) : null,
+        }),
+      })
+      if (res.ok) {
+        showToast('Ticket de soporte creado')
+        setTicketForm((f) => ({ ...f, titulo: '', descripcion: '' }))
+        setTicketModalOpen(false)
+        loadTickets()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo crear el ticket')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleTicketEstado = async (ticket, nuevoEstado) => {
+    try {
+      const res = await api(`/api/soporte/${ticket.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      })
+      if (res.ok) {
+        const upd = await res.json()
+        setTickets((curr) => curr.map((t) => (t.id === upd.id ? upd : t)))
+        if (ticketSeleccionado && ticketSeleccionado.id === upd.id) {
+          setTicketSeleccionado(upd)
+        }
+        showToast(`Ticket actualizado a ${nuevoEstado}`)
+        loadNotificaciones()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'Error al actualizar el ticket')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleTicketEliminar = async (ticket) => {
+    if (!window.confirm(`¿Eliminar el ticket "${ticket.titulo}"?`)) return
+    try {
+      const res = await api(`/api/soporte/${ticket.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Ticket eliminado')
+        setTickets((curr) => curr.filter((t) => t.id !== ticket.id))
+        loadNotificaciones()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo eliminar')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const abrirTicketDetalle = async (ticket) => {
+    setTicketSeleccionado(ticket)
+    setTicketModalOpen(true)
+    setTicketAdjuntos([])
+    try {
+      const res = await api(`/api/adjuntos?tipo=ticket&ref_id=${ticket.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTicketAdjuntos(Array.isArray(data) ? data : [])
+      }
+    } catch { /* sin adjuntos */ }
+  }
+
+  const handlePuntoSubmit = async (event) => {
+    event.preventDefault()
+    if (!puntoForm.nombre.trim()) {
+      showToast('Indica el nombre del punto')
+      return
+    }
+    try {
+      const editId = puntoSeleccionado && puntoModalMode === 'editar' ? puntoSeleccionado.id : null
+      const res = editId
+        ? await api(`/api/puntos/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(puntoForm),
+          })
+        : await api('/api/puntos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(puntoForm),
+          })
+      if (res.ok) {
+        showToast(editId ? 'Punto actualizado' : 'Punto de venta creado')
+        setPuntoModalOpen(false)
+        setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefono: '', responsable: '', estado: 'activo' })
+        setPuntoSeleccionado(null)
+        setPuntoModalMode('crear')
+        loadPuntos()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo guardar el punto')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const abrirPuntoDetalle = async (punto) => {
+    try {
+      const res = await api(`/api/puntos/${punto.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPuntoSeleccionado(data)
+        setPuntoModalMode('detalle')
+        setPuntoModalOpen(true)
+        setPuntoInstalacionForm({ tipo: 'instalar', equipo_id: '', software: '', observaciones: '' })
+        setPuntoAtencionForm({ tipo: 'soporte', descripcion: '', tecnico: currentUser?.nombre || '', resultado: '' })
+      } else {
+        showToast('No se pudo abrir el detalle del punto')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const abrirPuntoCrear = () => {
+    setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefono: '', responsable: '', estado: 'activo' })
+    setPuntoSeleccionado(null)
+    setPuntoModalMode('crear')
+    setPuntoModalOpen(true)
+  }
+
+  const abrirPuntoEditar = (punto) => {
+    setPuntoForm({
+      nombre: punto.nombre || '',
+      tipo: punto.tipo || 'drogueria',
+      ciudad: punto.ciudad || '',
+      direccion: punto.direccion || '',
+      telefono: punto.telefono || '',
+      responsable: punto.responsable || '',
+      estado: punto.estado || 'activo',
+    })
+    setPuntoSeleccionado(punto)
+    setPuntoModalMode('editar')
+    setPuntoModalOpen(true)
+  }
+
+  const handlePuntoEliminar = async (punto) => {
+    if (!window.confirm(`¿Eliminar el punto "${punto.nombre}" junto a sus instalaciones y atenciones?`)) return
+    try {
+      const res = await api(`/api/puntos/${punto.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Punto eliminado')
+        loadPuntos()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo eliminar el punto')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handlePuntoInstalacionSubmit = async (event) => {
+    event.preventDefault()
+    const puntoId = puntoSeleccionado && puntoSeleccionado.id
+    if (!puntoId || !puntoInstalacionForm.equipo_id) {
+      showToast('Selecciona el equipo a instalar o retirar')
+      return
+    }
+    try {
+      if (puntoInstalacionForm.tipo === 'retirar') {
+        const activas = (puntoSeleccionado.instalaciones || []).filter((i) => i.estado === 'activa' && String(i.equipo_id) === String(puntoInstalacionForm.equipo_id))
+        const target = activas[0]
+        if (!target) {
+          showToast('Ese equipo no tiene instalación activa en el punto')
+          return
+        }
+        const res = await api(`/api/puntos/instalaciones/${target.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: 'retirada' }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          showToast(err.detail || 'No se pudo retirar el equipo')
+          return
+        }
+        showToast('Equipo retirado del punto')
+      } else {
+        const res = await api(`/api/puntos/${puntoId}/instalaciones`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            punto_id: puntoId,
+            equipo_id: puntoInstalacionForm.equipo_id,
+            software: puntoInstalacionForm.software || null,
+            observaciones: puntoInstalacionForm.observaciones || null,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          showToast(err.detail || 'No se pudo instalar el equipo')
+          return
+        }
+        showToast('Equipo instalado en el punto')
+      }
+      setPuntoInstalacionForm({ tipo: 'instalar', equipo_id: '', software: '', observaciones: '' })
+      const resDetalle = await api(`/api/puntos/${puntoId}`)
+      if (resDetalle.ok) setPuntoSeleccionado(await resDetalle.json())
+      loadPuntos()
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handlePuntoAtencionSubmit = async (event) => {
+    event.preventDefault()
+    const puntoId = puntoSeleccionado && puntoSeleccionado.id
+    if (!puntoId || !puntoAtencionForm.descripcion.trim()) {
+      showToast('Describe la atención realizada')
+      return
+    }
+    try {
+      const res = await api(`/api/puntos/${puntoId}/atenciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          punto_id: puntoId,
+          tipo: puntoAtencionForm.tipo,
+          descripcion: puntoAtencionForm.descripcion,
+          tecnico: puntoAtencionForm.tecnico || currentUser?.nombre || null,
+          resultado: puntoAtencionForm.resultado || null,
+        }),
+      })
+      if (res.ok) {
+        showToast('Atención registrada')
+        setPuntoAtencionForm({ tipo: 'soporte', descripcion: '', tecnico: currentUser?.nombre || '', resultado: '' })
+        const resDetalle = await api(`/api/puntos/${puntoId}`)
+        if (resDetalle.ok) setPuntoSeleccionado(await resDetalle.json())
+        loadPuntos()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo registrar la atención')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const abrirAdjuntosEquipo = async (equipoId) => {
+    setAdjuntosEquipo([])
+    try {
+      const res = await api(`/api/adjuntos?tipo=equipo&ref_id=${equipoId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAdjuntosEquipo(Array.isArray(data) ? data : [])
+      }
+    } catch { /* sin adjuntos */ }
+  }
+
+  const subirAdjuntoEquipo = async (evt, equipoId) => {
+    const file = evt.target.files && evt.target.files[0]
+    evt.target.value = ''
+    if (!file || !equipoId) return
+    setAdjuntosUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('tipo', 'equipo')
+    fd.append('equipo_id', String(equipoId))
+    try {
+      const res = await api('/api/adjuntos', { method: 'POST', body: fd })
+      if (res.ok) {
+        showToast('Adjunto subido')
+        abrirAdjuntosEquipo(equipoId)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo subir el adjunto')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    } finally {
+      setAdjuntosUploading(false)
+    }
+  }
+
+  const borrarAdjunto = async (adjunto, recolector) => {
+    if (!window.confirm('¿Eliminar este adjunto?')) return
+    try {
+      const res = await api(`/api/adjuntos/${adjunto.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Adjunto eliminado')
+        recolector()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo eliminar')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleFirmarActa = async (e) => {
+    e.preventDefault()
+    if (!firmaActaForm.nombre || !firmaActaForm.documento) {
+      showToast('Nombre y documento son obligatorios')
+      return
+    }
+    if (!selectedActa) return
+    setFirmaAplicando(true)
+    try {
+      const res = await api(`/api/reports/actas/${selectedActa.id}/firmar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: firmaActaForm.nombre, documento: firmaActaForm.documento }),
+      })
+      if (res.ok) {
+        const acta = await res.json()
+        setSelectedActa((prev) => ({ ...prev, ...acta }))
+        setFirmaModalOpen(false)
+        setFirmaActaForm({ nombre: '', documento: '' })
+        loadActas()
+        showToast('Acta firmada y PDF regenerado')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo firmar el acta')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    } finally {
+      setFirmaAplicando(false)
+    }
+  }
+
+  const handleDescargarEtiquetas = (ids = null) => {
+    const qs = ids && ids.length ? `?ids=${ids.join(',')}` : ''
+    downloadViaApi(`/api/inventory/equipos/etiquetas/pdf${qs}`)
+  }
+
+  const handleEnviarCorreo = async () => {
+    try {
+      const res = await api('/api/notificaciones/correo', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showToast(data.detalle || 'Correo enviado correctamente')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo enviar el correo')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
   }
 
 
@@ -872,7 +1334,7 @@ function App() {
   }
 
   const handleOpenActaPDF = (actaId) => {
-    window.open(`${API_BASE}/api/reports/actas/${actaId}/pdf`, '_blank', 'noopener,noreferrer')
+    openViaApi(`/api/reports/actas/${actaId}/pdf`)
     showToast('Abriendo PDF oficial del acta')
   }
 
@@ -880,7 +1342,7 @@ function App() {
     if (actas && actas.length > 0) {
       handleOpenActaById(actas[0])
     } else {
-      window.open(`${API_BASE}/api/reports/acta/latest`, '_blank', 'noopener,noreferrer')
+      openViaApi('/api/reports/acta/latest')
     }
     showToast('Cargando acta oficial')
   }
@@ -1382,18 +1844,20 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           equipo_id: mantenimientoForm.equipo_id,
+          punto_id: mantenimientoForm.punto_id || null,
           tipo: mantenimientoForm.tipo,
           descripcion: mantenimientoForm.descripcion,
           tecnico: mantenimientoForm.tecnico,
           costo: mantenimientoForm.costo ? parseFloat(mantenimientoForm.costo) : null,
           fecha_programada: mantenimientoForm.fecha_programada || null,
           piezas: mantenimientoForm.piezas || null,
+          periodicidad: mantenimientoForm.periodicidad || null,
           estado: 'programado',
         }),
       })
       if (res.ok) {
         showToast('Mantenimiento programado')
-        setMantenimientoForm({ equipo_id: '', equipo_folio: '', tipo: 'preventivo', descripcion: '', tecnico: '', costo: '', fecha_programada: '', piezas: '' })
+        setMantenimientoForm({ equipo_id: '', equipo_folio: '', punto_id: '', punto_nombre: '', tipo: 'preventivo', descripcion: '', tecnico: '', costo: '', fecha_programada: '', piezas: '', periodicidad: 'mensual' })
         loadMantenimientos()
       } else {
         const err = await res.json().catch(() => ({}))
@@ -1540,50 +2004,42 @@ function App() {
   }
 
   const handleExportCSV = () => {
-    const url = `${API_BASE}/api/reports/exportar/equipos?formato=csv`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/equipos?formato=csv')
     showToast('Exportando equipos a CSV')
   }
 
   const handleExportXLSX = () => {
-    const url = `${API_BASE}/api/reports/exportar/equipos?formato=xlsx`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/equipos?formato=xlsx')
     showToast('Exportando equipos a Excel')
   }
 
   const handleExportActasCSV = () => {
-    const url = `${API_BASE}/api/reports/exportar/actas?formato=csv`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/actas?formato=csv')
     showToast('Exportando actas a CSV')
   }
 
   const handleExportActasXLSX = () => {
-    const url = `${API_BASE}/api/reports/exportar/actas?formato=xlsx`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/actas?formato=xlsx')
     showToast('Exportando actas a Excel')
   }
 
   const handleExportMantenimientosCSV = () => {
-    const url = `${API_BASE}/api/reports/exportar/mantenimientos?formato=csv`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/mantenimientos?formato=csv')
     showToast('Exportando mantenimientos a CSV')
   }
 
   const handleExportMantenimientosXLSX = () => {
-    const url = `${API_BASE}/api/reports/exportar/mantenimientos?formato=xlsx`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    downloadViaApi('/api/reports/exportar/mantenimientos?formato=xlsx')
     showToast('Exportando mantenimientos a Excel')
   }
 
   const handleExportPDFInventarioUbicacion = () => {
-    const url = `${API_BASE}/api/reports/pdf/inventario-por-ubicacion`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    openViaApi('/api/reports/pdf/inventario-por-ubicacion')
     showToast('Generando PDF: inventario por ubicación')
   }
 
   const handleExportPDFResumenMantenimientos = () => {
-    const url = `${API_BASE}/api/reports/pdf/resumen-mantenimientos`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    openViaApi('/api/reports/pdf/resumen-mantenimientos')
     showToast('Generando PDF: resumen de mantenimientos')
   }
 
@@ -2407,6 +2863,9 @@ function App() {
                       style={{ display: 'none' }}
                       onChange={handleImportFileChange}
                     />
+                    <button type="button" className="btn-quick-status" onClick={() => handleDescargarEtiquetas()}>
+                      🖨 Etiquetas QR (PDF)
+                    </button>
                   </>
                 )}
                 <button type="button" className="link-button" onClick={() => setActiveSection('dashboard')}>
@@ -2972,6 +3431,18 @@ function App() {
                 />
               </label>
               <label>
+                <span>Periodicidad del programa</span>
+                <select
+                  value={mantenimientoForm.periodicidad}
+                  onChange={(event) => setMantenimientoForm({ ...mantenimientoForm, periodicidad: event.target.value })}
+                >
+                  <option value="mensual">Mensual (30 días)</option>
+                  <option value="trimestral">Trimestral (90 días)</option>
+                  <option value="semestral">Semestral (180 días)</option>
+                  <option value="anual">Anual (365 días)</option>
+                </select>
+              </label>
+              <label>
                 <span>Descripción</span>
                 <input
                   value={mantenimientoForm.descripcion}
@@ -3003,6 +3474,7 @@ function App() {
                   <tr>
                     <th>Equipo</th>
                     <th>Tipo</th>
+                    <th>Periódico</th>
                     <th>Técnico</th>
                     <th>Descripción</th>
                     <th>Estado</th>
@@ -3016,6 +3488,7 @@ function App() {
                       <tr key={item.id}>
                         <td data-label="Equipo">{item.equipo_folio}</td>
                         <td data-label="Tipo" style={{ textTransform: 'capitalize' }}>{item.tipo}</td>
+                        <td data-label="Periódico" style={{ textTransform: 'capitalize' }}>{item.periodicidad || '—'}</td>
                         <td data-label="Técnico">{item.tecnico || '—'}</td>
                         <td data-label="Descripción">{item.descripcion || '—'}</td>
                         <td data-label="Estado">
@@ -3146,6 +3619,136 @@ function App() {
                   )}
                 </span>
               ))}
+            </div>
+          </article>
+        </section>
+      )
+    }
+
+    if (activeSection === 'soporte') {
+      const filtroTickets = ticketFilterEstado === 'todos'
+        ? tickets
+        : tickets.filter((t) => t.estado === ticketFilterEstado)
+      const estadosSiguientes = { abierto: 'en_visita', en_visita: 'resuelto', resuelto: 'cerrado' }
+      const colorEstado = { abierto: 'var(--warning)', en_visita: 'var(--primary)', resuelto: 'var(--success)', cerrado: 'var(--text-soft)' }
+      const colorPrioridad = { alta: 'var(--danger)', media: 'var(--warning)', baja: 'var(--success)' }
+      const pendientesSoporte = tickets.filter((t) => t.estado !== 'cerrado').length
+      return (
+        <section className="section-grid">
+          <div className="mini-grid" style={{ gridColumn: '1 / -1', marginBottom: '4px' }}>
+            <div className="action-card highlight">
+              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>🎫 Tickets abiertos</span>
+              <strong style={{ fontSize: '2rem' }}>{pendientesSoporte}</strong>
+              <small>Soporte interno del área de sistemas</small>
+            </div>
+            <div className="action-card">
+              <span>En visita</span>
+              <strong style={{ fontSize: '2rem', color: 'var(--primary)' }}>{tickets.filter((t) => t.estado === 'en_visita').length}</strong>
+              <small>Técnicos asignados en sitio</small>
+            </div>
+            <div className="action-card">
+              <span>Resueltos (mes)</span>
+              <strong style={{ fontSize: '2rem', color: 'var(--success)' }}>{tickets.filter((t) => t.estado === 'resuelto' || t.estado === 'cerrado').length}</strong>
+              <small>Cerrados en el sistema</small>
+            </div>
+          </div>
+
+          <article className="panel wide-panel">
+            <div className="panel-header">
+              <h2>Mesa de ayuda — Tickets internos</h2>
+              <div className="header-actions">
+                <select
+                  className="filter-select"
+                  style={{ maxWidth: '170px' }}
+                  value={ticketFilterEstado}
+                  onChange={(e) => setTicketFilterEstado(e.target.value)}
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="abierto">Abiertos</option>
+                  <option value="en_visita">En visita</option>
+                  <option value="resuelto">Resueltos</option>
+                  <option value="cerrado">Cerrados</option>
+                </select>
+                {canModify && (
+                  <button type="button" className="btn-primary small" onClick={() => setTicketModalOpen(true)}>
+                    + Nuevo ticket
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Título</th>
+                    <th>Equipo</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
+                    <th>Técnico</th>
+                    <th>Creado</th>
+                    {canModify && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtroTickets.length ? (
+                    filtroTickets.map((tk) => (
+                      <tr key={tk.id}>
+                        <td data-label="#"><code className="badge-numero">#{tk.id}</code></td>
+                        <td data-label="Título">
+                          <strong>{tk.titulo}</strong>
+                          {tk.descripcion && (
+                            <small className="block text-soft" style={{ display: 'block', fontSize: '0.75rem' }}>
+                              {tk.descripcion.slice(0, 60)}{tk.descripcion.length > 60 ? '…' : ''}
+                            </small>
+                          )}
+                        </td>
+                        <td data-label="Equipo">{tk.equipo_folio || '—'}</td>
+                        <td data-label="Prioridad">
+                          <span className="ticket-pill" style={{ color: colorPrioridad[tk.prioridad] || 'var(--text-soft)', background: 'transparent' }}>
+                            {tk.prioridad}
+                          </span>
+                        </td>
+                        <td data-label="Estado">
+                          <span className={`ticket-pill ticket-pill-${tk.estado}`} style={{ color: colorEstado[tk.estado], background: 'transparent' }}>
+                            {tk.estado === 'en_visita' ? 'en visita' : tk.estado}
+                          </span>
+                        </td>
+                        <td data-label="Técnico">{tk.tecnico || 'Sin asignar'}</td>
+                        <td data-label="Creado">
+                          {tk.created_at ? new Date(tk.created_at).toLocaleDateString('es-CO') : '—'}
+                        </td>
+                        {canModify && (
+                          <td data-label="Acciones">
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <button type="button" className="link-button small" onClick={() => abrirTicketDetalle(tk)}>
+                                Ver
+                              </button>
+                              {estadosSiguientes[tk.estado] && (
+                                <button type="button" className="link-button small" style={{ color: 'var(--accent)' }} onClick={() => handleTicketEstado(tk, estadosSiguientes[tk.estado])}>
+                                  → {estadosSiguientes[tk.estado]}
+                                </button>
+                              )}
+                              {canAdmin && (
+                                <button type="button" className="link-button small" style={{ color: 'var(--danger)' }} onClick={() => handleTicketEliminar(tk)}>
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-soft)' }}>
+                        Sin tickets. Crea uno desde «+ Nuevo ticket» o escanea el QR de un equipo en falla.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </article>
         </section>
@@ -3454,7 +4057,14 @@ function App() {
 
             <div className="mini-grid">
               <div className="action-card highlight">
-                <strong>96%</strong>
+                <strong>
+                  {(() => {
+                    const t = stats.totales || {}
+                    const total = (t.disponibles || 0) + (t.asignados || 0) + (t.reparacion || 0) + (t.baja || 0) + (t.prestamo || 0)
+                    if (!total) return '—'
+                    return `${Math.round(((t.disponibles || 0) / total) * 100)}%`
+                  })()}
+                </strong>
                 <span>Disponibilidad general</span>
               </div>
               <div className="action-card">
@@ -3463,6 +4073,7 @@ function App() {
               </div>
             </div>
 
+            {actas.length > 0 ? (
             <div className="acta-card">
               <div className="acta-header">
                 <div className="acta-brand">
@@ -3475,12 +4086,12 @@ function App() {
                   </div>
                 </div>
                 <div className="acta-meta">
-                  <span>ACTA No. {actas[0]?.numero || '001'}</span>
+                  <span>ACTA No. {actas[0]?.numero || '—'}</span>
                   <span>
                     Fecha:{' '}
                     {actas[0]?.created_at
                       ? new Date(actas[0].created_at).toLocaleDateString('es-CO')
-                      : '01/09/2026'}
+                      : '—'}
                   </span>
                 </div>
               </div>
@@ -3492,19 +4103,19 @@ function App() {
               <div className="acta-info-grid">
                 <div>
                   <span>Responsable</span>
-                  <strong>{actas[0]?.entregado_por || 'Ing. Enrique Escorcia'}</strong>
+                  <strong>{actas[0]?.entregado_por || '—'}</strong>
                 </div>
                 <div>
                   <span>Área / ubicación</span>
-                  <strong>{actas[0]?.ciudad_destino || 'Oficina Central'}</strong>
+                  <strong>{actas[0]?.ciudad_destino || '—'}</strong>
                 </div>
                 <div>
                   <span>Tipo de movimiento</span>
-                  <strong>{actas[0]?.tipo || 'SALIDA'}</strong>
+                  <strong>{actas[0]?.tipo || '—'}</strong>
                 </div>
                 <div>
                   <span>Estado</span>
-                  <strong>En operación</strong>
+                  <strong>{actas[0]?.tipo === 'SALIDA' ? 'Despachado' : 'Registrado'}</strong>
                 </div>
               </div>
 
@@ -3531,15 +4142,11 @@ function App() {
                         </tr>
                       ))
                     ) : (
-                      actaItems.map((item) => (
-                        <tr key={item.serie}>
-                          <td>{item.item}</td>
-                          <td>{item.marca}</td>
-                          <td>{item.modelo}</td>
-                          <td>{item.serie}</td>
-                          <td>{item.estado}</td>
-                        </tr>
-                      ))
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                          Sin ítems registrados
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -3570,6 +4177,11 @@ function App() {
                 </div>
               </div>
             </div>
+            ) : (
+              <div className="empty-state" style={{ padding: '28px', textAlign: 'center', color: 'var(--muted)' }}>
+                <p>No hay actas registradas todavía. Genera una entrada o salida de equipos para verla aquí.</p>
+              </div>
+            )}
           </article>
         </section>
       )
@@ -3768,6 +4380,20 @@ function App() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Notificaciones por correo */}
+            <div style={{ margin: '28px 0' }}>
+              <h3 style={{ margin: '0 0 10px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                📧 Notificaciones por correo
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: '0 0 12px' }}>
+                Envía un resumen automático de garantías, mantenimientos pendientes y actas sin firmar a los
+                responsables configurados. Requiere SMTP configurado en el servidor.
+              </p>
+              <button type="button" className="btn-quick-status" onClick={handleEnviarCorreo}>
+                <Icon name="download" /> Enviar resumen por correo
+              </button>
             </div>
 
             {/* Resumen de parámetros */}
@@ -4322,10 +4948,35 @@ function App() {
                     </div>
                   </div>
                 </div>
+
+                {selectedActa.firmado_por && (
+                  <div className="acta-doc-signed-stamp">
+                    <div className="acta-signed-title">RECIBIDO CONFORME</div>
+                    <div className="acta-signed-line"></div>
+                    <strong>{String(selectedActa.firmado_por).toUpperCase()}</strong>
+                    <small>C.C. / DOC: {selectedActa.documento_firma}</small>
+                    <small>FECHA: {selectedActa.fecha_firma ? new Date(selectedActa.fecha_firma).toLocaleString('es-CO') : '—'}</small>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="modal-footer">
+              {selectedActa.firmado_por && (
+                <span className="ticket-pill" style={{ color: 'var(--success)', background: 'transparent', alignSelf: 'center' }}>
+                  ✓ Firmada por {selectedActa.firmado_por} ({selectedActa.documento_firma})
+                </span>
+              )}
+              {canModify && !selectedActa.firmado_por && (
+                <button
+                  type="button"
+                  className="btn-quick-status"
+                  style={{ color: 'var(--success)' }}
+                  onClick={() => setFirmaModalOpen(true)}
+                >
+                  ✍ Firmar acta (recibido conforme)
+                </button>
+              )}
               <button
                 type="button"
                 className="link-button"
@@ -4341,6 +4992,52 @@ function App() {
                 <Icon name="download" /> Descargar PDF Oficial
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FIRMA DE ACTA (RECIBIDO CONFORME) */}
+      {firmaModalOpen && selectedActa && (
+        <div className="modal-overlay" onClick={() => setFirmaModalOpen(false)}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>✍ Firmar acta {selectedActa.numero}</h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>
+                  Registro de recibido conforme y firma digital de la orden
+                </span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => setFirmaModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleFirmarActa} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <label className="field">
+                <span>Nombre de quien firma (recibe / entrega) *</span>
+                <input
+                  type="text"
+                  value={firmaActaForm.nombre}
+                  onChange={(e) => setFirmaActaForm({ ...firmaActaForm, nombre: e.target.value })}
+                  placeholder="Ej. Carlos Restrepo"
+                />
+              </label>
+              <label className="field">
+                <span>Documento de identidad *</span>
+                <input
+                  type="text"
+                  value={firmaActaForm.documento}
+                  onChange={(e) => setFirmaActaForm({ ...firmaActaForm, documento: e.target.value })}
+                  placeholder="C.C."
+                />
+              </label>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', margin: '6px 0 0' }}>
+                Al confirmar, el PDF oficial del acta se regenerará incluyendo el bloque «RECIBIDO CONFORME».
+              </p>
+              <div className="modal-footer" style={{ borderTop: 'none', padding: '14px 0 0' }}>
+                <button type="button" className="btn-quick-status" onClick={() => setFirmaModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="btn-primary small" disabled={firmaAplicando}>
+                  {firmaAplicando ? 'Firmando…' : 'Confirmar firma'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -4761,6 +5458,52 @@ function App() {
                   </p>
                 )}
               </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '0.95rem' }}>
+                  📎 Adjuntos del equipo ({adjuntosEquipo.length})
+                </h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-start' }}>
+                  {adjuntosEquipo.map((a) => (
+                    <div key={a.id} style={{ textAlign: 'center' }}>
+                      {a.url && /\.(jpg|jpeg|png|webp)$/i.test(a.url) ? (
+                        <img
+                          src={`${API_BASE}${a.url}`}
+                          alt="adjunto"
+                          className="photo-preview-img"
+                          style={{ width: '90px', height: '90px', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <a className="link-button small" href={`${API_BASE}${a.url}`} target="_blank" rel="noreferrer">
+                          {a.url.split('/').pop()}
+                        </a>
+                      )}
+                      {canModify && (
+                        <button type="button" className="link-button small" style={{ color: 'var(--danger)', display: 'block', margin: '4px auto 0' }} onClick={() => borrarAdjunto(a, () => abrirAdjuntosEquipo(selectedEquipmentForDetail.id))}>
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {!adjuntosEquipo.length && (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Sin adjuntos registrados para este equipo.</p>
+                  )}
+                </div>
+                {canModify && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      ref={adjuntosInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,.pdf"
+                      style={{ display: 'none' }}
+                      onChange={(e) => subirAdjuntoEquipo(e, selectedEquipmentForDetail.id)}
+                    />
+                    <button type="button" className="btn-quick-status" disabled={adjuntosUploading} onClick={() => adjuntosInputRef.current && adjuntosInputRef.current.click()}>
+                      {adjuntosUploading ? 'Subiendo…' : '➕ Subir adjunto'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="modal-footer">
@@ -5099,6 +5842,132 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TICKET DE SOPORTE (nuevo / detalle) */}
+      {ticketModalOpen && (
+        <div className="modal-overlay" onClick={() => setTicketModalOpen(false)}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>{ticketSeleccionado ? `Ticket #${ticketSeleccionado.id}` : 'Nuevo ticket de soporte'}</h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>
+                  {ticketSeleccionado ? ticketSeleccionado.titulo : 'Reporte interno del área de sistemas'}
+                </span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => setTicketModalOpen(false)}>✕</button>
+            </div>
+
+            {ticketSeleccionado ? (
+              <div className="modal-body">
+                <div className="detail-info-list">
+                  <div className="detail-field">
+                    <span>Descripción</span>
+                    <strong style={{ fontWeight: 500 }}>{ticketSeleccionado.descripcion || 'Sin descripción.'}</strong>
+                  </div>
+                  <div className="detail-field"><span>Prioridad</span><strong>{ticketSeleccionado.prioridad}</strong></div>
+                  <div className="detail-field"><span>Estado</span><strong>{ticketSeleccionado.estado}</strong></div>
+                  <div className="detail-field"><span>Técnico</span><strong>{ticketSeleccionado.tecnico || 'Sin asignar'}</strong></div>
+                  <div className="detail-field"><span>Equipo</span><strong>{ticketSeleccionado.equipo_folio || '—'}</strong></div>
+                  <div className="detail-field"><span>Ubicación</span><strong>{ticketSeleccionado.ubicacion_nombre || '—'}</strong></div>
+                  <div className="detail-field"><span>Creado</span><strong>{ticketSeleccionado.created_at ? new Date(ticketSeleccionado.created_at).toLocaleString('es-CO') : '—'}</strong></div>
+                  <div className="detail-field">
+                    <span>Inicio de visita</span>
+                    <strong>{ticketSeleccionado.fecha_visita ? new Date(ticketSeleccionado.fecha_visita).toLocaleString('es-CO') : '—'}</strong>
+                  </div>
+                  <div className="detail-field">
+                    <span>Resolución</span>
+                    <strong>{ticketSeleccionado.fecha_resolucion ? new Date(ticketSeleccionado.fecha_resolucion).toLocaleString('es-CO') : '—'}</strong>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
+                  <h4 style={{ margin: '0 0 12px', fontSize: '0.95rem' }}>📎 Adjuntos del ticket ({ticketAdjuntos.length})</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {ticketAdjuntos.map((a) => (
+                      <div key={a.id} style={{ textAlign: 'center' }}>
+                        {a.url && /\.(jpg|jpeg|png|webp)$/i.test(a.url) ? (
+                          <img
+                            src={`${API_BASE}${a.url}`}
+                            alt="adjunto"
+                            className="photo-preview-img"
+                            style={{ width: '90px', height: '90px', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <a className="link-button small" href={`${API_BASE}${a.url}`} target="_blank" rel="noreferrer">
+                            {a.url.split('/').pop()}
+                          </a>
+                        )}
+                        {canModify && (
+                          <button type="button" className="link-button small" style={{ color: 'var(--danger)', display: 'block', margin: '4px auto 0' }} onClick={() => borrarAdjunto(a, () => abrirTicketDetalle(ticketSeleccionado))}>
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {!ticketAdjuntos.length && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>Sin adjuntos.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleTicketCrear} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <label className="field">
+                  <span>Título *</span>
+                  <input type="text" value={ticketForm.titulo} onChange={(e) => setTicketForm({ ...ticketForm, titulo: e.target.value })} placeholder="Ej. PC no enciende en bodega 2" />
+                </label>
+                <label className="field">
+                  <span>Descripción</span>
+                  <textarea rows="3" value={ticketForm.descripcion} onChange={(e) => setTicketForm({ ...ticketForm, descripcion: e.target.value })} placeholder="Detalle del problema reportado..." />
+                </label>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Prioridad</span>
+                    <select value={ticketForm.prioridad} onChange={(e) => setTicketForm({ ...ticketForm, prioridad: e.target.value })}>
+                      <option value="baja">Baja</option>
+                      <option value="media">Media</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Estado inicial</span>
+                    <select value={ticketForm.estado} onChange={(e) => setTicketForm({ ...ticketForm, estado: e.target.value })}>
+                      <option value="abierto">Abierto</option>
+                      <option value="en_visita">En visita</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Técnico asignado</span>
+                    <input type="text" value={ticketForm.tecnico} onChange={(e) => setTicketForm({ ...ticketForm, tecnico: e.target.value })} placeholder="Nombre del técnico" />
+                  </label>
+                  <label className="field">
+                    <span>Equipo relacionado</span>
+                    <select value={ticketForm.equipo_id || ''} onChange={(e) => setTicketForm({ ...ticketForm, equipo_id: e.target.value })}>
+                      <option value="">Sin equipo</option>
+                      {equipos.map((eq) => (
+                        <option key={eq.id} value={eq.id}>{eq.folio} — {eq.marca} {eq.modelo}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Ubicación</span>
+                    <select value={ticketForm.ubicacion_id || ''} onChange={(e) => setTicketForm({ ...ticketForm, ubicacion_id: e.target.value })}>
+                      <option value="">Sin ubicación</option>
+                      {ubicaciones.map((u) => (
+                        <option key={u.id} value={u.id}>{u.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="modal-footer" style={{ borderTop: 'none', padding: '14px 0 0' }}>
+                  <button type="button" className="btn-quick-status" onClick={() => setTicketModalOpen(false)}>Cancelar</button>
+                  <button type="submit" className="btn-primary small">Crear ticket</button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

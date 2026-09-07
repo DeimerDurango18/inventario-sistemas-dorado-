@@ -15,6 +15,7 @@ from app.schemas import BajaEquipoIn, BulkEditEquipos, BulkEquipmentItem, Equipm
 from app.services.qr import generar_qr_png
 from app.services.exports import exportar_xlsx
 from app.services.audit_service import log_change
+from app.services.pdf_etiquetas import generar_etiquetas_pdf
 
 router = APIRouter()
 
@@ -196,6 +197,47 @@ def plantilla_importacion(
         headers={
             "Content-Disposition": 'attachment; filename="plantilla_equipos.xlsx"'
         },
+    )
+
+
+@router.get("/equipos/etiquetas/pdf")
+def etiquetas_qr(
+    ids: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Genera un PDF imprimible con etiquetas QR. ids: '1,2,3'; vacío = todos."""
+    query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+
+    if ids.strip():
+        lista_ids = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        if lista_ids:
+            query = query.filter(Equipment.id.in_(lista_ids))
+
+    equipos = query.order_by(Equipment.id.asc()).all()
+    if not equipos:
+        raise HTTPException(status_code=404, detail="No hay equipos para generar etiquetas")
+
+    filas = [
+        {
+            "folio": e.folio,
+            "marca": e.marca,
+            "modelo": e.modelo,
+            "serie": e.serie,
+            "estado": e.estado,
+            "ubicacion": e.ubicacion_rel.nombre if e.ubicacion_rel else "",
+        }
+        for e in equipos
+    ]
+
+    out = Path(__file__).resolve().parents[3] / "storage" / "etiquetas" / "etiquetas_equipos.pdf"
+    generar_etiquetas_pdf(filas, out)
+    return Response(
+        content=out.read_bytes(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="etiquetas_equipos.pdf"'},
     )
 
 

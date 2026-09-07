@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # TUNEL.ps1 - Levanta el túnel Cloudflare del backend local (8010)
 # Guarda la URL en tunel_url.txt (raíz del proyecto)
 # Uso:  .\scripts\tunel.ps1            (silencioso)

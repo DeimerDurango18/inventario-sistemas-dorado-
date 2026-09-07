@@ -17,13 +17,31 @@ DB_CONFIG = {
     "port": os.getenv("DB_PORT", "1433"),
 }
 
-# SECRET_KEY se usa para firmar los tokens JWT. Auto-generado si no se define,
-# pero se recomienda fijar una estable en .env para que las sesiones persistan.
+# SECRET_KEY se usa para firmar los tokens JWT.
+# En desarrollo (DEBUG=True): si falta o es débil, se genera una aleatoria por arranque.
+# En producción (DEBUG=False): es obligatoria una clave fuerte y se aborta si no la hay.
 import secrets as _secrets
 _env_secret = os.getenv("SECRET_KEY", "").strip()
-if not _env_secret or _env_secret == "change-me-in-production" or len(_env_secret) < 32:
-    # Garantizar mínimo 32 bytes (256 bits) para cumplir con el estándar RFC 7518 de HS256
-    SECRET_KEY = "inventario-equipos-jwt-secret-key-32bytes-secure-2026!"
+_WEAK_SECRETS = {"", "change-me-in-production", "inventario-equipos-jwt-secret-key-32bytes-secure-2026!"}
+
+
+def _is_weak_secret(value: str) -> bool:
+    return value in _WEAK_SECRETS or len(value) < 32
+
+
+if _is_weak_secret(_env_secret):
+    if not DEBUG:
+        raise RuntimeError(
+            "SECRET_KEY débil o ausente en producción. Genera una con: "
+            "python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
+    SECRET_KEY = _secrets.token_urlsafe(64)
+    import warnings as _warnings
+
+    _warnings.warn(
+        "SECRET_KEY automática (sesiones temporales). Define SECRET_KEY en .env para sesiones estables.",
+        RuntimeWarning,
+    )
 else:
     SECRET_KEY = _env_secret
 # Expiración de tokens de acceso (minutos). Por defecto 8 horas (una jornada laboral).
@@ -42,6 +60,20 @@ CORS_ORIGINS = [
 
 # URL base para la verificación de actas mediante QR
 VERIFY_URL = os.getenv("VERIFY_URL", "http://localhost:8010")
+
+# Servidor SMTP para notificaciones por correo hacia el área de sistemas.
+# Dejar SMTP_HOST vacío deshabilita el envío (la app seguirá funcionando normal).
+SMTP = {
+    "host": os.getenv("SMTP_HOST", ""),
+    "port": int(os.getenv("SMTP_PORT", "587")),
+    "user": os.getenv("SMTP_USER", ""),
+    "password": os.getenv("SMTP_PASSWORD", ""),
+    "from_addr": os.getenv("SMTP_FROM", ""),
+    # Destinatarios por defecto (separados por coma). Si se omite, se usan los
+    # correos de los usuarios con rol admin/supervisor.
+    "to": os.getenv("SMTP_TO", ""),
+    "use_tls": os.getenv("SMTP_TLS", "true").lower() in {"1", "true", "yes"},
+}
 
 # Datos de la empresa usados en la generación de actas (SALIDA / ENTRADA) en PDF.
 _COMPANY_LOGO_DEFAULT = Path(__file__).resolve().parent.parent / "services" / "logo.jpg"

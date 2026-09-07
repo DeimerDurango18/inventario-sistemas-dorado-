@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -35,6 +35,8 @@ def _serialize_registro(r: MaintenanceRecord) -> dict:
         "equipo_folio": r.equipo.folio if r.equipo else None,
         "equipo_marca": r.equipo.marca if r.equipo else None,
         "equipo_modelo": r.equipo.modelo if r.equipo else None,
+        "punto_id": r.punto_id,
+        "punto_nombre": r.punto.nombre if r.punto else None,
         "tipo": r.tipo,
         "descripcion": r.descripcion,
         "tecnico": r.tecnico,
@@ -44,6 +46,7 @@ def _serialize_registro(r: MaintenanceRecord) -> dict:
         "fecha_finalizado": r.fecha_finalizado.isoformat() if r.fecha_finalizado else None,
         "foto": r.foto,
         "piezas": r.piezas,
+        "periodicidad": r.periodicidad,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "pdf_url": f"/api/mantenimientos/{r.id}/pdf",
     }
@@ -144,6 +147,23 @@ def cambiar_estado(
                 empresa_id=eid,
             )
             registro.equipo.estado = "disponible"
+
+        if registro.periodicidad:
+            dias = {"mensual": 30, "trimestral": 90, "semestral": 180, "anual": 365}.get(registro.periodicidad)
+            if dias:
+                db.add(
+                    MaintenanceRecord(
+                        empresa_id=eid,
+                        equipo_id=registro.equipo_id,
+                        punto_id=registro.punto_id,
+                        tipo=registro.tipo,
+                        descripcion=f"[Renovación] {registro.descripcion}" if registro.descripcion else "Mantenimiento recurrente programado",
+                        tecnico=registro.tecnico,
+                        estado="programado",
+                        fecha_programada=registro.fecha_finalizado + timedelta(days=dias),
+                        periodicidad=registro.periodicidad,
+                    )
+                )
     elif estado == "en_proceso" and registro.equipo:
         if registro.equipo.estado != "reparacion":
             _registrar_movimiento(

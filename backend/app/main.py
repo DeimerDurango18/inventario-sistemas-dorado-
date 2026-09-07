@@ -17,6 +17,9 @@ from app.api.routes import (
     seed,
     notificaciones,
     empresas,
+    soporte,
+    adjuntos,
+    puntos,
 )
 from app.core.config import CORS_ORIGINS, DEBUG
 from app.core.database import init_db
@@ -26,6 +29,9 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 (STORAGE_DIR / "fotos").mkdir(parents=True, exist_ok=True)
 (STORAGE_DIR / "actas").mkdir(parents=True, exist_ok=True)
 (STORAGE_DIR / "mantenimientos").mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "adjuntos").mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "etiquetas").mkdir(parents=True, exist_ok=True)
+(STORAGE_DIR / "backups").mkdir(parents=True, exist_ok=True)
 
 
 # ============================================================
@@ -140,6 +146,24 @@ app.include_router(
     tags=["empresas"],
 )
 
+app.include_router(
+    soporte.router,
+    prefix="/api/soporte",
+    tags=["soporte"],
+)
+
+app.include_router(
+    adjuntos.router,
+    prefix="/api/adjuntos",
+    tags=["adjuntos"],
+)
+
+app.include_router(
+    puntos.router,
+    prefix="/api/puntos",
+    tags=["puntos"],
+)
+
 
 # ============================================================
 # RUTA PRINCIPAL
@@ -150,7 +174,7 @@ def root():
     return {
         "status": "ok",
         "service": "Inventario Equipos API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "message": "API funcionando correctamente",
     }
 
@@ -160,6 +184,7 @@ def root():
 # ============================================================
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {
         "status": "ok",

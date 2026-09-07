@@ -42,31 +42,15 @@ Otros usuarios existentes (contraseñas hasheadas, no recuperables):
 
 ### 2.2 Producción (mssql — `localhost\SQLExpress`, BD `InventarioEquipos`)
 
-- **Actualmente NO hay usuarios** (la tabla `usuarios` está vacía).
-- La tabla usa un **esquema antiguo**: le faltan columnas de la nueva versión
-  (en particular `password`), por lo que **hay que aplicar la migración** (Alembic)
-  antes de poder crear usuarios con el login actual.
+- Esquema completo aplicado vía Alembic (head `d4a1b2c3e6f7`).
+- **Admin funcional** (creado y verificado):
 
-**Pasos pendientes para usar mssql con el login:**
-1. Aplicar las migraciones: `alembic upgrade head` (desde `backend/`).
-2. Crear el primer admin con este endpoint:
+| Correo | Contraseña | Rol |
+|--------|-----------|-----|
+| `admin@sistemasbogota.com` | `Admin2026!` | admin |
 
-```
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "nombre": "Administrador",
-  "correo": "tu.correo@empresa.com",
-  "password": "TU_CONTRASENA_SEGURA",
-  "rol": "admin"
-}
-```
-
-usuarios administrador: 
-
-admin@sistemasbogota.com
-Admin2026!
+> Cámbiala tras el primer acceso (ver sección 4). Emplea un login dedicado
+> `inventario_app` (db_owner) configurado en `.env`; no uses `sa`.
 
 ---
 
@@ -124,4 +108,5 @@ Configuración del backend en el archivo `.env` (raíz del proyecto):
 | `DB_ENGINE` | `mssql` (producción) / `sqlite` (desarrollo) | Motor de BD |
 | `DB_HOST` | `localhost\SQLExpress` | Servidor mssql |
 | `DB_NAME` | `InventarioEquipos` | Base de datos |
+| `DB_USER` | `inventario_app` | Login dedicado de la app (db_owner) |
 | `SECRET_KEY` | generar una aleatoria segura | Firma de tokens JWT |

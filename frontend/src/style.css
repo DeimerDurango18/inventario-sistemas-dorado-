@@ -1318,6 +1318,55 @@ th {
   letter-spacing: 0.5px;
 }
 
+.acta-doc-signed-stamp {
+  margin-top: 28px;
+  border: 1.5px dashed #0d3a75;
+  border-radius: 8px;
+  padding: 14px 20px;
+  text-align: center;
+  background: rgba(13, 58, 117, 0.04);
+}
+.acta-signed-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #0d3a75;
+  margin-bottom: 12px;
+}
+.acta-signed-line {
+  border-top: 1.5px solid #0d3a75;
+  margin: 0 auto 8px;
+  width: 260px;
+}
+.acta-doc-signed-stamp strong {
+  display: block;
+  font-size: 12px;
+  color: #16233b;
+}
+.acta-doc-signed-stamp small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.ticket-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.text-soft {
+  color: var(--text-soft, #94a3b8);
+}
+.block {
+  display: block;
+}
+
 /* ============================================================
    ESTILOS DEL MÓDULO STOCK
    ============================================================ */

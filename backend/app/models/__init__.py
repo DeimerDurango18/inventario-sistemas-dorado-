@@ -7,3 +7,6 @@ from app.models.user import User
 from app.models.maintenance import MaintenanceRecord
 from app.models.acta import Acta, ActaItem
 from app.models.audit import AuditLog
+from app.models.ticket import Ticket
+from app.models.adjunto import Adjunto
+from app.models.punto_venta import PuntoVenta, Instalacion, AtencionPunto
