@@ -116,16 +116,15 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     # Distribución por ubicación (nombre y/o registrada en el equipo).
     # Se agrega en Python para evitar diferencias de GROUP BY entre SQL Server/SQLite.
     eq_ubic_query = (
-        db.query(Equipment.ubicacion_id, Location.nombre, Equipment.ubicacion, Equipment.id)
+        db.query(Equipment.ubicacion_id, Location.nombre, Equipment.id)
         .outerjoin(Location, Location.id == Equipment.ubicacion_id)
     )
     if eid:
         eq_ubic_query = eq_ubic_query.filter(Equipment.empresa_id == eid)
     equipos_ubic = eq_ubic_query.all()
-    ubicacion_series = []
     ub_counts = {}
-    for ub_id, loc_nombre, eq_ubicacion, _eid in equipos_ubic:
-        key = loc_nombre or eq_ubicacion or "Sin ubicación"
+    for ub_id, loc_nombre, _eid in equipos_ubic:
+        key = loc_nombre or "Sin ubicación"
         ub_counts[key] = ub_counts.get(key, 0) + 1
     ubicacion_series = [
         {"ubicacion": ub, "cantidad": cant} for ub, cant in ub_counts.items()
@@ -341,7 +340,7 @@ def pdf_inventario_por_ubicacion(
     por_ubicacion = {}
     valor_total = 0.0
     for eq in equipos:
-        nombre = (eq.ubicacion_rel.nombre if eq.ubicacion_rel else eq.ubicacion) or "Sin ubicación"
+        nombre = (eq.ubicacion_rel.nombre if eq.ubicacion_rel else None) or "Sin ubicación"
         if nombre not in por_ubicacion:
             por_ubicacion[nombre] = {"cantidad": 0, "valor_total": 0.0}
         por_ubicacion[nombre]["cantidad"] += 1
@@ -427,3 +426,66 @@ def get_latest_acta(db: Session = Depends(get_db), current_user: User = Depends(
         media_type="application/pdf",
         filename="acta_inventario.pdf",
     )
+
+@router.get("/analytics")
+def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Retorna datos agregados para el Dashboard Ejecutivo (Gráficos)."""
+    eid = current_user.empresa_id
+
+    # 1. Distribución por estado (Pie Chart)
+    eq_query = db.query(Equipment)
+    if eid:
+        eq_query = eq_query.filter(Equipment.empresa_id == eid)
+
+    state_data = (
+        eq_query.with_entities(Equipment.estado, func.count(Equipment.id))
+        .group_by(Equipment.estado)
+        .all()
+    )
+    state_distribution = {estado: count for estado, count in state_data}
+
+    # 2. Distribución por ubicación (Bar Chart)
+    eq_ubic_query = (
+        db.query(Equipment.ubicacion_id, Location.nombre, Equipment.id)
+        .outerjoin(Location, Location.id == Equipment.ubicacion_id)
+    )
+    if eid:
+        eq_ubic_query = eq_ubic_query.filter(Equipment.empresa_id == eid)
+
+    equipos_ubic = eq_ubic_query.all()
+    ub_counts = {}
+    for ub_id, loc_nombre, _eid in equipos_ubic:
+        key = loc_nombre or "Sin ubicación"
+        ub_counts[key] = ub_counts.get(key, 0) + 1
+
+    # 3. Top 5 Equipos con más mantenimientos (Hotspots)
+    mt_query = db.query(
+        MaintenanceRecord.equipo_id,
+        func.count(MaintenanceRecord.id).label("count")
+    )
+    if eid:
+        mt_query = mt_query.filter(MaintenanceRecord.empresa_id == eid)
+
+    hotspots_raw = (
+        mt_query.group_by(MaintenanceRecord.equipo_id)
+        .order_by(func.count(MaintenanceRecord.id).desc())
+        .limit(5)
+        .all()
+    )
+
+    hotspots = []
+    for eq_id, count in hotspots_raw:
+        eq = db.query(Equipment).filter(Equipment.id == eq_id).first()
+        if eq:
+            hotspots.append({
+                "id": eq.id,
+                "folio": eq.folio,
+                "label": f"{eq.marca} {eq.modelo}",
+                "count": count
+            })
+
+    return {
+        "state_distribution": state_distribution,
+        "location_distribution": ub_counts,
+        "maintenance_hotspots": hotspots
+    }

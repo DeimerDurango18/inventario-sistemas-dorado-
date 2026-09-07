@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas import BajaEquipoIn, BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate, PrestamoIn
 from app.services.qr import generar_qr_png
 from app.services.exports import exportar_xlsx
+from app.services.audit_service import log_change
 
 router = APIRouter()
 
@@ -34,14 +35,16 @@ def _serialize_equipo(equipo: Equipment) -> dict:
         "modelo": equipo.modelo,
         "serie": equipo.serie,
         "estado": equipo.estado,
-        "ubicacion": equipo.ubicacion,
+        "ubicacion": equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else None,
         "categoria_id": equipo.categoria_id,
         "ubicacion_id": equipo.ubicacion_id,
         "categoria_nombre": equipo.categoria.nombre if equipo.categoria else None,
-        "ubicacion_nombre": equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else (equipo.ubicacion or None),
+        "ubicacion_nombre": equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else None,
         "valor_aprox": float(equipo.valor_aprox) if equipo.valor_aprox is not None else None,
         "observaciones": equipo.observaciones,
         "foto": equipo.foto,
+        "fecha_compra": equipo.fecha_compra.isoformat() if equipo.fecha_compra else None,
+        "meses_garantia": equipo.meses_garantia,
         "prestamo_a": equipo.prestamo_a,
         "prestamo_desde": equipo.prestamo_desde.isoformat() if equipo.prestamo_desde else None,
         "prestamo_hasta": equipo.prestamo_hasta.isoformat() if equipo.prestamo_hasta else None,
@@ -134,6 +137,41 @@ def buscar_equipos(
     return [_serialize_equipo(equipo) for equipo in equipos]
 
 
+@router.get("/equipos/search")
+def global_search(
+    q: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Buscador rápido para la Topbar. Retorna resultados compactos."""
+    if not q.strip():
+        return []
+
+    termino = q.strip().lower()
+    query = db.query(Equipment)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+
+    query = query.filter(
+        Equipment.folio.ilike(f"%{termino}%")
+        | Equipment.marca.ilike(f"%{termino}%")
+        | Equipment.modelo.ilike(f"%{termino}%")
+        | Equipment.serie.ilike(f"%{termino}%")
+    )
+
+    equipos = query.limit(10).all()
+    return [
+        {
+            "id": e.id,
+            "folio": e.folio,
+            "label": f"{e.folio} - {e.marca} {e.modelo}",
+            "serie": e.serie,
+            "estado": e.estado
+        }
+        for e in equipos
+    ]
+
+
 @router.get("/equipos/plantilla")
 def plantilla_importacion(
     current_user: User = Depends(MODIFY_ROLES),
@@ -206,7 +244,7 @@ def get_equipo_qr(equipo_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
     ubicacion_texto = (
-        equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else (equipo.ubicacion or "")
+        equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else ""
     )
     payload = (
         f"EQUIPO|{equipo.folio}|{equipo.marca} {equipo.modelo}|"
@@ -241,7 +279,6 @@ def crear_equipo(
         modelo=payload.modelo,
         serie=payload.serie,
         estado=payload.estado or "disponible",
-        ubicacion=payload.ubicacion,
         categoria_id=payload.categoria_id,
         ubicacion_id=payload.ubicacion_id,
         valor_aprox=payload.valor_aprox,
@@ -317,7 +354,6 @@ def importar_equipos(
             modelo=modelo,
             serie=serie,
             estado=(fila.estado or "disponible").strip() or "disponible",
-            ubicacion=ub_nombre if ub_nombre and not ubicacion else None,
             categoria_id=categoria.id if categoria else None,
             ubicacion_id=ubicacion.id if ubicacion else None,
             valor_aprox=fila.valor_aprox,
@@ -367,8 +403,6 @@ def editar_equipos_lote(
             equipo.estado = payload.estado
         if payload.ubicacion_id is not None:
             equipo.ubicacion_id = payload.ubicacion_id
-        if payload.ubicacion is not None:
-            equipo.ubicacion = payload.ubicacion
         if payload.categoria_id is not None:
             equipo.categoria_id = payload.categoria_id
         db.flush()
@@ -400,6 +434,22 @@ def actualizar_equipo(
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
+    # Capturar valores antiguos para auditoría
+    old_values = {
+        "folio": equipo.folio,
+        "marca": equipo.marca,
+        "modelo": equipo.modelo,
+        "serie": equipo.serie,
+        "estado": equipo.estado,
+        "ubicacion": equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else None,
+        "categoria_id": equipo.categoria_id,
+        "ubicacion_id": equipo.ubicacion_id,
+        "valor_aprox": float(equipo.valor_aprox) if equipo.valor_aprox else None,
+        "observaciones": equipo.observaciones,
+        "fecha_compra": equipo.fecha_compra.isoformat() if equipo.fecha_compra else None,
+        "meses_garantia": equipo.meses_garantia,
+    }
+
     update_data = payload.model_dump(exclude_unset=True)
     if "folio" in update_data and update_data["folio"] != equipo.folio:
         otro_q = db.query(Equipment).filter(Equipment.folio == update_data["folio"])
@@ -413,6 +463,18 @@ def actualizar_equipo(
     for key, value in update_data.items():
         setattr(equipo, key, value)
     db.flush()
+
+    # Registrar en Auditoría
+    log_change(
+        db,
+        user_id=current_user.id,
+        empresa_id=current_user.empresa_id,
+        entity_type="EQUIPO",
+        entity_id=equipo.id,
+        action="UPDATE",
+        old_values=old_values,
+        new_values=update_data
+    )
 
     if "estado" in update_data and update_data["estado"] != estado_anterior:
         _registrar_movimiento(
@@ -560,6 +622,18 @@ def eliminar_equipo(
     equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
+
+    # Registrar eliminación en Auditoría
+    log_change(
+        db,
+        user_id=current_user.id,
+        empresa_id=current_user.empresa_id,
+        entity_type="EQUIPO",
+        entity_id=equipo.id,
+        action="DELETE",
+        old_values={"folio": equipo.folio, "marca": equipo.marca, "modelo": equipo.modelo},
+        new_values=None
+    )
 
     # Eliminar archivo de foto asociado, si existe.
     if equipo.foto:

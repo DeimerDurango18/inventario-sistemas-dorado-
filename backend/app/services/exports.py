@@ -14,7 +14,7 @@ def _filas_equipos(equipos) -> list:
                 "Modelo": e.modelo,
                 "Serie": e.serie or "",
                 "Estado": e.estado,
-                "Ubicacion": (e.ubicacion_rel.nombre if e.ubicacion_rel else e.ubicacion) or "",
+                "Ubicacion": (e.ubicacion_rel.nombre if e.ubicacion_rel else None) or "",
                 "Categoria": e.categoria.nombre if e.categoria else "",
                 "Valor Aprox": float(e.valor_aprox) if e.valor_aprox is not None else None,
                 "Observaciones": e.observaciones or "",

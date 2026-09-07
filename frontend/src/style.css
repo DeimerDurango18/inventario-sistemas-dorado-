@@ -183,7 +183,7 @@ button {
   border-bottom: 1px solid rgba(255,255,255,0.15);
   margin-bottom: 18px;
 }
-/*
+
 .brand-logo-full {
   width: 100%;
   display: flex;
@@ -192,18 +192,15 @@ button {
 
 .brand-logo-full img.brand-logo-img {
   max-width: 100%;
-  height: 56px;
-  object-fit: contain;
-  display: block;
-}*/
-
-.brand-logo-full img.brand-logo-img {
-  max-width: 100%;
   width: auto;
-  max-height: 70px;
+  height: auto;
+  max-height: 64px;
   object-fit: contain;
   display: block;
-  image-rendering: -webkit-optimize-contrast;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
 }
 
 .brand-mark {
@@ -459,28 +456,28 @@ th {
 }
 
 .status-pill.disponible {
-  background: var(--success-soft, #dcfce7);
-  color: var(--success);
+  background: #dcfce7;
+  color: #10b981;
 }
 
 .status-pill.asignado {
-  background: var(--primary-soft, #dbeafe);
-  color: var(--primary);
+  background: #dbeafe;
+  color: #3b82f6;
 }
 
 .status-pill.reparacion {
-  background: var(--warning-soft, #fef3c7);
-  color: var(--warning);
+  background: #fef3c7;
+  color: #f59e0b;
 }
 
 .status-pill.baja {
-  background: var(--danger-soft, #fee2e2);
-  color: var(--danger);
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .status-pill.prestamo {
-  background: var(--warning-soft, #fef3c7);
-  color: var(--warning);
+  background: #dbeafe;
+  color: #3b82f6;
 }
 
 .status-pill.programado {
@@ -489,13 +486,13 @@ th {
 }
 
 .status-pill.en_proceso {
-  background: var(--warning-soft, #fef3c7);
-  color: var(--warning);
+  background: #fef3c7;
+  color: #f59e0b;
 }
 
 .status-pill.finalizado {
-  background: var(--success-soft, #dcfce7);
-  color: var(--success);
+  background: #dcfce7;
+  color: #10b981;
 }
 
 .status-pill.admin {
@@ -715,18 +712,19 @@ th {
 }
 
 .acta-logo {
-  width: 160px;
-  height: 34px;
+  width: 150px;
+  height: auto;
   display: grid;
   place-items: center;
   border-radius: 8px;
-  overflow: hidden;
   background: #ffffff;
+  padding: 4px 6px;
+  flex-shrink: 0;
 }
 
 .acta-logo img.brand-logo-img {
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: contain;
   display: block;
 }
@@ -1129,22 +1127,20 @@ th {
 }
 
 .acta-doc-logo {
-  width: 160px;
-  height: 34px;
+  width: 170px;
+  height: auto;
   background: #ffffff;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
+  display: block;
   border-radius: 4px;
-  overflow: hidden;
+  padding: 4px 6px;
+  flex-shrink: 0;
 }
 
 .acta-doc-logo img.brand-logo-img {
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: contain;
   display: block;
-}
 }
 
 .acta-doc-company h4 {
@@ -1585,6 +1581,82 @@ th {
 
   .fab-btn {
     display: grid;
+  }
+}
+
+.topbar-search {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .topbar-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .main-content {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 14px;
+  }
+
+  .topbar h1 {
+    font-size: 1.05rem;
+  }
+
+  .login-card {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 650px) {
+  .main-content {
+    padding: 16px;
+  }
+
+  .acta-doc-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .acta-doc-brand {
+    flex-wrap: wrap;
+  }
+
+  .acta-doc-logo,
+  .acta-logo {
+    width: 128px;
+  }
+
+  .acta-doc-box {
+    align-self: flex-end;
+  }
+
+  .acta-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .acta-meta {
+    align-items: flex-start;
+  }
+
+  .acta-sheet-doc {
+    padding: 20px;
   }
 }
 
@@ -2076,4 +2148,103 @@ th {
 .mobile-filter-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.toast {
+  background: var(--panel);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-left: 4px solid var(--accent);
+  animation: slideIn 0.3s ease-out;
+  min-width: 250px;
+  max-width: 350px;
+}
+.toast-success { border-left-color: #10b981; }
+.toast-error { border-left-color: #ef4444; }
+.toast-warning { border-left-color: #f59e0b; }
+.toast-info { border-left-color: #3b82f6; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-container:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.search-container input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  width: 100%;
+  outline: none;
+}
+.search-container svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--text-soft);
+}
+.search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  z-index: 1000;
+  overflow: hidden;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover {
+  background: var(--panel-alt);
+}
+.search-result-item strong {
+  font-size: 0.9rem;
+  color: var(--primary);
+  min-width: 80px;
+}
+.search-result-item span:nth-child(2) {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.search-result-item .status-pill {
+  font-size: 0.65rem;
+  min-width: 80px;
 }

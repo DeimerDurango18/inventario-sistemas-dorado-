@@ -47,3 +47,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Artefactos del túnel Cloudflare (no se suben al repo)
+tunel_url.txt
+cloudflared.log

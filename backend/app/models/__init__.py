@@ -6,3 +6,4 @@ from app.models.catalog import Category, Location
 from app.models.user import User
 from app.models.maintenance import MaintenanceRecord
 from app.models.acta import Acta, ActaItem
+from app.models.audit import AuditLog

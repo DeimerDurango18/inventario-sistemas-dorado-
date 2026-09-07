@@ -241,7 +241,7 @@ def generar_acta_mantenimiento_pdf(
     y = _label_row(c, y, "FOLIO", folio)
     y = _label_row(c, y, "EQUIPO", desc)
     y = _label_row(c, y, "SERIE", (equipo.serie or "-") if equipo else "-")
-    y = _label_row(c, y, "UBICACIÓN", ((equipo.ubicacion_rel.nombre if equipo and equipo.ubicacion_rel else (equipo.ubicacion if equipo else "")) or "-"))
+    y = _label_row(c, y, "UBICACIÓN", ((equipo.ubicacion_rel.nombre if equipo and equipo.ubicacion_rel else ("" if equipo else "")) or "-"))
 
     y = _section(c, y, "Datos del servicio")
     y = _label_row(c, y, "TÉCNICO", (registro.tecnico or "-").upper())

@@ -25,6 +25,10 @@ class Equipment(Base):
     observaciones = Column(String(255), nullable=True)
     foto = Column(String(300), nullable=True)  # ruta/URL de la fotografía del equipo
 
+    # Garantía y Vida Útil
+    fecha_compra = Column(DateTime(timezone=True), nullable=True)
+    meses_garantia = Column(Integer, nullable=True)
+
     # FASE 10: préstamos y bajas/ventas
     prestamo_a = Column(String(150), nullable=True)
     prestamo_desde = Column(DateTime(timezone=True), nullable=True)

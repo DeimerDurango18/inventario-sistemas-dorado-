@@ -219,7 +219,7 @@ function App() {
   const [reportCount, setReportCount] = useState(18)
   const [configSaved, setConfigSaved] = useState(false)
   const [depreciacion, setDepreciacion] = useState(null)
-  const [toast, setToast] = useState('')
+  const [toasts, setToasts] = useState([])
   const [equipmentForm, setEquipmentForm] = useState({
     folio: '',
     marca: '',
@@ -330,6 +330,9 @@ function App() {
   const [appSettings, setAppSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inv_app_settings') || '{}') } catch { return {} }
   })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // Notificaciones (FASE 7)
   const [notificaciones, setNotificaciones] = useState([])
@@ -417,6 +420,26 @@ function App() {
       showToast(`Bienvenido, ${data.user.nombre}`)
     } catch {
       setLoginError('No se pudo conectar con el servidor')
+    }
+  }
+
+  const handleGlobalSearch = async (q) => {
+    setSearchQuery(q)
+    if (!q || q.length < 2) {
+      setSearchResults([])
+      setIsSearchOpen(false)
+      return
+    }
+
+    try {
+      const res = await api(`/api/inventory/equipos/search?q=${encodeURIComponent(q)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSearchResults(data)
+        setIsSearchOpen(data.length > 0)
+      }
+    } catch (err) {
+      console.error('Error searching equipment:', err)
     }
   }
 
@@ -715,12 +738,6 @@ function App() {
       .catch(() => setStats(initialStats))
   }
 
-  useEffect(() => {
-    if (!toast) return undefined
-
-    const timer = window.setTimeout(() => setToast(''), 2200)
-    return () => window.clearTimeout(timer)
-  }, [toast])
 
   useEffect(() => {
     if (isScannerOpen && scannerInputRef.current) {
@@ -728,7 +745,13 @@ function App() {
     }
   }, [isScannerOpen])
 
-  const showToast = (message) => setToast(message)
+  const showToast = (message, type = 'info') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 4000)
+  }
 
   const handleRegisterEntry = async (event) => {
     event.preventDefault()
@@ -3444,7 +3467,7 @@ function App() {
               <div className="acta-header">
                 <div className="acta-brand">
                   <div className="acta-logo">
-                    <img src="/logo_eticos.svg" alt="Logo" className="brand-logo-img" />
+                    <img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
                   </div>
                   <div>
                     <strong>INV - Sistemas</strong>
@@ -3909,7 +3932,7 @@ function App() {
         <div className="login-card">
           <div className="brand-block login-logo" style={{ justifyContent: 'center', marginBottom: '18px', paddingBottom: '18px' }}>
             <div className="brand-logo-full">
-              <img src="/logo_eticos.svg" alt="Sistemas Bogotá" className="brand-logo-img" />
+              <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
             </div>
           </div>
 
@@ -3953,14 +3976,26 @@ function App() {
             </div>
           </form>
         </div>
-        {toast && <div className="toast">{toast}</div>}
+        {/* Toasts handled by global container */}
       </div>
     )
   }
 
   return (
     <div className="app-shell">
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="brand-block">
+          <div className="brand-logo-full">
+            <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" className="brand-logo-img" />
+          </div>
+        </div>
         <nav className="nav" aria-label="Navegación principal">
           {navItems
             .filter((item) => {
@@ -3997,6 +4032,39 @@ function App() {
           <div>
             <p className="eyebrow">Resumen general</p>
             <h1>{navItems.find((item) => item.id === activeSection)?.label || 'Dashboard'}</h1>
+          </div>
+
+          <div className="topbar-search">
+            <div className="search-container">
+              <Icon name="search" />
+              <input
+                type="text"
+                placeholder="Buscar equipo (folio, serie, marca...)"
+                value={searchQuery}
+                onChange={(e) => handleGlobalSearch(e.target.value)}
+                onFocus={() => setIsSearchOpen(true)}
+              />
+            </div>
+            {isSearchOpen && searchResults.length > 0 && (
+              <div className="search-results">
+                {searchResults.map((eq) => (
+                  <div
+                    key={eq.id}
+                    className="search-result-item"
+                    onClick={() => {
+                      setSelectedEquipmentForDetail(eq)
+                      setIsDetailModalOpen(true)
+                      setIsSearchOpen(false)
+                      setSearchQuery('')
+                    }}
+                  >
+                    <strong>{eq.folio}</strong>
+                    <span>{eq.marca} {eq.modelo}</span>
+                    <span className={`status-pill ${eq.estado}`}>{eq.estado}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="topbar-actions">
@@ -4095,7 +4163,7 @@ function App() {
 
         {renderSectionContent()}
 
-        {toast && <div className="toast">{toast}</div>}
+        {/* Toasts handled by global container */}
       </main>
 
       {/* MODAL: VISOR DE ACTA OFICIAL */}
@@ -4143,7 +4211,7 @@ function App() {
                 <div className="acta-doc-top">
                   <div className="acta-doc-brand">
                     <div className="acta-doc-logo">
-                      <img src="/logo_eticos.svg" alt="Logo" className="brand-logo-img" />
+<img src="/logo_eticos.jpg" alt="Logo" className="brand-logo-img" />
                     </div>
                     <div className="acta-doc-company">
                       <h4>SISTEMAS BOGOTA</h4>
