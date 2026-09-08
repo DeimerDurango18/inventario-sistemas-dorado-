@@ -8,6 +8,8 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
+from app.core.config import VERIFY_URL
+
 NAME = "SISTEMAS BOGOTA"
 LABEL_W, LABEL_H = 80 * mm, 42 * mm  # 3 columnas x 2 filas por hoja
 GAP = 6 * mm
@@ -74,10 +76,7 @@ def generar_etiquetas_pdf(equipos, output_path: Path) -> Path:
         x = margen + col * col_w
         y = page_h - 12 * mm - row * row_h
 
-        payload = (
-            f"EQUIPO|{eq['folio']}|{eq['marca']} {eq['modelo']}|"
-            f"{eq.get('serie') or ''}|{eq.get('estado') or ''}|{eq.get('ubicacion') or ''}"
-        )
+        payload = f"{VERIFY_URL}/consulta/equipos/{eq.get('id') or ''}"
         _insertar_etiqueta(
             c, x, y,
             (

@@ -116,9 +116,33 @@ def construir_resumen_html(db) -> str:
             f"<td style='color:#e67e22'>pendiente de firma del responsable</td></tr>"
         )
 
+    # --- Préstamos vencidos (fecha límite superada sin retorno) ---
+    prestamos = (
+        db.query(Equipment)
+        .filter(Equipment.estado == "prestamo")
+        .filter(Equipment.prestamo_hasta.isnot(None))
+        .all()
+    )
+    for eq in prestamos:
+        fin = eq.prestamo_hasta
+        if fin.tzinfo is None:
+            fin = fin.replace(tzinfo=timezone.utc)
+        if fin >= ahora:
+            continue
+        dias = (ahora - fin).days
+        filas.append(
+            f"<tr><td>Préstamo vencido</td><td>{eq.folio}</td>"
+            f"<td>{eq.marca} {eq.modelo} → {eq.prestamo_a or '—'}</td>"
+            f"<td>{fin.strftime('%Y-%m-%d')}</td><td style='color:#c0392b'>"
+            f"vencido hace {dias} día(s), sin retorno</td></tr>"
+        )
+
     titulo = f"Resumen operativo del inventario · {ahora.strftime('%Y-%m-%d %H:%M')}"
     if not filas:
-        return f"<h2>{titulo}</h2><p>Sin novedades activas (garantías, mantenimientos o actas por renovar).</p>"
+        return (
+            f"<h2>{titulo}</h2><p>Sin novedades activas "
+            "(garantías, mantenimientos, actas por renovar o préstamos vencidos).</p>"
+        )
 
     cuerpo = (
         "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;font-family:Arial'>"

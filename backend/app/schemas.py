@@ -160,6 +160,11 @@ class PrestamoIn(BaseModel):
     fecha_fin: Optional[datetime] = None
 
 
+class TraspasoIn(BaseModel):
+    ubicacion_id: int
+    motivo: Optional[str] = None
+
+
 class TicketIn(BaseModel):
     titulo: str
     descripcion: Optional[str] = None

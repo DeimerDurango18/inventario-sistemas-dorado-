@@ -139,6 +139,27 @@ def listar_notificaciones(
                 "fecha": fin.isoformat(),
             })
 
+    # --- Préstamos vencidos (fecha límite superada sin retorno) ---
+    prestamos = (
+        eq_query
+        .filter(Equipment.estado == "prestamo")
+        .filter(Equipment.prestamo_hasta.isnot(None))
+        .all()
+    )
+    for eq in prestamos:
+        fin = _normalize_dt(eq.prestamo_hasta)
+        if fin is None or fin >= ahora:
+            continue
+        dias = (ahora - fin).days
+        items.append({
+            "id": f"prest-vencido-{eq.id}",
+            "tipo": "prestamo",
+            "nivel": "vencida",
+            "titulo": "Préstamo vencido",
+            "mensaje": f"{eq.folio} - {eq.marca} {eq.modelo} prestado a {eq.prestamo_a or '—'} venció el {fin.strftime('%Y-%m-%d')} (hace {dias} día(s)) sin retorno.",
+            "fecha": fin.isoformat(),
+        })
+
     # --- Actas pendientes de firma del responsable (más de 15 días) ---
     actas_pend = (
         db.query(Acta)

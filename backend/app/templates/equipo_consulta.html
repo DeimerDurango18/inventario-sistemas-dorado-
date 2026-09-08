@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consulta de Equipo · Sistemas Bogotá</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f3f5f9;
+      color: #1d2d44;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: linear-gradient(135deg, #163a5f, #1d3557);
+      color: #fff;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header img { height: 42px; border-radius: 8px; }
+    header .tit { font-size: 1rem; font-weight: 700; }
+    header .sub { font-size: 0.75rem; opacity: .85; }
+    main { flex: 1; max-width: 560px; width: 100%; margin: 0 auto; padding: 18px 16px 40px; }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .top { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; }
+    .foto {
+      width: 108px; height: 108px; border-radius: 12px; object-fit: cover;
+      background: #eef2f7; border: 1px solid #e3e8ef;
+    }
+    .hdr h2 { font-size: 1.15rem; margin-bottom: 2px; }
+    .hdr .folio { font-weight: 700; color: #163a5f; font-size: 1rem; }
+    .marca { color: #5c6b81; font-size: .9rem; }
+    .pill {
+      display: inline-block; margin-top: 8px; padding: 5px 12px;
+      border-radius: 999px; color: #fff; font-size: .78rem; font-weight: 600;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .campo { background: #f7f9fc; border-radius: 10px; padding: 10px 12px; }
+    .campo .lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .4px; color: #8091a8; }
+    .campo .val { font-size: .9rem; font-weight: 600; margin-top: 2px; word-break: break-word; }
+    .full { grid-column: 1 / -1; }
+    h3 { font-size: .95rem; margin-bottom: 12px; color: #163a5f; }
+    ul { list-style: none; }
+    li {
+      padding: 10px 0; border-bottom: 1px solid #eef1f6; font-size: .85rem;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    li:last-child { border-bottom: none; }
+    li .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: 0 0 9px; }
+    li .txt b { display: block; font-size: .86rem; }
+    li .txt span { color: #5c6b81; font-size: .8rem; }
+    .vacio { color: #8091a8; font-size: .85rem; padding: 6px 0; }
+    footer {
+      text-align: center; padding: 16px; color: #8091a8; font-size: .72rem;
+      border-top: 1px solid #e3e8ef;
+    }
+    #cargando { text-align: center; padding: 40px 0; color: #8091a8; }
+    @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="/logo_eticos.jpg" alt="Sistemas Bogotá" onerror="this.style.display='none'" />
+    <div>
+      <div class="tit">Consulta de Equipo</div>
+      <div class="sub">Área de Sistemas · Inventario de equipos</div>
+    </div>
+  </header>
+  <main>
+    <div id="cargando">Cargando información del equipo…</div>
+
+    <div id="contenido" hidden>
+      <div class="card">
+        <div class="top">
+          <div class="hdr">
+            <div class="folio" id="folio"></div>
+            <div class="marca" id="marca"></div>
+            <span class="pill" id="estado-pill"></span>
+          </div>
+          <img class="foto" id="foto" src="" alt="Foto del equipo" onerror="this.style.visibility='hidden'" />
+        </div>
+        <div class="grid">
+          <div class="campo"><div class="lbl">Serie</div><div class="val" id="serie">—</div></div>
+          <div class="campo"><div class="lbl">Categoría</div><div class="val" id="categoria">—</div></div>
+          <div class="campo"><div class="lbl">Ubicación</div><div class="val" id="ubicacion">—</div></div>
+          <div class="campo"><div class="lbl">Garantía</div><div class="val" id="garantia">—</div></div>
+          <div class="campo full" id="campo-prestamo" hidden>
+            <div class="lbl">Estado actual</div><div class="val" id="prestamo-texto"></div>
+          </div>
+          <div class="campo full"><div class="lbl">Observaciones</div><div class="val" id="observaciones">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🧾 Instalación en punto de venta</h3>
+        <div id="punto-info"></div>
+      </div>
+
+      <div class="card">
+        <h3>🔧 Historial de mantenimientos</h3>
+        <ul id="mantenimientos"></ul>
+      </div>
+
+      <div class="card">
+        <h3>📋 Movimientos del equipo</h3>
+        <ul id="movimientos"></ul>
+      </div>
+    </div>
+  </main>
+  <footer>Consulta pública · Inventario de Equipos · Sistemas Bogotá</footer>
+
+  <script>
+    const equipoId = location.pathname.split('/').filter(Boolean).pop();
+
+    function fFecha(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      const hoy = new Date();
+      try { return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+      catch (e) { return iso; }
+    }
+
+    function fMoney(v) {
+      if (v === null || v === undefined) return '—';
+      try { return '$' + Number(v).toLocaleString('es-CO'); } catch (e) { return v; }
+    }
+
+    async function cargar() {
+      try {
+        const r = await fetch(location.origin + '/consulta/equipos/' + equipoId + '/data');
+        if (!r.ok) throw new Error('No encontrado');
+        const d = await r.json();
+        document.getElementById('folio').textContent = d.folio || 'Equipo #' + d.id;
+        document.getElementById('marca').textContent = (d.marca + ' ' + (d.modelo || '')).trim();
+        const pill = document.getElementById('estado-pill');
+        pill.textContent = d.estado_label || d.estado;
+        pill.style.background = d.estado_color || '#556';
+        document.getElementById('serie').textContent = d.serie || '—';
+        document.getElementById('categoria').textContent = d.categoria || '—';
+        document.getElementById('ubicacion').textContent = d.ubicacion || '—';
+        document.getElementById('garantia').textContent =
+          d.meses_garantia ? d.meses_garantia + ' meses' : '—';
+        document.getElementById('observaciones').textContent = d.observaciones || '—';
+        const foto = document.getElementById('foto');
+        if (d.foto) foto.src = d.foto;
+
+        const cp = document.getElementById('campo-prestamo');
+        if (d.estado === 'prestamo') {
+          cp.hidden = false;
+          let txt = 'Préstamo a ' + (d.prestamo_a || '—');
+          if (d.prestamo_desde) txt += ' desde ' + fFecha(d.prestamo_desde);
+          if (d.prestamo_hasta) txt += ' · límite ' + fFecha(d.prestamo_hasta);
+          document.getElementById('prestamo-texto').textContent = txt;
+        } else if (d.estado === 'baja') {
+          cp.hidden = false;
+          document.getElementById('prestamo-texto').textContent =
+            'Equipo dado de baja' + (d.baja_motivo ? ': ' + d.baja_motivo : '');
+        }
+
+        const p = d.punto_actual || {};
+        const puntoEl = document.getElementById('punto-info');
+        if (p.nombre) {
+          puntoEl.innerHTML =
+            '<ul>' +
+            '<li><div class="dot" style="background:#1565c0"></div><div class="txt"><b>' + p.nombre + '</b>' +
+            '<span>' + (p.ciudad || '') + ' · estado: ' + (p.estado_instalacion || '') + '</span></div></li>' +
+            (p.software ? '<li><div class="dot" style="background:#8e24aa"></div><div class="txt"><b>Software</b><span>' + p.software + '</span></div></li>' : '') +
+            '</ul>';
+        } else {
+          puntoEl.innerHTML = '<p class="vacio">Sin punto de venta registrado para este equipo.</p>';
+        }
+
+        const mt = document.getElementById('mantenimientos');
+        if (d.mantenimientos && d.mantenimientos.length) {
+          mt.innerHTML = d.mantenimientos.map(m =>
+            '<li><div class="dot" style="background:' + (m.estado === 'finalizado' ? '#2e7d32' : '#f39c12') + '"></div>' +
+            '<div class="txt"><b>' + (m.tipo || 'Mantenimiento') + ' · ' + (m.estado || '') + '</b>' +
+            '<span>' + (m.descripcion || '') + (m.tecnico ? ' · ' + m.tecnico : '') + (m.punto ? ' · ' + m.punto : '') +
+            ' · progr. ' + fFecha(m.fecha_programada) + (m.fecha_finalizado ? ' · fin ' + fFecha(m.fecha_finalizado) : '') + '</span></div></li>'
+          ).join('');
+        } else {
+          mt.innerHTML = '<p class="vacio">Sin mantenimientos registrados.</p>';
+        }
+
+        const mv = document.getElementById('movimientos');
+        if (d.movimientos && d.movimientos.length) {
+          mv.innerHTML = d.movimientos.map(m =>
+            '<li><div class="dot" style="background:#163a5f"></div>' +
+            '<div class="txt"><b>' + (m.tipo_label || m.tipo) + ' · ' + fFecha(m.fecha) + '</b>' +
+            '<span>' + [m.motivo, m.persona ? 'por ' + m.persona : null].filter(Boolean).join(' · ') + '</span></div></li>'
+          ).join('');
+        } else {
+          mv.innerHTML = '<p class="vacio">Sin movimientos registrados.</p>';
+        }
+
+        document.getElementById('cargando').hidden = true;
+        document.getElementById('contenido').hidden = false;
+      } catch (e) {
+        document.getElementById('cargando').innerHTML =
+          '<p style="color:#c62828">Equipo no encontrado o servicio no disponible.</p>';
+      }
+    }
+
+    cargar();
+  </script>
+</body>
+</html>

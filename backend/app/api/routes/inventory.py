@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
+from app.core.config import VERIFY_URL
 from app.models.catalog import Category, Location
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
-from app.schemas import BajaEquipoIn, BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate, PrestamoIn
+from app.schemas import BajaEquipoIn, BulkEditEquipos, BulkEquipmentItem, EquipmentIn, EquipmentUpdate, PrestamoIn, TraspasoIn
 from app.services.qr import generar_qr_png
 from app.services.exports import exportar_xlsx
 from app.services.audit_service import log_change
@@ -222,6 +223,7 @@ def etiquetas_qr(
 
     filas = [
         {
+            "id": e.id,
             "folio": e.folio,
             "marca": e.marca,
             "modelo": e.modelo,
@@ -285,13 +287,7 @@ def get_equipo_qr(equipo_id: int, db: Session = Depends(get_db)):
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    ubicacion_texto = (
-        equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else ""
-    )
-    payload = (
-        f"EQUIPO|{equipo.folio}|{equipo.marca} {equipo.modelo}|"
-        f"{equipo.serie or ''}|{equipo.estado}|{ubicacion_texto}"
-    )
+    payload = f"{VERIFY_URL}/consulta/equipos/{equipo.id}"
     png = generar_qr_png(payload)
     return Response(
         content=png,
@@ -623,6 +619,60 @@ def retornar_prestamo(
         motivo="Retorno de préstamo",
         estado_anterior=estado_anterior,
         estado_nuevo="disponible",
+    )
+    db.commit()
+    db.refresh(equipo)
+    return _serialize_equipo(equipo)
+
+
+@router.post("/equipos/{equipo_id}/traspaso")
+def traspasar_equipo(
+    equipo_id: int,
+    payload: TraspasoIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Registra el traspaso de un equipo a otra ubicación (con movimiento)."""
+    eid = current_user.empresa_id
+    eq_query = db.query(Equipment).filter(Equipment.id == equipo_id)
+    if eid:
+        eq_query = eq_query.filter(Equipment.empresa_id == eid)
+    equipo = eq_query.first()
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+
+    ub_query = db.query(Location).filter(Location.id == payload.ubicacion_id)
+    if eid:
+        ub_query = ub_query.filter(Location.empresa_id == eid)
+    ubicacion = ub_query.first()
+    if not ubicacion:
+        raise HTTPException(status_code=404, detail="Ubicación de destino no encontrada")
+
+    if equipo.ubicacion_id == ubicacion.id:
+        raise HTTPException(status_code=400, detail="El equipo ya se encuentra en esa ubicación")
+
+    anterior = equipo.ubicacion_rel.nombre if equipo.ubicacion_rel else "Sin ubicación"
+    equipo.ubicacion_id = ubicacion.id
+    db.flush()
+    _registrar_movimiento(
+        db,
+        equipo,
+        tipo="MOVIMIENTO",
+        persona=current_user.nombre,
+        motivo=f"Traspaso: {anterior} → {ubicacion.nombre}",
+        estado_anterior=anterior,
+        estado_nuevo=ubicacion.nombre,
+        empresa_id=eid,
+    )
+    log_change(
+        db,
+        user_id=current_user.id,
+        empresa_id=eid,
+        entity_type="EQUIPO",
+        entity_id=equipo.id,
+        action="UPDATE",
+        old_values={"ubicacion": anterior, "ubicacion_id": equipo.ubicacion_id},
+        new_values={"ubicacion": ubicacion.nombre, "ubicacion_id": ubicacion.id},
     )
     db.commit()
     db.refresh(equipo)

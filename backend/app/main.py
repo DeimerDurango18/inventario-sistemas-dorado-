@@ -20,6 +20,7 @@ from app.api.routes import (
     soporte,
     adjuntos,
     puntos,
+    publico,
 )
 from app.core.config import CORS_ORIGINS, DEBUG
 from app.core.database import init_db
@@ -162,6 +163,12 @@ app.include_router(
     puntos.router,
     prefix="/api/puntos",
     tags=["puntos"],
+)
+
+app.include_router(
+    publico.router,
+    prefix="/consulta",
+    tags=["consulta"],
 )
 
 

@@ -16,6 +16,7 @@ const navItems = [
   { id: 'entradas', label: 'Entradas', icon: 'download' },
   { id: 'salidas', label: 'Salidas', icon: 'upload' },
   { id: 'mantenimiento', label: 'Mantenimiento', icon: 'wrench' },
+  { id: 'prestamos', label: 'Préstamos', icon: 'swap' },
   { id: 'puntos', label: 'Puntos', icon: 'building' },
   { id: 'soporte', label: 'Soporte', icon: 'support' },
   { id: 'usuarios', label: 'Usuarios', icon: 'user' },
@@ -175,6 +176,11 @@ function Icon({ name }) {
         <path d="M21 12a9 9 0 1 1-9-9 7 7 0 0 1 7 7v2.5a2.5 2.5 0 0 1-5 0V12h2v1.5a1 1 0 0 0 2 0V10a5.5 5.5 0 0 0-11 0v5a2.5 2.5 0 0 1-2.5 2.5H4a9 9 0 0 0 17-5.5M12 9a2 2 0 0 0-2 2h4a2 2 0 0 0-2-2z" />
       </svg>
     ),
+    swap: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+      </svg>
+    ),
   }
 
   return <span className="nav-icon">{icons[name] || icons.grid}</span>
@@ -285,6 +291,11 @@ function App() {
   // FASE 10: baja/venta y préstamo
   const [bajaPrestamoModal, setBajaPrestamoModal] = useState(null) // {tipo:'baja'|'venta'|'prestamo', equipo}
   const [bajaPrestamoForm, setBajaPrestamoForm] = useState({ motivo: '', precio_venta: '', prestamo_a: '', fecha_fin: '' })
+
+  // FASE 12: préstamos (sección) y traspasos
+  const [prestamoSectionForm, setPrestamoSectionForm] = useState({ equipo_id: '', prestamo_a: '', motivo: '', fecha_fin: '' })
+  const [traspasoModal, setTraspasoModal] = useState(null) // equipo a traspasar
+  const [traspasoForm, setTraspasoForm] = useState({ ubicacion_id: '', motivo: '' })
 
   // Estados para Actas, Visor Modal y Creación
   const [actas, setActas] = useState([])
@@ -712,6 +723,72 @@ function App() {
     setScannerInput('')
   }
 
+  const handlePrestamoSectionSubmit = async (e) => {
+    e.preventDefault()
+    if (!prestamoSectionForm.equipo_id || !prestamoSectionForm.prestamo_a) {
+      showToast('Selecciona el equipo e indica a quién se presta')
+      return
+    }
+    const body = {
+      prestamo_a: prestamoSectionForm.prestamo_a,
+      motivo: prestamoSectionForm.motivo || null,
+      fecha_fin: prestamoSectionForm.fecha_fin ? new Date(prestamoSectionForm.fecha_fin).toISOString() : null,
+    }
+    try {
+      const res = await api(`/api/inventory/equipos/${prestamoSectionForm.equipo_id}/prestamo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        showToast('Préstamo registrado')
+        setPrestamoSectionForm({ equipo_id: '', prestamo_a: '', motivo: '', fecha_fin: '' })
+        loadEquipos()
+        loadStats()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo registrar el préstamo')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
+  const handleAbrirTraspaso = (equipo) => {
+    setTraspasoForm({ ubicacion_id: '', motivo: '' })
+    setTraspasoModal(equipo)
+  }
+
+  const handleTraspasoSubmit = async () => {
+    if (!traspasoModal) return
+    if (!traspasoForm.ubicacion_id) {
+      showToast('Selecciona la ubicación de destino')
+      return
+    }
+    try {
+      const res = await api(`/api/inventory/equipos/${traspasoModal.id}/traspaso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ubicacion_id: Number(traspasoForm.ubicacion_id),
+          motivo: traspasoForm.motivo || null,
+        }),
+      })
+      if (res.ok) {
+        showToast('Equipo traspasado correctamente')
+        setTraspasoModal(null)
+        setIsDetailModalOpen(false)
+        loadEquipos()
+        loadStats()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo realizar el traspaso')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
   const handleScannerSubmit = (e) => {
     e.preventDefault()
     if (scannerInput.trim()) {
@@ -722,7 +799,35 @@ function App() {
   }
 
   const handleScannedQr = async (raw) => {
-    // El QR backend tiene formato: EQUIPO|folio|marca modelo|serie|estado|ubicacion
+    // Nuevas etiquetas QR: URL pública -> /consulta/equipos/{id}
+    const mUrl = String(raw).match(/[/\\]consulta[/\\]equipos[/\\](\d+)/)
+    if (mUrl && mUrl[1]) {
+      const id = Number(mUrl[1])
+      const eq = equipos.find((e) => e.id === id)
+      if (eq) {
+        setScannerStatus('Equipo encontrado: ' + (eq.folio || id))
+        handleOpenEquipmentDetail(eq)
+      } else {
+        try {
+          const res = await api(`/api/inventory/equipos/${id}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data && data.id) {
+              setScannerStatus('Equipo encontrado: ' + (data.folio || id))
+              handleOpenEquipmentDetail(data)
+            } else {
+              setScannerStatus('Equipo no encontrado en el inventario.')
+            }
+          } else {
+            setScannerStatus('Equipo no encontrado en el inventario.')
+          }
+        } catch {
+          setScannerStatus('Sin conexión con el servidor al procesar el QR.')
+        }
+      }
+      return
+    }
+    // QR legacy: EQUIPO|folio|marca modelo|serie|estado|ubicacion
     const parts = String(raw).split('|').map((s) => s.trim())
     const folio = parts[1] && parts[1] !== 'undefined' ? parts[1] : (parts[3] || '')
     if (!folio) {
@@ -4187,6 +4292,130 @@ function App() {
       )
     }
 
+    if (activeSection === 'prestamos') {
+      const prestados = equipos.filter((e) => e.estado === 'prestamo')
+      const disponibles = equipos.filter((e) => e.estado !== 'prestamo' && e.estado !== 'baja')
+      return (
+        <>
+          <section className="section-header">
+            <div>
+              <h2>Préstamos y traspasos</h2>
+              <p className="text-soft">Registra préstamos, controla retornos y cambia de ubicación los equipos.</p>
+            </div>
+          </section>
+
+          {canModify && (
+            <section className="panel">
+              <div className="panel-header">
+                <h3 style={{ margin: 0 }}>Registrar préstamo</h3>
+              </div>
+              <form className="form-grid" onSubmit={handlePrestamoSectionSubmit}>
+                <label className="field">
+                  <span>Equipo *</span>
+                  <select
+                    value={prestamoSectionForm.equipo_id}
+                    onChange={(e) => setPrestamoSectionForm((f) => ({ ...f, equipo_id: e.target.value }))}
+                  >
+                    <option value="">Seleccione un equipo disponible</option>
+                    {disponibles.map((eq) => (
+                      <option key={eq.id} value={eq.id}>{eq.folio} — {eq.marca} {eq.modelo}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>¿A quién se presta? *</span>
+                  <input
+                    type="text"
+                    value={prestamoSectionForm.prestamo_a}
+                    onChange={(e) => setPrestamoSectionForm((f) => ({ ...f, prestamo_a: e.target.value }))}
+                    placeholder="Nombre de la persona o área"
+                  />
+                </label>
+                <label className="field">
+                  <span>Motivo / observaciones</span>
+                  <input
+                    type="text"
+                    value={prestamoSectionForm.motivo}
+                    onChange={(e) => setPrestamoSectionForm((f) => ({ ...f, motivo: e.target.value }))}
+                    placeholder="Razón del préstamo"
+                  />
+                </label>
+                <label className="field">
+                  <span>Fecha límite (opcional)</span>
+                  <input
+                    type="date"
+                    value={prestamoSectionForm.fecha_fin}
+                    onChange={(e) => setPrestamoSectionForm((f) => ({ ...f, fecha_fin: e.target.value }))}
+                  />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary">Registrar préstamo</button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          <section className="panel">
+            <div className="panel-header">
+              <h3 style={{ margin: 0 }}>Equipos en préstamo ({prestados.length})</h3>
+              <button type="button" className="btn-quick-status" onClick={() => setPrestamoSectionForm({ equipo_id: '', prestamo_a: '', motivo: '', fecha_fin: '' })}>Nuevo</button>
+            </div>
+            {prestados.length === 0 ? (
+              <p className="text-soft" style={{ fontSize: '0.9rem', padding: '8px 0' }}>No hay equipos en préstamo actualmente.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Equipo</th>
+                      <th>Prestado a</th>
+                      <th>Desde</th>
+                      <th>Límite</th>
+                      <th>Estado</th>
+                      {canModify && <th>Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {prestados.map((eq) => {
+                      const vencido = eq.prestamo_hasta && new Date(eq.prestamo_hasta) < new Date()
+                      return (
+                        <tr key={eq.id}>
+                          <td data-label="Equipo">
+                            <button type="button" className="link-button" onClick={() => handleOpenEquipmentDetail(eq)}>
+                              <strong>{eq.folio}</strong>
+                            </button>
+                            <span className="text-soft" style={{ display: 'block', fontSize: '0.78rem' }}>{eq.marca} {eq.modelo}</span>
+                          </td>
+                          <td data-label="Prestado a">{eq.prestamo_a || '—'}</td>
+                          <td data-label="Desde">{eq.prestamo_desde ? new Date(eq.prestamo_desde).toLocaleDateString('es-CO') : '—'}</td>
+                          <td data-label="Límite">{eq.prestamo_hasta ? new Date(eq.prestamo_hasta).toLocaleDateString('es-CO') : '—'}</td>
+                          <td data-label="Estado">
+                            {vencido ? (
+                              <span className="badge-danger">VENCIDO</span>
+                            ) : (
+                              <span className="status-pill prestamo">Préstamo</span>
+                            )}
+                          </td>
+                          {canModify && (
+                            <td data-label="Acciones">
+                              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <button type="button" className="link-button" onClick={() => handleRetornoPrestamo(eq)}>Retorno</button>
+                                <button type="button" className="link-button" onClick={() => handleAbrirTraspaso(eq)}>Traspasar</button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )
+    }
+
     if (activeSection === 'configuracion') {
       return (
         <section className="section-grid">
@@ -5564,6 +5793,15 @@ function App() {
                   ↺ Retorno de préstamo
                 </button>
               )}
+              {canModify && (
+                <button
+                  type="button"
+                  className="btn-quick-status"
+                  onClick={() => handleAbrirTraspaso(selectedEquipmentForDetail)}
+                >
+                  ↔ Traspasar
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-primary small"
@@ -5744,6 +5982,57 @@ function App() {
                 {bajaPrestamoModal.tipo === 'prestamo' ? 'Registrar préstamo' :
                   bajaPrestamoModal.tipo === 'venta' ? 'Registrar venta' : 'Confirmar baja'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TRASPASO DE EQUIPO (FASE 12) */}
+      {traspasoModal && (
+        <div className="modal-overlay" onClick={() => setTraspasoModal(null)}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>Traspasar equipo</h3>
+                <span className="text-soft" style={{ fontSize: '0.8rem' }}>
+                  {traspasoModal.folio} · {traspasoModal.marca} {traspasoModal.modelo}
+                  {traspasoModal.ubicacion_nombre ? ` · actual: ${traspasoModal.ubicacion_nombre}` : ''}
+                </span>
+              </div>
+              <button type="button" className="btn-modal-close" onClick={() => setTraspasoModal(null)}>✕</button>
+            </div>
+            <form
+              className="modal-body"
+              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+              onSubmit={(e) => { e.preventDefault(); handleTraspasoSubmit() }}
+            >
+              <label className="field">
+                <span>Ubicación de destino *</span>
+                <select
+                  value={traspasoForm.ubicacion_id}
+                  onChange={(e) => setTraspasoForm((f) => ({ ...f, ubicacion_id: e.target.value }))}
+                >
+                  <option value="">Seleccione la ubicación</option>
+                  {ubicaciones
+                    .filter((u) => u.id !== traspasoModal.ubicacion_id)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>{u.nombre}{u.ciudad ? ` (${u.ciudad})` : ''}</option>
+                    ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Motivo del traspaso</span>
+                <input
+                  type="text"
+                  value={traspasoForm.motivo}
+                  onChange={(e) => setTraspasoForm((f) => ({ ...f, motivo: e.target.value }))}
+                  placeholder="Ej. nueva sucursal, cambio de sede"
+                />
+              </label>
+            </form>
+            <div className="modal-footer">
+              <button type="button" className="btn-link-danger" onClick={() => setTraspasoModal(null)}>Cancelar</button>
+              <button type="button" className="btn-primary small" onClick={handleTraspasoSubmit}>Confirmar traspaso</button>
             </div>
           </div>
         </div>
