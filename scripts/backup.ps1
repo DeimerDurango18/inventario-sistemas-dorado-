@@ -16,18 +16,11 @@ New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 # ---------- 1) Intentar BACKUP completo con sqlcmd ----------
 $sqlcmd = Get-Command sqlcmd -ErrorAction SilentlyContinue
 if ($sqlcmd) {
-    $envFile = Join-Path $root '.env'
-    if (-not (Test-Path $envFile)) { Write-Error 'No existe .env en la raíz. Configura las credenciales de la BD.'; exit 1 }
-    $kv = @{}
-    Get-Content $envFile | ForEach-Object {
-        if ($_ -match '^\s*(DB_\w+|DB_NAME)\s*=\s*(.+?)\s*$') {
-            $kv[$Matches[1]] = $Matches[2].Trim('"')
-        }
-    }
-    $user  = if ($kv.ContainsKey('DB_USER')) { $kv['DB_USER'] } else { 'sa' }
-    $pass  = if ($kv.ContainsKey('DB_PASSWORD')) { $kv['DB_PASSWORD'] } else { '' }
-    $db    = if ($kv.ContainsKey('DB_NAME')) { $kv['DB_NAME'] } else { 'InventarioEquipos' }
-    $host_ = if ($kv.ContainsKey('DB_HOST')) { $kv['DB_HOST'] } else { 'localhost\SQLExpress' }
+    # Credenciales de la BD (mismas que backend/app/core/config.py)
+    $user  = 'inventario_app'
+    $pass  = '@Yay0qSOa-@95WSZTCIcIaqe'
+    $db    = 'InventarioEquipos'
+    $host_ = 'localhost\SQLExpress'
 
     $name  = "$(Get-Date -Format 'yyyyMMdd_HHmmss')_InventarioEquipos.bak"
     $dest  = Join-Path $backupDir $name

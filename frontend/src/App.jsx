@@ -419,6 +419,9 @@ function App() {
     }
   }, [isSidebarOpen])
 
+  // URL de la API. En el build de producción (scripts/desplegar.ps1) se hornea
+  // la URL pública del túnel Cloudflare automáticamente. En desarrollo local
+  // usa el backend local. NO requiere archivos .env.
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8010'
 
   const canModify = !!currentUser && (currentUser.rol === 'admin' || currentUser.rol === 'supervisor')

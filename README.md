@@ -1,108 +1,75 @@
 # Inventario Equipos
 
-Proyecto moderno con Python y JavaScript:
+Proyecto de gestión de inventario de equipos, actas de entrada/salida, mantenimiento, soporte y puntos de venta.
 
-- Backend: FastAPI + SQLAlchemy + pyodbc
-- Frontend: React + Vite
-- Base de datos: configurable por entorno (SQL Server / SQLite en desarrollo)
+- **Backend**: FastAPI + SQLAlchemy + pyodbc (Python 3.14, `.venv`)
+- **Frontend**: React + Vite (Node/npm)
+- **Base de datos**: SQL Server local — instancia `localhost\SQLExpress`, BD `InventarioEquipos`
+- **Túnel público**: Cloudflare (`cloudflared`) para exponer la API en internet
 
-## Estructura
+## Requisitos
 
-```
-InventarioEquipos/
-├── .env                  # credenciales locales reales (no versionar)
-├── .env.example          # ejemplo de variables de entorno
-├── backend/
-│   ├── app/
-│   ├── requirements.txt
-│   └── run.py
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   └── vite.config.js
-└── README.md
-```
+- Python 3.14 (`C:\Users\ddurango\AppData\Local\Programs\Python\Python314\python.exe`)
+- SQL Server Express corriendo (servicio `MSSQL$SQLEXPRESS`)
+- Node.js + npm
+- Cloudflare (`cloudflared`) en `C:\Program Files (x86)\cloudflared\cloudflared.exe`
 
-## Configuración de entorno
-
-Copia [.env.example](.env.example) a `.env` y ajusta tus valores reales:
-
-```env
-DB_ENGINE=mssql
-DB_HOST=localhost\SQLExpress
-DB_PORT=1433
-DB_NAME=InventarioEquipos
-DB_USER=inventario_app
-DB_PASSWORD=TuPasswordSeguroAqui
-DB_DRIVER=ODBC Driver 18 for SQL Server
-SECRET_KEY=genera-una-clave-aleatoria-de-al-menos-32-caracteres
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-FRONTEND_URL=http://localhost:5173
-```
-
-Las credenciales van en variables de entorno en `.env`, no en el código del backend.
-**Nunca** versiones `.env` ni uses la cuenta `sa` de SQL Server en la aplicación.
-
-## Preparar la base de datos (primera vez)
-
-Desde `backend/`:
+## Instalación (primera vez)
 
 ```powershell
-$env:PYTHONPATH = "D:\proyectos\InventarioEquipos\backend"
-& "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m alembic upgrade head
-```
+# 1) Crear entorno virtual e instalar dependencias del backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 
-Crea el primer administrador (el primero registrado siempre queda como `admin`):
-
-```
-POST /api/auth/register
-{ "nombre": "Administrador", "correo": "admin@empresa.com", "password": "ClaveSegura2026!", "rol": "admin" }
-```
-
-> La `SECRET_KEY` debe ser fija y secreta en producción. Si `DEBUG=False` y la clave es débil o falta, el backend no arranca a propósito.
-
-## Módulos incluidos
-
-- **Equipos**: inventario general (marca, modelo, serie, categoría, ubicación, valor, observaciones).
-- **Entradas / Salidas**: registro de movimientos de equipos.
-- **Mantenimiento**: mantenimientos preventivos/correctivos con seguimiento de estado (programado → en proceso → finalizado).
-- **Categorías** y **Ubicaciones**: catálogos de apoyo para clasificar y ubicar equipos.
-- **Usuarios**: gestión de usuarios y roles (admin / supervisor / operativo).
-- **Actas (Órdenes de Salida/Entrada)**: generación de PDF oficial con el formato físico de la compañía (encabezado, tabla de dispositivos, firmas y marca de agua configurable vía `COMPANY_WATERMARK`).
-- **Reportes / Dashboard**: indicadores generales de inventario, mantenimientos activos y actas generadas.
-
-## Generación de actas en PDF
-
-`POST /api/reports/actas` crea una acta (encabezado + ítems) y genera automáticamente el PDF en `backend/storage/actas/`. El formato replica la orden física oficial: logo, "SALIDA N° ..." con fecha, título, párrafo de autorización, bloque de proyecto/destino, tabla DISPOSITIVO/MARCA/DETALLE/CANT/SERIAL, observaciones, valor aproximado, cajas, marca de agua diagonal y firmas de despacho. Los datos de la empresa y la marca de agua se configuran en `.env` (`COMPANY_NAME`, `COMPANY_NIT`, `COMPANY_PHONE`, `COMPANY_ADDRESS`, `COMPANY_WATERMARK`).
-
-Para descargar el PDF de una acta ya creada: `GET /api/reports/actas/{id}/pdf`.
-
-## Modo de desarrollo sin SQL Server
-
-Si no tienes SQL Server instalado, en `.env` cambia `DB_ENGINE=mssql` por `DB_ENGINE=sqlite`. El backend usará automáticamente un archivo SQLite en `backend/storage/inventario.db`, sin necesidad de driver ODBC.
-
-## Ejecutar backend
-
-```powershell
-Set-Location "D:\proyectos\InventarioEquipos\backend"
-& "D:\proyectos\InventarioEquipos\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8010
-```
-
-## Ejecutar frontend
-
-```powershell
-Set-Location "D:\proyectos\InventarioEquipos\frontend"
+# 2) Instalar dependencias del frontend
+cd frontend
 npm install
-npm run dev -- --host 0.0.0.0 --port 5173
+cd ..
 ```
 
-## URLs
+La BD `InventarioEquipos` debe existir en SQL Server. El backend crea/actualiza las tablas
+automáticamente al arrancar (usa el usuario `inventario_app`).
 
-- Backend: http://127.0.0.1:8010
-- Frontend: http://localhost:5173
-- Health check: http://127.0.0.1:8010/health
+> La configuración (BD, claves JWT, datos de empresa) está directamente en
+> `backend/app/core/config.py`. **No se necesitan archivos `.env`.**
 
-## Nota
+## Levantar el proyecto: 3 comandos
 
-Se eliminó el proyecto Django anterior y quedó la nueva arquitectura basada en FastAPI + React.
+Abre 3 terminales (o ejecuta cada `.bat`):
+
+```powershell
+# 1) Backend  -> http://localhost:8010  (/health, /docs)
+start-backend.bat
+
+# 2) Frontend -> http://localhost:5173
+start-frontend.bat
+
+# 3) Túnel público -> guarda la URL en tunel_url.txt (opcional, solo si quieres
+#    acceder desde internet o desplegar el frontend apuntando a la API)
+start-tunnel.bat
+```
+
+Alternativa "todo en uno" para desarrollo local (backend + frontend + navegador):
+
+```powershell
+iniciar_proyecto.bat
+```
+
+## Acceso
+
+- App: http://localhost:5173
+- API: http://127.0.0.1:8010
+- Docs API (Swagger): http://127.0.0.1:8010/docs
+- Login inicial: `admin@sistemasbogota.com` / `Admin2026!`
+
+## Notas importantes
+
+- El túnel gratuito de Cloudflare (`*.trycloudflare.com`) **cambia en cada reinicio**.
+  Si el frontend desplegado (Cloudflare Pages/Netlify) debe apuntar a la API por
+  internet, actualiza la URL y re-despliega (ver `scripts/desplegar.ps1`).
+- Los tests del backend usan SQLite en memoria (`DB_ENGINE=sqlite`); para correrlos:
+
+```powershell
+$env:DB_ENGINE='sqlite'
+.\.venv\Scripts\python.exe -m pytest backend\tests -q
+```

@@ -24,9 +24,9 @@ env/
 *.sqlite
 *.sqlite3
 
-# Backups
-storage/backups/
-backend/storage/backups/
+# Archivos generados por la app (fotos, actas, mantenimientos, etc.)
+backend/storage/
+storage/
 
 # Node
 node_modules/
