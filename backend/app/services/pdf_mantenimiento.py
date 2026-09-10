@@ -4,7 +4,7 @@ Replica el estilo corporativo de las actas (misma marca de agua, logo y pie),
 pero orientado a servicios de mantenimiento:
   - Encabezado con datos de la empresa y consecutivo "MANTENIMIENTO N° #"
   - Título e identificación del equipo
-  - Datos del servicio: tipo, técnico, descripción, costo, fecha
+  - Datos del servicio: tipo, técnico, descripción, prioridad, fecha
   - Historial de movimientos del equipo si se dispone de él
   - Firma del técnico / responsable
 """
@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from app.core.config import VERIFY_URL
+from app.core.config import get_public_verify_url
 
 PAGE_W, PAGE_H = A4
 MARGIN = 15 * mm
@@ -39,13 +39,32 @@ def _fmt_fecha(value) -> str:
     return value.strftime("%Y-%m-%d %H:%M")
 
 
-def _fmt_money(value) -> str:
-    if value is None:
-        return "$ 0"
-    try:
-        return f"$ {int(round(float(value))):,}".replace(",", ".")
-    except (TypeError, ValueError):
-        return f"$ {value}"
+def _fit_text(c: canvas.Canvas, text: str, font: str, size: float, max_w: float) -> str:
+    if c.stringWidth(text, font, size) <= max_w:
+        return text
+    while text and c.stringWidth(text + "...", font, size) > max_w:
+        text = text[:-1]
+    return f"{text}..." if text else ""
+
+
+def _wrap_text(c: canvas.Canvas, text: str, font: str, size: float, max_w: float, max_lines: int = None) -> list:
+    words = text.split()
+    out, cur = [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if c.stringWidth(trial, font, size) > max_w:
+            if cur:
+                out.append(cur)
+            cur = w
+        else:
+            cur = trial
+    if cur:
+        out.append(cur)
+    if max_lines is not None and len(out) > max_lines:
+        kept = out[: max_lines - 1]
+        last = _fit_text(c, f"{out[max_lines - 1]} ...", font, size, max_w)
+        out = kept + [last]
+    return out
 
 
 def _draw_watermark(c: canvas.Canvas, text: str):
@@ -67,7 +86,7 @@ def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = Non
 
     # --- QR de Verificación (A la izquierda) ---
     if registro_id:
-        verify_url = f"{VERIFY_URL}/api/mantenimientos/{registro_id}/verify"
+        verify_url = f"{get_public_verify_url()}/api/mantenimientos/{registro_id}/verify"
         qr = qrcode.QRCode(version=1, box_size=10, border=0)
         qr.add_data(verify_url)
         qr.make(fit=True)
@@ -133,13 +152,20 @@ def _title(c: canvas.Canvas, y: float):
     return y - 22
 
 
-def _label_row(c: canvas.Canvas, y: float, label: str, value: str):
+def _label_row(c: canvas.Canvas, y: float, label: str, value: str, wrap: int = None):
     c.setFont("Helvetica-Bold", 9)
     c.setFillColorRGB(*BLACK)
     c.drawString(MARGIN, y, label.upper())
     c.setFont("Helvetica", 9)
     c.setFillColorRGB(*GRAY_TEXT)
-    c.drawString(MARGIN + 130, y, value)
+    value_x = MARGIN + 130
+    max_w = PAGE_W - MARGIN - value_x - 4
+    if wrap:
+        for ln in _wrap_text(c, value or "-", "Helvetica", 9, max_w, max_lines=wrap):
+            c.drawString(value_x, y, ln)
+            y -= 11
+        return y - 4
+    c.drawString(value_x, y, _fit_text(c, value or "-", "Helvetica", 9, max_w))
     return y - 15
 
 
@@ -207,14 +233,20 @@ def _final_account(c: canvas.Canvas, y: float, registro, equipo):
     c.setFont("Helvetica-Bold", 8.5)
     c.drawString(MARGIN, y, "TIPO DE SERVICIO")
     c.drawString(MARGIN + col_w, y, "ESTADO")
-    c.drawString(MARGIN + 2 * col_w, y, "COSTO")
+    c.drawString(MARGIN + 2 * col_w, y, "PRIORIDAD")
     c.setFont("Helvetica-Bold", 9)
     c.setFillColorRGB(*BLUE)
     c.drawString(MARGIN, y - 13, (registro.tipo or "-").upper())
     c.drawString(MARGIN + col_w, y - 13, (registro.estado or "-").upper())
-    c.drawString(MARGIN + 2 * col_w, y - 13, _fmt_money(registro.costo))
+    c.drawString(MARGIN + 2 * col_w, y - 13, (registro.prioridad or "media").upper())
     c.setFillColorRGB(*BLACK)
     return y - 40
+
+
+def _continuation(c: canvas.Canvas, marca: str):
+    c.showPage()
+    _draw_watermark(c, marca)
+    return PAGE_H - MARGIN - 40
 
 
 def generar_acta_mantenimiento_pdf(
@@ -229,7 +261,8 @@ def generar_acta_mantenimiento_pdf(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     c = canvas.Canvas(str(output_path), pagesize=A4)
-    _draw_watermark(c, company.get("marca_agua") or company["nombre"])
+    marca = company.get("marca_agua") or company["nombre"]
+    _draw_watermark(c, marca)
 
     numero = f"MT-{registro.id}"
     y = _header(c, company, numero, registro.id)
@@ -245,13 +278,18 @@ def generar_acta_mantenimiento_pdf(
 
     y = _section(c, y, "Datos del servicio")
     y = _label_row(c, y, "TÉCNICO", (registro.tecnico or "-").upper())
-    y = _label_row(c, y, "DESCRIPCIÓN", (registro.descripcion or "-"))
+    y = _label_row(c, y, "DESCRIPCIÓN", (registro.descripcion or "-"), wrap=3)
     y = _label_row(c, y, "FECHA PROGRAMADA", _fmt_fecha(registro.fecha_programada))
 
     y = _section(c, y, "Historial del equipo")
     y = _movements_table(c, y, movimientos or [])
 
+    if y < 180:
+        y = _continuation(c, marca)
     y = _final_account(c, y, registro, equipo)
+
+    if y < MARGIN + 130:
+        y = _continuation(c, marca)
 
     # Firmas
     firma_y = MARGIN + 34
@@ -261,12 +299,12 @@ def generar_acta_mantenimiento_pdf(
     c.line(MARGIN, firma_y, MARGIN + col_w - 20, firma_y)
     c.line(MARGIN + col_w + 20, firma_y, PAGE_W - MARGIN, firma_y)
     c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(MARGIN, firma_y - 12, (registro.tecnico or "TÉCNICO").upper())
+    c.drawString(MARGIN, firma_y - 12, _fit_text(c, (registro.tecnico or "TÉCNICO").upper(), "Helvetica-Bold", 8.5, col_w - 24))
     c.drawString(MARGIN + col_w + 20, firma_y - 12, "RESPONSABLE / BODEGA")
 
     c.setFillColorRGB(*GRAY_TEXT)
     c.setFont("Helvetica", 7.5)
-    c.drawCentredString(PAGE_W / 2, MARGIN - 4, "Pág. 1/1")
+    c.drawCentredString(PAGE_W / 2, MARGIN - 4, f"Pág. {c.getPageNumber()}")
 
     c.showPage()
     c.save()

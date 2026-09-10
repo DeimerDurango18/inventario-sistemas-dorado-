@@ -65,7 +65,7 @@ class MaintenanceIn(BaseModel):
     tipo: str = "preventivo"
     descripcion: Optional[str] = None
     tecnico: Optional[str] = None
-    costo: Optional[float] = None
+    prioridad: str = "media"  # baja | media | alta | urgente
     estado: str = "programado"
     fecha_programada: Optional[datetime] = None
     fecha_finalizado: Optional[datetime] = None
@@ -92,6 +92,7 @@ class ActaIn(BaseModel):
     observaciones: Optional[str] = None
     valor_aprox: Optional[float] = None
     cajas: int = 1
+    email_destino: Optional[str] = None
     items: List[ActaItemIn]
 
 
@@ -99,6 +100,23 @@ class ActaFirmaIn(BaseModel):
     """Registro de la firma del responsable que recibe los equipos en la sede."""
     nombre: str
     documento: Optional[str] = None
+
+
+class MantenimientoGrupalItemIn(BaseModel):
+    """Un equipo dentro del acta de mantenimiento grupal: nombre y serial."""
+    nombre_equipo: str
+    serie: Optional[str] = None
+    observaciones: Optional[str] = None
+    equipo_id: Optional[int] = None
+
+
+class ActaMantenimientoIn(BaseModel):
+    """Acta de mantenimiento grupal: un lote de equipos con su serial y nombre."""
+    cliente: Optional[str] = None
+    tecnico: Optional[str] = None
+    observaciones: Optional[str] = None
+    prioridad: str = "media"  # baja | media | alta | urgente
+    items: List[MantenimientoGrupalItemIn]
 
 
 class EquipmentIn(BaseModel):
@@ -200,6 +218,7 @@ class PuntoVentaIn(BaseModel):
     direccion: Optional[str] = None
     telefono: Optional[str] = None
     responsable: Optional[str] = None
+    coordinador_celular: Optional[str] = None
     estado: str = "activo"  # activo | inactivo
 
 
@@ -210,6 +229,7 @@ class PuntoVentaUpdate(BaseModel):
     direccion: Optional[str] = None
     telefono: Optional[str] = None
     responsable: Optional[str] = None
+    coordinador_celular: Optional[str] = None
     estado: Optional[str] = None
 
 

@@ -171,6 +171,14 @@ app.include_router(
     tags=["consulta"],
 )
 
+# Actas de mantenimiento grupal
+from app.api.routes import actas_mantenimiento  # noqa: E402
+app.include_router(
+    actas_mantenimiento.router,
+    prefix="/api/actas-mantenimiento",
+    tags=["actas-mantenimiento"],
+)
+
 
 # ============================================================
 # RUTA PRINCIPAL

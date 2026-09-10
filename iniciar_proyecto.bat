@@ -23,28 +23,28 @@ if not exist "%PYTHON_EXE%" (
     exit /b 1
 )
 
-:: Liberar los puertos 8010 y 5173 (evita conflictos de "direccion ya en uso")
-powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; netstat -ano | Select-String ':8010.*LISTENING|:5173.*LISTENING' | ForEach-Object { $p = ($_ -split '\s+')[-1]; if ($p -match '^\d+$') { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
+:: Liberar los puertos 8500 y 4123 (evita conflictos de "direccion ya en uso")
+powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; netstat -ano | Select-String ':8500.*LISTENING|:4123.*LISTENING' | ForEach-Object { $p = ($_ -split '\s+')[-1]; if ($p -match '^\d+$') { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } }"
 
-echo [1/3] Iniciando Backend FastAPI (Puerto 8010, BD=SQL Server / InventarioEquipos)...
-start "Inventario - Backend (FastAPI :8010)" cmd /k "cd /d "%BACKEND_DIR%" && "%PYTHON_EXE%" -m uvicorn app.main:app --host 0.0.0.0 --port 8010"
+echo [1/3] Iniciando Backend FastAPI (Puerto 8500, BD=SQL Server / InventarioEquipos)...
+start "Inventario - Backend (FastAPI :8500)" cmd /k "cd /d "%BACKEND_DIR%" && "%PYTHON_EXE%" -m uvicorn app.main:app --host 0.0.0.0 --port 8500"
 
-echo [2/3] Iniciando Frontend Vite + React (Puerto 5173)...
-start "Inventario - Frontend (Vite :5173)" cmd /k "cd /d "%FRONTEND_DIR%" && npm run dev -- --host 0.0.0.0 --port 5173"
+echo [2/3] Iniciando Frontend Vite + React (Puerto 4123)...
+start "Inventario - Frontend (Vite :4123)" cmd /k "cd /d "%FRONTEND_DIR%" && npm run dev -- --host 0.0.0.0 --port 4123"
 
 echo.
 echo Esperando que los servicios inicien...
 timeout /t 4 /nobreak >nul
 
 echo [3/3] Abriendo aplicacion en el navegador...
-start http://localhost:5173
+start http://localhost:4123
 
 echo.
 echo ============================================================
 echo  SERVICIOS INICIADOS CORRECTAMENTE:
-echo   - Backend API : http://127.0.0.1:8010
-echo   - Health Check: http://127.0.0.1:8010/health
-echo   - Frontend App: http://localhost:5173
+echo   - Backend API : http://127.0.0.1:8500
+echo   - Health Check: http://127.0.0.1:8500/health
+echo   - Frontend App: http://localhost:4123
 echo.
 echo  DATOS DE ACCESO (BD = SQL Server / InventarioEquipos):
 echo   - Correo:     admin@sistemasbogota.com

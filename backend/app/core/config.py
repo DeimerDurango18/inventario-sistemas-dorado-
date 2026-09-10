@@ -2,7 +2,10 @@ from pathlib import Path
 import os
 
 # ============================================================
-# CONFIGURACION DIRECTA (sin .env)
+# CONFIGURACION
+# Se permite sobreescribir cada valor con variables de entorno
+# (recomendado para producción). Los valores de abajo son los
+# valores por defecto de desarrollo local.
 # ============================================================
 
 # Base de datos - SQL Server local.
@@ -10,40 +13,43 @@ import os
 # sqlite); para el arranque normal siempre es mssql.
 DB_ENGINE = os.getenv("DB_ENGINE", "mssql").lower()
 DB_CONFIG = {
-    "driver": "ODBC Driver 18 for SQL Server",
-    "server": r"localhost\SQLExpress",
-    "database": "InventarioEquipos",
-    "username": "inventario_app",
-    "password": "@Yay0qSOa-@95WSZTCIcIaqe",
-    "port": "1433",
+    "driver": os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server"),
+    "server": os.getenv("DB_SERVER", r"localhost\SQLExpress"),
+    "database": os.getenv("DB_DATABASE", "InventarioEquipos"),
+    "username": os.getenv("DB_USERNAME", "inventario_app"),
+    "password": os.getenv("DB_PASSWORD", "@Yay0qSOa-@95WSZTCIcIaqe"),
+    "port": os.getenv("DB_PORT", "1433"),
 }
 
 # Seguridad - JWT
 DEBUG = os.getenv("DEBUG", "True").lower() in {"1", "true", "yes"}
-SECRET_KEY = "YrGkuxnbe2lQ9PG5Kg8SAhg75gLQ4pk4KF06kW8wIJ1y55scY_6mHA5nMyEDWK9eFWNX7layZ_qo9c7ORQZGcg"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "YrGkuxnbe2lQ9PG5Kg8SAhg75gLQ4pk4KF06kW8wIJ1y55scY_6mHA5nMyEDWK9eFWNX7layZ_qo9c7ORQZGcg",
+)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 # Hosts y CORS
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-FRONTEND_URL = "http://localhost:5173"
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4123")
 CORS_ORIGINS = [
-    "https://inventario-equipos.pages.dev",
-    "http://localhost:5173",
-    "https://durango-dev.netlify.app",
+    o.strip()
+    for o in os.getenv(
+        "CORS_ORIGINS",
+        "https://inventario-equipos.pages.dev,http://localhost:4123,https://durango-dev.netlify.app",
+    ).split(",")
+    if o.strip()
 ]
-
-# URL base para verificacion de actas QR
-VERIFY_URL = "http://localhost:8010"
 
 # SMTP (deshabilitado por defecto)
 SMTP = {
-    "host": "",
-    "port": 587,
-    "user": "",
-    "password": "",
-    "from_addr": "",
-    "to": "",
-    "use_tls": True,
+    "host": os.getenv("SMTP_HOST", ""),
+    "port": int(os.getenv("SMTP_PORT", "587")),
+    "user": os.getenv("SMTP_USER", ""),
+    "password": os.getenv("SMTP_PASSWORD", ""),
+    "from_addr": os.getenv("SMTP_FROM", ""),
+    "to": os.getenv("SMTP_TO", ""),
+    "use_tls": os.getenv("SMTP_TLS", "1") in {"1", "true", "yes"},
 }
 
 # Datos de la empresa para PDFs de actas
@@ -56,3 +62,23 @@ COMPANY = {
     "marca_agua": "SISTEMAS BOGOTA",
     "logo_path": str(_COMPANY_LOGO_DEFAULT),
 }
+
+
+def get_public_verify_url() -> str:
+    """URL pública usada en los QR de las actas.
+
+    Prioridad: 1) variable de entorno VERIFY_URL, 2) el túnel vigente
+    guardado en tunel_url.txt (raíz del proyecto), 3) localhost.
+    """
+    env = os.getenv("VERIFY_URL")
+    if env:
+        return env.rstrip("/")
+    root = Path(__file__).resolve().parents[3]
+    tunel_file = root / "tunel_url.txt"
+    try:
+        url = tunel_file.read_text(encoding="utf-8").strip()
+        if url.startswith("http"):
+            return url.rstrip("/")
+    except OSError:
+        pass
+    return "http://localhost:8500"

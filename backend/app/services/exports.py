@@ -52,7 +52,7 @@ def _filas_mantenimientos(registros) -> list:
                 "Tipo": r.tipo,
                 "Descripcion": r.descripcion or "",
                 "Tecnico": r.tecnico or "",
-                "Costo": float(r.costo) if r.costo is not None else None,
+                "Prioridad": r.prioridad or "media",
                 "Estado": r.estado,
                 "Fecha Programada": r.fecha_programada.isoformat() if r.fecha_programada else "",
             }

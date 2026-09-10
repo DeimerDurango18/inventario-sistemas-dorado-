@@ -4,7 +4,7 @@ services:
       context: ./backend
     container_name: inventario-backend
     ports:
-      - "8010:8010"
+      - "8500:8500"
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: "1433"
@@ -17,7 +17,7 @@ services:
       context: ./frontend
     container_name: inventario-frontend
     ports:
-      - "5173:5173"
+      - "4123:4123"
     restart: unless-stopped
     depends_on:
       - backend

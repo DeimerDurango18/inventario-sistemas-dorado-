@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import COMPANY
 from app.core.database import get_db
@@ -15,9 +17,21 @@ from app.services.pdf_acta import generar_acta_pdf
 
 router = APIRouter()
 PDF_DIR = Path(__file__).resolve().parents[3] / "storage" / "actas"
+ACTA_FOTO_DIR = Path(__file__).resolve().parents[3] / "storage" / "actas_fotos"
+ACTA_FOTO_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_FOTOS = 3
 
 # Solo supervisor/admin pueden emitir o eliminar actas.
 MODIFY_ROLES = require_roles("admin", "supervisor")
+
+
+def _parse_fotos(a: Acta) -> list:
+    try:
+        return json.loads(a.fotos) if a.fotos else []
+    except (ValueError, TypeError):
+        return []
 
 
 def _siguiente_numero(db: Session, empresa_id: int = None) -> str:
@@ -52,6 +66,8 @@ def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
         "firmado_por": a.firmado_por,
         "documento_firma": a.documento_firma,
         "fecha_firma": a.fecha_firma.isoformat() if a.fecha_firma else None,
+        "email_destino": a.email_destino,
+        "fotos": _parse_fotos(a),
         "created_at": a.created_at.isoformat() if a.created_at else None,
         "items_count": len(a.items),
         "pdf_url": f"/api/reports/actas/{a.id}/pdf",
@@ -73,8 +89,12 @@ def _serialize_acta(a: Acta, include_items: bool = False) -> dict:
 
 
 def generate_pdf_background(acta_id: int):
-    """Genera el PDF en segundo plano y actualiza la ruta en la DB."""
+    """Genera el PDF en segundo plano y actualiza la ruta en la DB.
+
+    Si el acta tiene email_destino, envía el PDF por correo al terminar.
+    """
     from app.core.database import SessionLocal
+    from app.services.email_service import enviar_correo
     db = SessionLocal()
     try:
         acta = db.query(Acta).filter(Acta.id == acta_id).first()
@@ -83,6 +103,17 @@ def generate_pdf_background(acta_id: int):
             generar_acta_pdf(acta, acta.items, COMPANY, pdf_path)
             acta.pdf_path = str(pdf_path)
             db.commit()
+            if acta.email_destino:
+                enviar_correo(
+                    destinatarios=[acta.email_destino],
+                    asunto=f"Acta {acta.tipo} {acta.numero} - {COMPANY['nombre']}",
+                    html=(
+                        f"<p>Se generó la <strong>Acta {acta.tipo} {acta.numero}</strong> "
+                        f"a cargo de <strong>{acta.entregado_por}</strong>.</p>"
+                        f"<p>Encuentra el PDF adjunto.</p>"
+                    ),
+                    adjuntos=[("acta.pdf", pdf_path)],
+                )
     except Exception as e:
         # En un entorno real, usaríamos un logger.
         print(f"Error generando PDF para acta {acta_id}: {e}")
@@ -132,6 +163,7 @@ def crear(
         observaciones=payload.observaciones,
         valor_aprox=payload.valor_aprox,
         cajas=payload.cajas,
+        email_destino=payload.email_destino,
         empresa_id=eid,
     )
     db.add(acta)
@@ -181,12 +213,79 @@ def crear(
                     )
                 )
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Carrera por el consecutivo (dos actas simultáneas). Los índices
+        # únicos garantizan que no se duplique el número; se informa y se reintenta.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Conflicto de consecutivo del acta. Presiona nuevamente 'Generar acta'.")
     db.refresh(acta)
 
     background_tasks.add_task(generate_pdf_background, acta.id)
 
     return {"id": acta.id, "numero": acta.numero, "pdf_url": f"/api/reports/actas/{acta.id}/pdf"}
+
+
+@router.post("/{acta_id}/fotos")
+def subir_foto_acta(
+    acta_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Sube una foto/evidencia de la salida o entrada (máximo 3 por acta)."""
+    acta = db.query(Acta).filter(Acta.id == acta_id).first()
+    if not acta:
+        raise HTTPException(status_code=404, detail="Acta no encontrada")
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Usa JPG, PNG o WEBP")
+
+    fotos = _parse_fotos(acta)
+    if len(fotos) >= MAX_FOTOS:
+        raise HTTPException(status_code=400, detail=f"Máximo {MAX_FOTOS} fotos por acta")
+
+    nombre = f"acta_{acta.numero}_{len(fotos) + 1}{ext}"
+    destino = ACTA_FOTO_DIR / nombre
+    destino.write_bytes(file.file.read())
+
+    fotos.append(f"/storage/actas_fotos/{nombre}")
+    acta.fotos = json.dumps(fotos)
+    db.commit()
+    db.refresh(acta)
+    return {"message": "Foto subida", "fotos": _parse_fotos(acta)}
+
+
+@router.delete("/{acta_id}/fotos/{indice}")
+def eliminar_foto_acta(
+    acta_id: int,
+    indice: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Elimina una foto del acta por su índice (0-based)."""
+    acta = db.query(Acta).filter(Acta.id == acta_id).first()
+    if not acta:
+        raise HTTPException(status_code=404, detail="Acta no encontrada")
+
+    fotos = _parse_fotos(acta)
+    if indice < 0 or indice >= len(fotos):
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    ruta = Path(__file__).resolve().parents[3] / fotos[indice].lstrip("/")
+    if ruta.exists():
+        try:
+            ruta.unlink()
+        except OSError:
+            pass
+
+    del fotos[indice]
+    acta.fotos = json.dumps(fotos) if fotos else None
+    db.commit()
+    db.refresh(acta)
+    return {"message": "Foto eliminada", "fotos": _parse_fotos(acta)}
 
 
 @router.get("/{acta_id}/verify")

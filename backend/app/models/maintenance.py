@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -15,7 +15,7 @@ class MaintenanceRecord(Base):
     tipo = Column(String(30), default="preventivo")  # preventivo | correctivo
     descripcion = Column(String(255), nullable=True)
     tecnico = Column(String(150), nullable=True)
-    costo = Column(Numeric(12, 2), nullable=True)
+    prioridad = Column(String(20), nullable=False, server_default="media")  # baja | media | alta | urgente
     estado = Column(String(30), default="programado")  # programado | en_proceso | finalizado
     fecha_programada = Column(DateTime(timezone=True), nullable=True)
     fecha_finalizado = Column(DateTime(timezone=True), nullable=True)

@@ -5,8 +5,10 @@ no está configurado en .env, las funciones devuelven False sin fallar.
 """
 import smtplib
 from datetime import datetime, timedelta, timezone
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
 from app.core.config import SMTP
 
@@ -15,10 +17,29 @@ def smtp_configurado() -> bool:
     return bool(SMTP.get("host") and SMTP.get("from_addr"))
 
 
-def enviar_correo(destinatarios, asunto: str, html: str) -> bool:
+def _adjuntar(msg, adjuntos):
+    """Adjunta archivos (nombre, ruta) al mensaje, si vienen."""
+    for nombre, ruta in (adjuntos or []):
+        try:
+            with open(ruta, "rb") as fh:
+                mimetype = "pdf" if str(ruta).lower().endswith(".pdf") else "octet-stream"
+                parte = MIMEApplication(fh.read(), _subtype=mimetype)
+                parte.add_header("Content-Disposition", "attachment", filename=nombre)
+                msg.attach(parte)
+        except OSError as e:
+            print(f"[email] No se pudo adjuntar {ruta}: {e}")
+
+
+def enviar_correo(
+    destinatarios: list[str],
+    asunto: str,
+    html: str,
+    adjuntos: list[tuple[str, Path]] | None = None,
+) -> bool:
     if not smtp_configurado() or not destinatarios:
         return False
-    to_list = [d.strip() for d in destinatarios if d and d.strip()]
+
+    to_list = [d for d in destinatarios if d and d.strip()]
     if not to_list:
         return False
 
@@ -27,6 +48,8 @@ def enviar_correo(destinatarios, asunto: str, html: str) -> bool:
     msg["From"] = SMTP["from_addr"]
     msg["To"] = ", ".join(to_list)
     msg.attach(MIMEText(html, "html", "utf-8"))
+    if adjuntos:
+        _adjuntar(msg, adjuntos)
 
     try:
         server = smtplib.SMTP(SMTP["host"], SMTP["port"], timeout=15)
@@ -38,9 +61,9 @@ def enviar_correo(destinatarios, asunto: str, html: str) -> bool:
             server.login(SMTP["user"], SMTP["password"])
         server.sendmail(SMTP["from_addr"], to_list, msg.as_string())
         server.quit()
-        return True
     except Exception:
         return False
+    return True
 
 
 def _fmt(dt) -> str:
@@ -54,7 +77,6 @@ def construir_resumen_html(db) -> str:
     ahora = datetime.now(timezone.utc)
     filas = []
 
-    # --- Garantías próximas a vencer (fecha_compra + meses_garantia) ---
     from app.models.equipment import Equipment
     from app.models.maintenance import MaintenanceRecord
     from app.models.acta import Acta
@@ -68,18 +90,20 @@ def construir_resumen_html(db) -> str:
         if fin.tzinfo is None:
             fin = fin.replace(tzinfo=timezone.utc)
         restante = (fin - ahora).days
-        if restante <= 30:
-            garantias.append((eq, fin, restante))
+        if restante > 30:
+            continue
+        garantias.append((eq, fin, restante))
+
     garantias.sort(key=lambda g: g[2])
+
     for eq, fin, restante in garantias[:20]:
         lbl = f"VENCIÓ hace {abs(restante)} día(s)" if restante < 0 else f"vence en {restante} día(s)"
         filas.append(
             f"<tr><td>Garantía</td><td>{eq.folio}</td><td>{eq.marca} {eq.modelo}</td>"
-            f"<td>{fin.strftime('%Y-%m-%d')}</td><td style='color:"
-            f"{'#c0392b' if restante < 0 else '#f39c12'}'>{lbl}</td></tr>"
+            f"<td>{fin.strftime('%Y-%m-%d')}</td>"
+            f"<td style='color:{'#c0392b' if restante < 0 else '#f39c12'}'>{lbl}</td></tr>"
         )
 
-    # --- Mantenimientos vencidos o próximos (7 días) ---
     mts = (
         db.query(MaintenanceRecord)
         .filter(MaintenanceRecord.estado.in_(["programado", "en_proceso"]))
@@ -93,14 +117,15 @@ def construir_resumen_html(db) -> str:
             f = f.replace(tzinfo=timezone.utc)
         restante = (f - ahora).days
         etq = f"{r.equipo.folio} - {r.equipo.marca} {r.equipo.modelo}" if r.equipo else f"#{r.equipo_id}"
-        if restante < 0 or restante <= 7:
-            lbl = f"VENCIDO hace {abs(restante)} día(s)" if restante < 0 else f"programado en {restante} día(s)"
-            filas.append(
-                f"<tr><td>Mantenimiento</td><td>{etq}</td><td>{r.tipo}</td>"
-                f"<td>{f.strftime('%Y-%m-%d')}</td><td style='color:{'#c0392b' if restante < 0 else '#f39c12'}'>{lbl}</td></tr>"
-            )
+        if not (restante < 0 or restante <= 7):
+            continue
+        lbl = f"VENCIDO hace {abs(restante)} día(s)" if restante < 0 else f"programado en {restante} día(s)"
+        filas.append(
+            f"<tr><td>Mantenimiento</td><td>{etq}</td><td>{r.tipo}</td>"
+            f"<td>{f.strftime('%Y-%m-%d')}</td>"
+            f"<td style='color:{'#c0392b' if restante < 0 else '#f39c12'}'>{lbl}</td></tr>"
+        )
 
-    # --- Actas por renovar (sin firma registrada hace más de 60 días) ---
     actas = (
         db.query(Acta)
         .filter(Acta.firmado_por.is_(None))
@@ -116,7 +141,6 @@ def construir_resumen_html(db) -> str:
             f"<td style='color:#e67e22'>pendiente de firma del responsable</td></tr>"
         )
 
-    # --- Préstamos vencidos (fecha límite superada sin retorno) ---
     prestamos = (
         db.query(Equipment)
         .filter(Equipment.estado == "prestamo")
@@ -131,36 +155,28 @@ def construir_resumen_html(db) -> str:
             continue
         dias = (ahora - fin).days
         filas.append(
-            f"<tr><td>Préstamo vencido</td><td>{eq.folio}</td>"
-            f"<td>{eq.marca} {eq.modelo} → {eq.prestamo_a or '—'}</td>"
-            f"<td>{fin.strftime('%Y-%m-%d')}</td><td style='color:#c0392b'>"
-            f"vencido hace {dias} día(s), sin retorno</td></tr>"
+            f"<tr><td>Préstamo vencido</td><td>{eq.folio}</td><td>{eq.marca} {eq.modelo} → {eq.prestamo_a or '—'}</td>"
+            f"<td>{fin.strftime('%Y-%m-%d')}</td>"
+            f"<td style='color:#c0392b'>vencido hace {dias} día(s), sin retorno</td></tr>"
         )
 
     titulo = f"Resumen operativo del inventario · {ahora.strftime('%Y-%m-%d %H:%M')}"
+
     if not filas:
-        return (
-            f"<h2>{titulo}</h2><p>Sin novedades activas "
-            "(garantías, mantenimientos, actas por renovar o préstamos vencidos).</p>"
-        )
+        return f"<h2>{titulo}</h2><p>Sin novedades activas (garantías, mantenimientos, actas por renovar o préstamos vencidos).</p>"
 
     cuerpo = (
         "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;width:100%;font-family:Arial'>"
         "<tr style='background:#1d3557;color:#fff'><th>Tipo</th><th>Referencia</th><th>Detalle</th><th>Fecha</th><th>Estado</th></tr>"
-        + "".join(filas)
-        + "</table>"
-    )
+    ) + "".join(filas) + "</table>"
+
     return f"<h2>{titulo}</h2>{cuerpo}"
 
 
 def destinatarios_por_defecto(db) -> list:
     if SMTP.get("to"):
-        return [d.strip() for d in SMTP["to"].split(",") if d.strip()]
+        return [d for d in SMTP["to"].split(",") if d.strip()]
     from app.models.user import User
 
-    correos = (
-        db.query(User.correo)
-        .filter(User.rol.in_(["admin", "supervisor"]))
-        .all()
-    )
-    return [c[0] for c in correos if c and c[0]]
+    correos = db.query(User.correo).filter(User.rol.in_(["admin", "supervisor"])).all()
+    return [c[0] for c in correos if c[0]]

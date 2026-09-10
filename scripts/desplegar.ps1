@@ -31,6 +31,18 @@ Write-Host "==> VITE_API_URL = $Tunel" -ForegroundColor Cyan
 # ---- 2) Build del frontend con la URL del túnel horneada ----
 Push-Location $front
 $env:VITE_API_URL = $Tunel
+
+# También actualizar el config.json publicado: permite corregir la URL
+# desde Configuración > Conexión sin necesidad de rebuild.
+$configJson = Join-Path $front 'public\config.json'
+$configContent = @(
+    "{",
+    "  `"apiUrl`": `"$Tunel`"",
+    "}"
+) -join [Environment]::NewLine
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($configJson, $configContent, $utf8NoBom)
+
 Write-Host "==> Build de producción (Vite)..." -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) { Pop-Location; Write-Error "Build falló"; exit 1 }

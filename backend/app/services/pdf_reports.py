@@ -204,7 +204,7 @@ def generar_resumen_mantenimientos(
     c.drawString(MARGIN, y, f"TOTAL DE REGISTROS: {total}")
     y -= 24
 
-    headers = ["FOLIO", "EQUIPO", "TIPO", "TÉCNICO", "ESTADO", "COSTO"]
+    headers = ["FOLIO", "EQUIPO", "TIPO", "TÉCNICO", "ESTADO", "PRIORIDAD"]
     widths = [0.11, 0.27, 0.14, 0.20, 0.14, 0.14]
     total_w = PAGE_W - 2 * MARGIN
     widths = [total_w * f for f in widths]
@@ -237,8 +237,259 @@ def generar_resumen_mantenimientos(
         tipo = m.get("tipo") or "-"
         tecnico = (m.get("tecnico") or "-")
         estado = m.get("estado") or "-"
-        costo = m.get("costo")
-        y = _table_row(c, y, [folio, equipo, tipo, tecnico, estado, _fmt_money(costo)], colxs, widths, row_h=18)
+        prioridad = (m.get("prioridad") or "media").upper()
+        y = _table_row(c, y, [folio, equipo, tipo, tecnico, estado, prioridad], colxs, widths, row_h=18)
+
+    _footer(c, page)
+    c.save()
+    return output_path
+
+
+def _fmt_reporte_fecha(value) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, str):
+        return value[:16]
+    return value.strftime("%Y-%m-%d")
+
+
+def _conteos_registros(registros, ahora=None):
+    """Resumen por estado de una lista de dicts de mantenimiento."""
+    total = len(registros)
+    programado = sum(1 for r in registros if r.get("estado") == "programado")
+    en_proceso = sum(1 for r in registros if r.get("estado") == "en_proceso")
+    finalizado = sum(1 for r in registros if r.get("estado") == "finalizado")
+    now = ahora or datetime.now(timezone.utc)
+    vencidos = sum(
+        1
+        for r in registros
+        if r.get("estado") != "finalizado" and r.get("fecha_programada") and r["fecha_programada"] < now
+    )
+    return {
+        "total": total,
+        "programado": programado,
+        "en_proceso": en_proceso,
+        "pendientes": programado + en_proceso,
+        "finalizado": finalizado,
+        "vencidos": vencidos,
+    }
+
+
+def _seccion_pdf(c, y, texto):
+    c.setFillColorRGB(*BLUE)
+    c.rect(MARGIN, y - 20, PAGE_W - 2 * MARGIN, 20, fill=1, stroke=0)
+    c.setFillColorRGB(*WHITE)
+    c.setFont("Helvetica-Bold", 9.5)
+    c.drawString(MARGIN + 6, y - 13, texto.upper())
+    return y - 30
+
+
+def generar_reporte_tecnico_pdf(
+    grupos,
+    total: int,
+    desde: str,
+    hasta: str,
+    company: dict,
+    output_path: Path,
+    ahora=None,
+) -> Path:
+    """Acta/nombramiento (PDF): mantenimientos asignados por técnico en un rango."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fecha_gen = (ahora or datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+
+    c = canvas.Canvas(str(output_path), pagesize=A4)
+    marca = company.get("marca_agua") or company["nombre"]
+    _draw_watermark(c, marca)
+
+    y = _header(c, company, "NOMBRAMIENTO POR TÉCNICO — MANTENIMIENTOS")
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColorRGB(*BLACK)
+    c.drawString(MARGIN, y, f"DESDE: {desde}" if desde else "DESDE: —")
+    c.drawRightString(PAGE_W - MARGIN, y, f"HASTA: {hasta}" if hasta else "HASTA: —")
+    y -= 18
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(MARGIN, y, f"TOTAL DE MANTENIMIENTOS: {total}")
+    c.drawRightString(PAGE_W - MARGIN, y, f"GENERADO: {fecha_gen}")
+    y -= 20
+
+    headers = ["FOLIO", "EQUIPO", "TIPO", "SEDE", "FECHA", "ESTADO", "PRIO"]
+    widths = [0.10, 0.24, 0.12, 0.17, 0.15, 0.11, 0.11]
+    total_w = PAGE_W - 2 * MARGIN
+    widths = [total_w * f for f in widths]
+
+    page = 1
+    if not grupos:
+        c.setFont("Helvetica", 9)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(MARGIN, y - 14, "SIN MANTENIMIENTOS PARA EL RANGO SELECCIONADO.")
+        y -= 40
+    else:
+        for grupo in grupos:
+            nombre = (grupo.get("tecnico") or "SIN TÉCNICO").upper()
+            if y < MARGIN + 90:
+                _footer(c, page)
+                c.showPage()
+                page += 1
+                _draw_watermark(c, marca)
+                y = _header(c, company, "NOMBRAMIENTO POR TÉCNICO — MANTENIMIENTOS")
+                c.setFont("Helvetica", 8)
+                c.setFillColorRGB(*GRAY_TEXT)
+                y -= 24
+
+            y = _seccion_pdf(c, y, f"Técnico: {nombre}")
+            c.setFont("Helvetica", 8.5)
+            c.setFillColorRGB(*GRAY_TEXT)
+            cnt = grupo.get("conteos", {})
+            c.drawString(
+                MARGIN, y - 4,
+                f"Total: {cnt.get('total', 0)} · Programados: {cnt.get('programado', 0)} · "
+                f"En proceso: {cnt.get('en_proceso', 0)} · Finalizados: {cnt.get('finalizado', 0)} · "
+                f"Vencidos: {cnt.get('vencidos', 0)}",
+            )
+            y -= 20
+
+            y, colxs = _table_header(c, y, headers, widths, row_h=16)
+            y -= 2
+            c.setFont("Helvetica", 7.5)
+            for reg in grupo.get("registros", []):
+                if y < MARGIN + 50:
+                    _footer(c, page)
+                    c.showPage()
+                    page += 1
+                    _draw_watermark(c, marca)
+                    y = _header(c, company, "NOMBRAMIENTO POR TÉCNICO — MANTENIMIENTOS")
+                    y -= 24
+                    y, colxs = _table_header(c, y, headers, widths, row_h=16)
+                    y -= 2
+                    c.setFont("Helvetica", 7.5)
+                y = _table_row(
+                    c, y,
+                    [
+                        reg.get("folio") or "-",
+                        reg.get("equipo") or "-",
+                        reg.get("tipo") or "-",
+                        reg.get("punto") or "-",
+                        _fmt_reporte_fecha(reg.get("fecha_programada")),
+                        reg.get("estado") or "-",
+                        (reg.get("prioridad") or "media").upper(),
+                    ],
+                    colxs, widths, row_h=16,
+                )
+            y -= 8
+
+    if y < MARGIN + 140:
+        _footer(c, page)
+        c.showPage()
+        page += 1
+        _draw_watermark(c, marca)
+        y = _header(c, company, "NOMBRAMIENTO POR TÉCNICO — MANTENIMIENTOS")
+        y -= 30
+
+    # Firma estilo acta.
+    firma_y = MARGIN + 36
+    col_w = (PAGE_W - 2 * MARGIN) / 2
+    c.setStrokeColorRGB(*BLACK)
+    c.setLineWidth(0.6)
+    c.line(MARGIN, firma_y, MARGIN + col_w - 20, firma_y)
+    c.line(MARGIN + col_w + 20, firma_y, PAGE_W - MARGIN, firma_y)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(MARGIN, firma_y - 12, "TÉCNICO RESPONSABLE")
+    c.drawString(MARGIN + col_w + 20, firma_y - 12, "JEFE DE MANTENIMIENTO")
+
+    _footer(c, page)
+    c.save()
+    return output_path
+
+
+def generar_reporte_sede_pdf(
+    grupos,
+    total: int,
+    desde: str,
+    hasta: str,
+    company: dict,
+    output_path: Path,
+    ahora=None,
+) -> Path:
+    """Reporte (PDF): mantenimientos realizados y pendientes agrupados por sede."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fecha_gen = (ahora or datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+
+    c = canvas.Canvas(str(output_path), pagesize=A4)
+    marca = company.get("marca_agua") or company["nombre"]
+    _draw_watermark(c, marca)
+
+    y = _header(c, company, "REPORTE DE MANTENIMIENTOS POR SEDE")
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColorRGB(*BLACK)
+    c.drawString(MARGIN, y, f"DESDE: {desde}" if desde else "DESDE: —")
+    c.drawRightString(PAGE_W - MARGIN, y, f"HASTA: {hasta}" if hasta else "HASTA: —")
+    y -= 18
+    c.drawString(MARGIN, y, f"TOTAL DE MANTENIMIENTOS: {total}")
+    c.drawRightString(PAGE_W - MARGIN, y, f"GENERADO: {fecha_gen}")
+    y -= 20
+
+    headers = ["FOLIO", "EQUIPO", "TIPO", "TÉCNICO", "FECHA", "ESTADO"]
+    widths = [0.11, 0.27, 0.13, 0.18, 0.16, 0.15]
+    total_w = PAGE_W - 2 * MARGIN
+    widths = [total_w * f for f in widths]
+
+    page = 1
+    if not grupos:
+        c.setFont("Helvetica", 9)
+        c.setFillColorRGB(*BLACK)
+        c.drawString(MARGIN, y - 12, "Sin mantenimientos para el rango seleccionado.")
+        y -= 40
+    else:
+        for grupo in grupos:
+            nombre = (grupo.get("punto") or "SIN SEDE").upper()
+            if y < MARGIN + 90:
+                _footer(c, page)
+                c.showPage()
+                page += 1
+                _draw_watermark(c, marca)
+                y = _header(c, company, "REPORTE DE MANTENIMIENTOS POR SEDE")
+                y -= 24
+
+            y = _seccion_pdf(c, y, f"Sede: {nombre}")
+            cnt = grupo.get("conteos", {})
+            c.setFont("Helvetica", 8.5)
+            c.setFillColorRGB(*GRAY_TEXT)
+            c.drawString(
+                MARGIN, y - 4,
+                f"Total: {cnt.get('total', 0)} · Realizados: {cnt.get('finalizado', 0)} · "
+                f"Pendientes: {cnt.get('pendientes', 0)} · Vencidos: {cnt.get('vencidos', 0)}",
+            )
+            y -= 20
+
+            y, colxs = _table_header(c, y, headers, widths, row_h=16)
+            y -= 2
+            c.setFont("Helvetica", 7.5)
+            for reg in grupo.get("registros", []):
+                if y < MARGIN + 50:
+                    _footer(c, page)
+                    c.showPage()
+                    page += 1
+                    _draw_watermark(c, marca)
+                    y = _header(c, company, "REPORTE DE MANTENIMIENTOS POR SEDE")
+                    y -= 24
+                    y, colxs = _table_header(c, y, headers, widths, row_h=16)
+                    y -= 2
+                    c.setFont("Helvetica", 7.5)
+                y = _table_row(
+                    c, y,
+                    [
+                        reg.get("folio") or "-",
+                        reg.get("equipo") or "-",
+                        reg.get("tipo") or "-",
+                        reg.get("tecnico") or "-",
+                        _fmt_reporte_fecha(reg.get("fecha_programada")),
+                        reg.get("estado") or "-",
+                    ],
+                    colxs, widths, row_h=16,
+                )
+            y -= 8
 
     _footer(c, page)
     c.save()

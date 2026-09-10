@@ -43,6 +43,7 @@ def _serialize_punto(p: PuntoVenta) -> dict:
         "direccion": p.direccion,
         "telefono": p.telefono,
         "responsable": p.responsable,
+        "coordinador_celular": p.coordinador_celular,
         "estado": p.estado,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "equipos_instalados": len([i for i in p.instalaciones if i.estado == "activa"]),

@@ -26,6 +26,7 @@ class PuntoVenta(Base):
     direccion = Column(String(300), nullable=True)
     telefono = Column(String(50), nullable=True)
     responsable = Column(String(150), nullable=True)
+    coordinador_celular = Column(String(20), nullable=True)
     estado = Column(String(20), default="activo")  # activo | inactivo
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

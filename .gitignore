@@ -52,3 +52,8 @@ Thumbs.db
 # Artefactos del túnel Cloudflare (no se suben al repo)
 tunel_url.txt
 cloudflared.log
+
+# Archivos temporales de Office (Word/Excel abiertos)
+~$*.docx
+~$*.xlsx
+

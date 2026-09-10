@@ -40,7 +40,7 @@ def _serialize_registro(r: MaintenanceRecord) -> dict:
         "tipo": r.tipo,
         "descripcion": r.descripcion,
         "tecnico": r.tecnico,
-        "costo": float(r.costo) if r.costo is not None else None,
+        "prioridad": r.prioridad,
         "estado": r.estado,
         "fecha_programada": r.fecha_programada.isoformat() if r.fecha_programada else None,
         "fecha_finalizado": r.fecha_finalizado.isoformat() if r.fecha_finalizado else None,
@@ -119,6 +119,28 @@ def crear(
     return _serialize_registro(registro)
 
 
+@router.delete("/{registro_id}")
+def eliminar(
+    registro_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(MODIFY_ROLES),
+):
+    """Elimina un mantenimiento programado (solo si aún no está finalizado)."""
+    registro = db.query(MaintenanceRecord).filter(MaintenanceRecord.id == registro_id).first()
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    if registro.estado == "finalizado":
+        raise HTTPException(status_code=400, detail="No se puede eliminar un mantenimiento finalizado")
+
+    # Si estaba en proceso, liberar el equipo a disponible.
+    if registro.estado == "en_proceso" and registro.equipo and registro.equipo.estado == "reparacion":
+        registro.equipo.estado = "disponible"
+
+    db.delete(registro)
+    db.commit()
+    return {"message": "Mantenimiento eliminado"}
+
+
 @router.patch("/{registro_id}/estado")
 def cambiar_estado(
     registro_id: int,
@@ -126,6 +148,9 @@ def cambiar_estado(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
+    if estado not in ("programado", "en_proceso", "finalizado"):
+        raise HTTPException(status_code=400, detail="Estado no válido. Usa programado, en_proceso o finalizado")
+
     registro = db.query(MaintenanceRecord).filter(MaintenanceRecord.id == registro_id).first()
     if not registro:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
@@ -159,6 +184,7 @@ def cambiar_estado(
                         tipo=registro.tipo,
                         descripcion=f"[Renovación] {registro.descripcion}" if registro.descripcion else "Mantenimiento recurrente programado",
                         tecnico=registro.tecnico,
+                        prioridad=registro.prioridad,
                         estado="programado",
                         fecha_programada=registro.fecha_finalizado + timedelta(days=dias),
                         periodicidad=registro.periodicidad,

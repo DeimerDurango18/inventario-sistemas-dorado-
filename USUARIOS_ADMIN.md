@@ -61,7 +61,7 @@ El endpoint de registro está abierto (no requiere token). Úsalo para crear un 
 Ejemplo de registro:
 
 ```
-curl -X POST http://localhost:8010/api/auth/register \
+curl -X POST http://localhost:8500/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"nombre":"Ing. Sistemas","correo":"sysadmin@empresa.com","password":"MiClaveSegura123!","rol":"admin"}'
 ```

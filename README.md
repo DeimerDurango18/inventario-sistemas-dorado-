@@ -38,10 +38,10 @@ automáticamente al arrancar (usa el usuario `inventario_app`).
 Abre 3 terminales (o ejecuta cada `.bat`):
 
 ```powershell
-# 1) Backend  -> http://localhost:8010  (/health, /docs)
+# 1) Backend  -> http://localhost:8500  (/health, /docs)
 start-backend.bat
 
-# 2) Frontend -> http://localhost:5173
+# 2) Frontend -> http://localhost:4123
 start-frontend.bat
 
 # 3) Túnel público -> guarda la URL en tunel_url.txt (opcional, solo si quieres
@@ -57,9 +57,9 @@ iniciar_proyecto.bat
 
 ## Acceso
 
-- App: http://localhost:5173
-- API: http://127.0.0.1:8010
-- Docs API (Swagger): http://127.0.0.1:8010/docs
+- App: http://localhost:4123
+- API: http://127.0.0.1:8500
+- Docs API (Swagger): http://127.0.0.1:8500/docs
 - Login inicial: `admin@sistemasbogota.com` / `Admin2026!`
 
 ## Notas importantes

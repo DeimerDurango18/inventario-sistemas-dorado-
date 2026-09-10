@@ -37,6 +37,7 @@ CREATE TABLE [actas] (
     [firmado_por] varchar(150) NULL,
     [documento_firma] varchar(50) NULL,
     [fecha_firma] datetimeoffset NULL,
+    [fotos] varchar(max) NULL,
     CONSTRAINT [PK_actas] PRIMARY KEY ([id])
 )
 
@@ -169,7 +170,7 @@ CREATE TABLE [mantenimientos] (
     [tipo] varchar(30) NULL,
     [descripcion] varchar(255) NULL,
     [tecnico] varchar(150) NULL,
-    [costo] numeric(12,2) NULL,
+    [prioridad] varchar(20) NOT NULL DEFAULT ('media'),
     [estado] varchar(30) NULL,
     [fecha_programada] datetimeoffset NULL,
     [fecha_finalizado] datetimeoffset NULL,
@@ -209,6 +210,7 @@ CREATE TABLE [puntos_venta] (
     [direccion] varchar(300) NULL,
     [telefono] varchar(50) NULL,
     [responsable] varchar(150) NULL,
+    [coordinador_celular] varchar(20) NULL,
     [estado] varchar(20) NULL DEFAULT ('activo'),
     [created_at] datetimeoffset NULL DEFAULT (getdate()),
     CONSTRAINT [PK_puntos_venta] PRIMARY KEY ([id])

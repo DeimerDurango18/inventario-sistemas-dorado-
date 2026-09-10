@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, UniqueConstraint, Index, text as sa_text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -9,6 +9,10 @@ class Equipment(Base):
     __tablename__ = "equipos"
     __table_args__ = (
         UniqueConstraint("folio", "empresa_id", name="uq_folio_empresa"),
+        # SQL Server trata los NULL como valores distintos en claves únicas compuestas,
+        # por eso se requieren índices filtrados para forzar folio único por empresa.
+        Index("uq_equipos_folio_null", "folio", unique=True, mssql_where=sa_text("empresa_id IS NULL")),
+        Index("uq_equipos_folio_empresa2", "folio", "empresa_id", unique=True, mssql_where=sa_text("empresa_id IS NOT NULL")),
     )
 
     id = Column(Integer, primary_key=True, index=True)

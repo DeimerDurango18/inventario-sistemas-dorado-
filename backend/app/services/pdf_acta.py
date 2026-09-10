@@ -14,6 +14,7 @@ Replica el formato físico oficial usado por la compañía:
 
 from datetime import datetime
 from pathlib import Path
+import json
 import qrcode
 from io import BytesIO
 
@@ -21,7 +22,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from app.core.config import VERIFY_URL
+from app.core.config import get_public_verify_url
 
 PAGE_W, PAGE_H = A4
 MARGIN = 15 * mm
@@ -60,7 +61,7 @@ def _header(c: canvas.Canvas, acta, company: dict, numero: str):
     top = PAGE_H - MARGIN
 
     # --- QR de Verificación (A la izquierda) ---
-    verify_url = f"{VERIFY_URL}/api/reports/actas/{acta.id}/verify"
+    verify_url = f"{get_public_verify_url()}/api/reports/actas/{acta.id}/verify"
     qr = qrcode.QRCode(version=1, box_size=10, border=0)
     qr.add_data(verify_url)
     qr.make(fit=True)
@@ -157,13 +158,21 @@ def _info_block(c: canvas.Canvas, y: float, acta):
     c.setFont("Helvetica-Bold", 9)
     left_x = MARGIN + 30
     right_x = PAGE_W / 2 + 20
+    col_w = right_x - 10 - left_x           # ancho columna izquierda (con respiro)
+    right_w = PAGE_W - MARGIN - right_x - 2  # ancho columna derecha
 
-    c.drawString(left_x, y, (acta.proyecto or "").upper())
-    c.drawString(right_x, y, (acta.ciudad_destino or "").upper())
+    proy = _fit_text(c, (acta.proyecto or "").upper(), "Helvetica-Bold", 9, col_w)
+    cuid = _fit_text(c, (acta.ciudad_destino or "").upper(), "Helvetica-Bold", 9, right_w)
+    c.setFillColorRGB(*BLACK)
+    c.drawString(left_x, y, proy)
+    c.drawString(right_x, y, cuid)
     y -= 11
+
     c.setFont("Helvetica", 8.5)
-    c.drawString(left_x, y, (acta.responsable_destino or "").upper())
-    c.drawString(right_x, y, (acta.direccion_destino or "").upper())
+    resp = _fit_text(c, (acta.responsable_destino or "").upper(), "Helvetica", 8.5, col_w)
+    dir_ = _fit_text(c, (acta.direccion_destino or "").upper(), "Helvetica", 8.5, right_w)
+    c.drawString(left_x, y, resp)
+    c.drawString(right_x, y, dir_)
     return y - 16
 
 
@@ -176,31 +185,72 @@ def _fit_text(c: canvas.Canvas, text: str, font: str, size: float, max_w: float)
     return f"{text}..." if text else ""
 
 
-def _table(c: canvas.Canvas, y: float, items):
+def _wrap_text(c: canvas.Canvas, text: str, font: str, size: float, max_w: float, max_lines: int = None) -> list:
+    """Divide el texto en líneas que caben en max_w; opcionalmente recorta el total a max_lines."""
+    words = text.split()
+    out, cur = [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if c.stringWidth(trial, font, size) > max_w:
+            if cur:
+                out.append(cur)
+            cur = w
+        else:
+            cur = trial
+    if cur:
+        out.append(cur)
+    if max_lines is not None and len(out) > max_lines:
+        kept = out[: max_lines - 1]
+        last = _fit_text(c, f"{out[max_lines - 1]} ...", font, size, max_w)
+        out = kept + [last]
+    return out
+
+
+def _continuation_header(c: canvas.Canvas, label: str):
+    """Encabezado ligero de las páginas de continuación del acta."""
+    y = PAGE_H - MARGIN
+    c.setFillColorRGB(*BLACK)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(MARGIN, y - 10, label)
+    c.setStrokeColorRGB(*GRAY_LINE)
+    c.setLineWidth(0.6)
+    c.line(MARGIN, y - 18, PAGE_W - MARGIN, y - 18)
+    return y - 30
+
+
+def _table(c: canvas.Canvas, y: float, items, marca_agua: str, acta):
     headers = ["DISPOSITIVO", "MARCA", "DETALLE", "CANT", "SERIAL"]
     col_w = [0.20, 0.24, 0.24, 0.08, 0.24]
     total_w = PAGE_W - 2 * MARGIN
     widths = [total_w * f for f in col_w]
     x0 = MARGIN
     row_h = 16
+    floor = 170  # no dibujar filas por debajo de la zona de observaciones/firmas
 
-    # Encabezado (fondo negro, texto blanco)
-    c.setFillColorRGB(*BLACK)
-    c.rect(x0, y - row_h, total_w, row_h, fill=1, stroke=0)
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 8)
-    cx = x0
-    for h, w in zip(headers, widths):
-        if h == "CANT":
-            c.drawCentredString(cx + w / 2, y - row_h + 5, h)
-        else:
-            c.drawString(cx + 4, y - row_h + 5, h)
-        cx += w
-    y -= row_h
+    def _draw_header(y):
+        c.setFillColorRGB(*BLACK)
+        c.rect(x0, y - row_h, total_w, row_h, fill=1, stroke=0)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 8)
+        cx = x0
+        for h, w in zip(headers, widths):
+            if h == "CANT":
+                c.drawCentredString(cx + w / 2, y - row_h + 5, h)
+            else:
+                c.drawString(cx + 4, y - row_h + 5, h)
+            cx += w
+        return y - row_h
 
-    # Filas
+    y = _draw_header(y)
+
     c.setFont("Helvetica", 7.3)
     for item in items:
+        if y - row_h < floor:
+            c.showPage()
+            _draw_watermark(c, marca_agua)
+            y = _continuation_header(c, f"{acta.tipo} N° {acta.numero} — CONTINUACIÓN")
+            y = _draw_header(y)
+
         c.setFillColorRGB(*BLACK)
         c.setLineWidth(0.4)
         c.setStrokeColorRGB(*GRAY_LINE)
@@ -229,8 +279,12 @@ def _table(c: canvas.Canvas, y: float, items):
 def _observations(c: canvas.Canvas, y: float, acta):
     c.setFillColorRGB(*BLACK)
     c.setFont("Helvetica-Bold", 8)
-    c.drawString(MARGIN, y, f"OBSERVACIONES: {(acta.observaciones or '').upper()}")
-    y -= 14
+    max_w = PAGE_W - 2 * MARGIN
+    lines = _wrap_text(c, f"OBSERVACIONES: {(acta.observaciones or '').upper()}", "Helvetica-Bold", 8, max_w, max_lines=3)
+    for ln in lines:
+        c.drawString(MARGIN, y, ln)
+        y -= 11
+    y -= 3
 
     # Caja negra "VALOR APROX"
     box_w, box_h = 60 * mm, 12
@@ -245,6 +299,56 @@ def _observations(c: canvas.Canvas, y: float, acta):
     c.setFont("Helvetica-Bold", 8)
     c.drawString(MARGIN, y, f"CAJAS       : {acta.cajas or 1}")
     return y - 10
+
+
+def _fotos(c: canvas.Canvas, y: float, fotos: list, marca_agua: str, acta):
+    """Dibuja las fotos de evidencia en una fila (máx. 3). Devuelve la nueva y."""
+    if not fotos:
+        return y
+
+    base = Path(__file__).resolve().parents[3] / "storage"
+    imgs = []
+    for ruta in fotos:
+        p = base / str(ruta).lstrip("/")
+        if p.exists():
+            try:
+                imgs.append(str(p))
+            except Exception:
+                continue
+    if not imgs:
+        return y
+
+    thumb_w = 46 * mm
+    thumb_h = 34 * mm
+    label_h = 6 * mm
+    gap = 5 * mm
+    total_h = label_h + thumb_h + 6
+
+    # Si no queda espacio para las fotos + observaciones, abrir página nueva.
+    if y - total_h < 175:
+        c.showPage()
+        _draw_watermark(c, marca_agua)
+        y = _continuation_header(c, f"{acta.tipo} N° {acta.numero} — ANEXO FOTOGRÁFICO")
+
+    c.setFillColorRGB(*BLACK)
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(MARGIN, y, "EVIDENCIA FOTOGRÁFICA:")
+    y -= label_h + 4
+
+    n = min(3, len(imgs))
+    total_w = n * thumb_w + (n - 1) * gap
+    x0 = (PAGE_W - total_w) / 2
+    for i in range(n):
+        try:
+            c.drawImage(imgs[i], x0, y - thumb_h, width=thumb_w, height=thumb_h, preserveAspectRatio=True, mask="auto")
+        except Exception:
+            c.setStrokeColorRGB(*GRAY_LINE)
+            c.rect(x0, y - thumb_h, thumb_w, thumb_h, fill=0, stroke=1)
+            c.setFont("Helvetica", 6.5)
+            c.drawCentredString(x0 + thumb_w / 2, y - thumb_h / 2, "FOTO")
+        x0 += thumb_w + gap
+
+    return y - thumb_h - 6
 
 
 def _recibido_conforme(c: canvas.Canvas, acta):
@@ -270,7 +374,7 @@ def _recibido_conforme(c: canvas.Canvas, acta):
         c.drawCentredString(PAGE_W / 2 - 15, y - 27, f"FECHA: {acta.fecha_firma.strftime('%Y-%m-%d %H:%M')}")
 
 
-def _footer(c: canvas.Canvas, company: dict, acta, page_label="Pág. 1/1"):
+def _footer(c: canvas.Canvas, company: dict, acta, page_label="Pág. 1"):
     y = MARGIN + 26
     col_w = (PAGE_W - 2 * MARGIN) / 2
 
@@ -283,7 +387,7 @@ def _footer(c: canvas.Canvas, company: dict, acta, page_label="Pág. 1/1"):
     c.line(right_x + 20, y, right_x + col_w, y)
 
     c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(left_x, y - 11, acta.entregado_por.upper())
+    c.drawString(left_x, y - 11, _fit_text(c, acta.entregado_por.upper(), "Helvetica-Bold", 8.5, col_w - 24))
     c.drawString(right_x + 20, y - 11, "DESPACHO BODEGA")
 
     bar_h = 12
@@ -310,18 +414,32 @@ def generar_acta_pdf(acta, items, company: dict, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     c = canvas.Canvas(str(output_path), pagesize=A4)
+    marca = company.get("marca_agua") or company["nombre"]
 
-    _draw_watermark(c, company.get("marca_agua") or company["nombre"])
+    _draw_watermark(c, marca)
 
     y = _header(c, acta, company, acta.numero)
     y = _title(c, y, acta)
     y = _paragraph(c, y, acta, company)
     y = _info_block(c, y, acta)
-    y = _table(c, y, items)
+    y = _table(c, y, items, marca, acta)
+
+    # Si no queda espacio para observaciones + firmas, abrir una última página
+    if y < 170:
+        c.showPage()
+        _draw_watermark(c, marca)
+        y = _continuation_header(c, f"{acta.tipo} N° {acta.numero} — CONTINUACIÓN")
+
+    try:
+        fotos = json.loads(acta.fotos) if acta.fotos else []
+    except (ValueError, TypeError):
+        fotos = []
+    y = _fotos(c, y, fotos, marca, acta)
+
     y = _observations(c, y, acta)
     if acta.firmado_por:
         _recibido_conforme(c, acta)
-    _footer(c, company, acta)
+    _footer(c, company, acta, f"Pág. {c.getPageNumber()}")
 
     c.showPage()
     c.save()

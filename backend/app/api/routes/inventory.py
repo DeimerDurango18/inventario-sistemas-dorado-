@@ -5,10 +5,11 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.core.config import VERIFY_URL
+from app.core.config import get_public_verify_url
 from app.models.catalog import Category, Location
 from app.models.equipment import Equipment, Movement
 from app.models.user import User
@@ -287,7 +288,7 @@ def get_equipo_qr(equipo_id: int, db: Session = Depends(get_db)):
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    payload = f"{VERIFY_URL}/consulta/equipos/{equipo.id}"
+    payload = f"{get_public_verify_url()}/consulta/equipos/{equipo.id}"
     png = generar_qr_png(payload)
     return Response(
         content=png,
@@ -334,7 +335,11 @@ def crear_equipo(
         estado_nuevo=equipo.estado,
         empresa_id=eid,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Ya existe un equipo con el folio '{folio}'")
     db.refresh(equipo)
     return _serialize_equipo(equipo)
 

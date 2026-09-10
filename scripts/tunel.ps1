@@ -1,5 +1,5 @@
 ﻿# ============================================================
-# TUNEL.ps1 - Levanta el túnel Cloudflare del backend local (8010)
+# TUNEL.ps1 - Levanta el túnel Cloudflare del backend local (8500)
 # Guarda la URL en tunel_url.txt (raíz del proyecto)
 # Uso:  .\scripts\tunel.ps1            (silencioso)
 #       .\scripts\tunel.ps1 -Ventana   (con ventana visible)
@@ -46,7 +46,7 @@ $windowStyle = if ($Ventana) { 1 } else { 0 }
 
 @"
 @echo off
-"$cf" tunnel --url http://localhost:8010 > "$log" 2>&1
+"$cf" tunnel --url http://localhost:8500 > "$log" 2>&1
 "@ | Set-Content -Path $cmd -Encoding ASCII
 
 @"

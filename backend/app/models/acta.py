@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, Text, UniqueConstraint, Index, text as sa_text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,6 +11,8 @@ class Acta(Base):
     __tablename__ = "actas"
     __table_args__ = (
         UniqueConstraint("numero", "empresa_id", name="uq_numero_empresa"),
+        Index("uq_actas_numero_null", "numero", unique=True, mssql_where=sa_text("empresa_id IS NULL")),
+        Index("uq_actas_numero_empresa2", "numero", "empresa_id", unique=True, mssql_where=sa_text("empresa_id IS NOT NULL")),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -32,6 +34,12 @@ class Acta(Base):
     observaciones = Column(Text, nullable=True)
     valor_aprox = Column(Numeric(14, 2), nullable=True)
     cajas = Column(Integer, default=1)
+
+    # Correo(s) de destino para enviar el PDF del acta al finalizar
+    email_destino = Column(String(500), nullable=True)
+
+    # Fotografias / evidencias de la salida o entrada (JSON list de rutas)
+    fotos = Column(Text, nullable=True)
 
     # Firma del responsable que recibe el equipo en la sede (llenado al firmar)
     firmado_por = Column(String(150), nullable=True)

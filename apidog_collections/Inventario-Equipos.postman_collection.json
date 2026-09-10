@@ -1,9 +1,16 @@
 {
   "info": {
     "name": "Inventario Equipos API",
-    "description": "Coleccion generada desde openapi.json. Base URL (tunel): https://its-songs-cosmetic-example.trycloudflare.com\nNota: la URL trycloudflare cambia en cada reinicio del servicio; actualiza la base si hace falta.",
+    "description": "Coleccion generada desde openapi.json. Base URL (tunel): https://publisher-turn-beneath-riverside.trycloudflare.com\nNota: la URL trycloudflare cambia en cada reinicio del servicio; actualiza la variable baseUrl si hace falta.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://publisher-turn-beneath-riverside.trycloudflare.com",
+      "type": "string"
+    }
+  ],
   "item": [
     {
       "name": "auth",
@@ -19,7 +26,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/login",
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "auth",
@@ -50,7 +60,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/me",
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "auth",
@@ -72,7 +85,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/auth/register",
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "auth",
@@ -108,7 +124,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias",
+              "raw": "{{baseUrl}}/api/catalogo/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -130,7 +149,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias",
+              "raw": "{{baseUrl}}/api/catalogo/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -161,7 +183,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias/{categoria_id}",
+              "raw": "{{baseUrl}}/api/catalogo/categorias/{categoria_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -184,7 +209,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/categorias/{categoria_id}",
+              "raw": "{{baseUrl}}/api/catalogo/categorias/{categoria_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -207,7 +235,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/seed",
+              "raw": "{{baseUrl}}/api/catalogo/seed",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -229,7 +260,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones",
+              "raw": "{{baseUrl}}/api/catalogo/ubicaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -251,7 +285,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones",
+              "raw": "{{baseUrl}}/api/catalogo/ubicaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -282,7 +319,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones/{ubicacion_id}",
+              "raw": "{{baseUrl}}/api/catalogo/ubicaciones/{ubicacion_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -305,7 +345,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/catalogo/ubicaciones/{ubicacion_id}",
+              "raw": "{{baseUrl}}/api/catalogo/ubicaciones/{ubicacion_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "catalogo",
@@ -333,7 +376,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos",
+              "raw": "{{baseUrl}}/api/inventory/equipos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -355,7 +401,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos",
+              "raw": "{{baseUrl}}/api/inventory/equipos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -386,7 +435,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -409,7 +461,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -432,7 +487,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}",
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -455,7 +513,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}/foto",
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/foto",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -479,7 +540,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/{equipo_id}/qr",
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -503,7 +567,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/buscar?q=",
+              "raw": "{{baseUrl}}/api/inventory/equipos/buscar?q=",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -532,7 +599,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/inventory/equipos/historial/{equipo_id}",
+              "raw": "{{baseUrl}}/api/inventory/equipos/historial/{equipo_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "inventory",
@@ -542,6 +612,278 @@
               ]
             },
             "description": "[Inventario] Historial Equipo",
+            "response": []
+          }
+        },
+        {
+          "name": "Dar Baja Equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/baja",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "baja"
+              ]
+            },
+            "description": "[Inventario] Dar Baja Equipo",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_baja\": \"baja\",\n  \"motivo\": \"Obsolescencia\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Prestamo Equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/prestamo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "prestamo"
+              ]
+            },
+            "description": "[Inventario] Prestamo Equipo",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prestamo_a\": \"Juan Perez\",\n  \"motivo\": \"Proyecto\",\n  \"fecha_fin\": \"2026-10-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Retorno Prestamo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/retorno-prestamo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "retorno-prestamo"
+              ]
+            },
+            "description": "[Inventario] Retorno Prestamo",
+            "response": []
+          }
+        },
+        {
+          "name": "Traspaso Equipo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/{equipo_id}/traspaso",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "{equipo_id}",
+                "traspaso"
+              ]
+            },
+            "description": "[Inventario] Traspaso Equipo",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ubicacion_id\": 2,\n  \"motivo\": \"Reubicacion\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Etiquetas PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/etiquetas/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "etiquetas",
+                "pdf"
+              ]
+            },
+            "description": "[Inventario] Etiquetas PDF",
+            "response": []
+          }
+        },
+        {
+          "name": "Importar Equipos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/importar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "importar"
+              ]
+            },
+            "description": "[Inventario] Importar Equipos",
+            "response": []
+          }
+        },
+        {
+          "name": "Actualizar Lote",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/lote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "lote"
+              ]
+            },
+            "description": "[Inventario] Actualizar Lote",
+            "response": []
+          }
+        },
+        {
+          "name": "Plantilla Import",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/plantilla",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "plantilla"
+              ]
+            },
+            "description": "[Inventario] Plantilla Import",
+            "response": []
+          }
+        },
+        {
+          "name": "Search Equipos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/equipos/search?q=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory",
+                "equipos",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "[Inventario] Search Equipos",
             "response": []
           }
         }
@@ -561,7 +903,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos",
+              "raw": "{{baseUrl}}/api/mantenimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "mantenimientos"
@@ -582,7 +927,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos",
+              "raw": "{{baseUrl}}/api/mantenimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "mantenimientos"
@@ -612,7 +960,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/estado",
+              "raw": "{{baseUrl}}/api/mantenimientos/{registro_id}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "mantenimientos",
@@ -635,7 +986,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/evidencia",
+              "raw": "{{baseUrl}}/api/mantenimientos/{registro_id}/evidencia",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "mantenimientos",
@@ -658,7 +1012,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/mantenimientos/{registro_id}/pdf",
+              "raw": "{{baseUrl}}/api/mantenimientos/{registro_id}/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "mantenimientos",
@@ -667,6 +1024,32 @@
               ]
             },
             "description": "[Mantenimiento] Descargar Acta PDF",
+            "response": []
+          }
+        },
+        {
+          "name": "Verificar Acta Mant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mantenimientos/{registro_id}/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "mantenimientos",
+                "{registro_id}",
+                "verify"
+              ]
+            },
+            "description": "[Mantenimiento] Verificar Acta Mant",
             "response": []
           }
         }
@@ -686,7 +1069,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/acta/latest",
+              "raw": "{{baseUrl}}/api/reports/acta/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -709,7 +1095,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/dashboard",
+              "raw": "{{baseUrl}}/api/reports/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -717,6 +1106,31 @@
               ]
             },
             "description": "[Reportes] Dashboard",
+            "response": []
+          }
+        },
+        {
+          "name": "Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/analytics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "analytics"
+              ]
+            },
+            "description": "[Reportes] Analytics",
             "response": []
           }
         },
@@ -731,7 +1145,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/depreciacion",
+              "raw": "{{baseUrl}}/api/reports/depreciacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -753,7 +1170,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/mantenimiento/alertas",
+              "raw": "{{baseUrl}}/api/reports/mantenimiento/alertas",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -776,7 +1196,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas",
+              "raw": "{{baseUrl}}/api/reports/actas",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -798,7 +1221,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas",
+              "raw": "{{baseUrl}}/api/reports/actas",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -829,7 +1255,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas/{acta_id}",
+              "raw": "{{baseUrl}}/api/reports/actas/{acta_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -852,7 +1281,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/actas/{acta_id}/pdf",
+              "raw": "{{baseUrl}}/api/reports/actas/{acta_id}/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -862,6 +1294,69 @@
               ]
             },
             "description": "[Reportes] Acta PDF",
+            "response": []
+          }
+        },
+        {
+          "name": "Firmar Acta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/actas/{acta_id}/firmar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "actas",
+                "{acta_id}",
+                "firmar"
+              ]
+            },
+            "description": "[Reportes] Firmar Acta",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Jefe Sistemas\",\n  \"documento\": \"123456789\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Verificar Acta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/actas/{acta_id}/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "actas",
+                "{acta_id}",
+                "verify"
+              ]
+            },
+            "description": "[Reportes] Verificar Acta",
             "response": []
           }
         },
@@ -876,7 +1371,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/actas",
+              "raw": "{{baseUrl}}/api/reports/exportar/actas",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -899,7 +1397,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/equipos",
+              "raw": "{{baseUrl}}/api/reports/exportar/equipos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -922,7 +1423,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/reports/exportar/mantenimientos",
+              "raw": "{{baseUrl}}/api/reports/exportar/mantenimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "reports",
@@ -931,6 +1435,58 @@
               ]
             },
             "description": "[Reportes] Exportar Mantenimientos",
+            "response": []
+          }
+        },
+        {
+          "name": "PDF Inv por Ubicacion",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pdf/inventario-por-ubicacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pdf",
+                "inventario-por-ubicacion"
+              ]
+            },
+            "description": "[Reportes] PDF Inv por Ubicacion",
+            "response": []
+          }
+        },
+        {
+          "name": "PDF Resumen Mant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pdf/resumen-mantenimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pdf",
+                "resumen-mantenimientos"
+              ]
+            },
+            "description": "[Reportes] PDF Resumen Mant",
             "response": []
           }
         }
@@ -950,7 +1506,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios",
+              "raw": "{{baseUrl}}/api/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "usuarios"
@@ -971,7 +1530,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios",
+              "raw": "{{baseUrl}}/api/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "usuarios"
@@ -1001,7 +1563,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios/{usuario_id}",
+              "raw": "{{baseUrl}}/api/usuarios/{usuario_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "usuarios",
@@ -1023,7 +1588,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/api/usuarios/{usuario_id}",
+              "raw": "{{baseUrl}}/api/usuarios/{usuario_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "api",
                 "usuarios",
@@ -1031,6 +1599,734 @@
               ]
             },
             "description": "[Usuarios] Eliminar Usuario",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Empresas",
+      "item": [
+        {
+          "name": "Listar Empresas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas"
+              ]
+            },
+            "description": "[Empresas] Listar Empresas",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Empresa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas"
+              ]
+            },
+            "description": "[Empresas] Crear Empresa",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sistemas Bogota\",\n  \"nit\": \"892300678-1\",\n  \"telefono\": \"3157736033\",\n  \"direccion\": \"Carrera 98 # 25g - 10\",\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener Empresa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/{empresa_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas",
+                "{empresa_id}"
+              ]
+            },
+            "description": "[Empresas] Obtener Empresa",
+            "response": []
+          }
+        },
+        {
+          "name": "Actualizar Empresa",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/{empresa_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas",
+                "{empresa_id}"
+              ]
+            },
+            "description": "[Empresas] Actualizar Empresa",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Empresa",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/{empresa_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas",
+                "{empresa_id}"
+              ]
+            },
+            "description": "[Empresas] Eliminar Empresa",
+            "response": []
+          }
+        },
+        {
+          "name": "Asignar Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/empresas/{empresa_id}/asignar-usuario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "empresas",
+                "{empresa_id}",
+                "asignar-usuario"
+              ]
+            },
+            "description": "[Empresas] Asignar Usuario",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Soporte",
+      "item": [
+        {
+          "name": "Listar Tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/soporte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "soporte"
+              ]
+            },
+            "description": "[Soporte] Listar Tickets",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/soporte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "soporte"
+              ]
+            },
+            "description": "[Soporte] Crear Ticket",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Impresora no enciende\",\n  \"descripcion\": \"Falla al iniciar\",\n  \"prioridad\": \"media\",\n  \"estado\": \"abierto\",\n  \"tecnico\": \"Carlos\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Actualizar Ticket",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/soporte/{ticket_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "soporte",
+                "{ticket_id}"
+              ]
+            },
+            "description": "[Soporte] Actualizar Ticket",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Ticket",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/soporte/{ticket_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "soporte",
+                "{ticket_id}"
+              ]
+            },
+            "description": "[Soporte] Eliminar Ticket",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Puntos",
+      "item": [
+        {
+          "name": "Listar Puntos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos"
+              ]
+            },
+            "description": "[Puntos] Listar Puntos",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Punto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos"
+              ]
+            },
+            "description": "[Puntos] Crear Punto",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Punto Centro\",\n  \"tipo\": \"drogueria\",\n  \"ciudad\": \"Bogota\",\n  \"direccion\": \"Av 1 #2-3\",\n  \"telefono\": \"311111\",\n  \"responsable\": \"Maria\",\n  \"estado\": \"activo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Obtener Punto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/{punto_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "{punto_id}"
+              ]
+            },
+            "description": "[Puntos] Obtener Punto",
+            "response": []
+          }
+        },
+        {
+          "name": "Actualizar Punto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/{punto_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "{punto_id}"
+              ]
+            },
+            "description": "[Puntos] Actualizar Punto",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Punto",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/{punto_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "{punto_id}"
+              ]
+            },
+            "description": "[Puntos] Eliminar Punto",
+            "response": []
+          }
+        },
+        {
+          "name": "Crear Instalacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/{punto_id}/instalaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "{punto_id}",
+                "instalaciones"
+              ]
+            },
+            "description": "[Puntos] Crear Instalacion",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"punto_id\": 1,\n  \"equipo_id\": 1,\n  \"software\": \"Windows 11\",\n  \"observaciones\": \"Instalacion completa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear Atencion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/{punto_id}/atenciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "{punto_id}",
+                "atenciones"
+              ]
+            },
+            "description": "[Puntos] Crear Atencion",
+            "response": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"punto_id\": 1,\n  \"tipo\": \"soporte\",\n  \"descripcion\": \"Revisado y reparado\",\n  \"tecnico\": \"Carlos\",\n  \"resultado\": \"OK\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Eliminar Atencion",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/atenciones/{atencion_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "atenciones",
+                "{atencion_id}"
+              ]
+            },
+            "description": "[Puntos] Eliminar Atencion",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Instalacion",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/puntos/instalaciones/{inst_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "puntos",
+                "instalaciones",
+                "{inst_id}"
+              ]
+            },
+            "description": "[Puntos] Eliminar Instalacion",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Adjuntos",
+      "item": [
+        {
+          "name": "Listar Adjuntos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/adjuntos?tipo=equipo&ref_id=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "adjuntos"
+              ],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "equipo&ref_id"
+                }
+              ]
+            },
+            "description": "[Adjuntos] Listar Adjuntos",
+            "response": []
+          }
+        },
+        {
+          "name": "Subir Adjunto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/adjuntos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "adjuntos"
+              ]
+            },
+            "description": "[Adjuntos] Subir Adjunto",
+            "response": []
+          }
+        },
+        {
+          "name": "Eliminar Adjunto",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/adjuntos/{adjunto_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "adjuntos",
+                "{adjunto_id}"
+              ]
+            },
+            "description": "[Adjuntos] Eliminar Adjunto",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notificaciones",
+      "item": [
+        {
+          "name": "Listar Notificaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notificaciones"
+              ]
+            },
+            "description": "[Notificaciones] Listar Notificaciones",
+            "response": []
+          }
+        },
+        {
+          "name": "Enviar Correo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones/correo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notificaciones",
+                "correo"
+              ]
+            },
+            "description": "[Notificaciones] Enviar Correo",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consulta QR",
+      "item": [
+        {
+          "name": "Consulta Publica",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consulta/equipos/{equipo_id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consulta",
+                "equipos",
+                "{equipo_id}"
+              ]
+            },
+            "description": "[Consulta QR] Consulta Publica",
+            "response": []
+          }
+        },
+        {
+          "name": "Consulta Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consulta/equipos/{equipo_id}/data",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consulta",
+                "equipos",
+                "{equipo_id}",
+                "data"
+              ]
+            },
+            "description": "[Consulta QR] Consulta Data",
             "response": []
           }
         }
@@ -1050,7 +2346,10 @@
               }
             ],
             "url": {
-              "raw": "https://its-songs-cosmetic-example.trycloudflare.com/health",
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "health"
               ]

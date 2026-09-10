@@ -17,6 +17,8 @@ from app.services.exports import exportar_csv, exportar_xlsx, _filas_equipos, _f
 from app.services.pdf_reports import (
     generar_inventario_por_ubicacion,
     generar_resumen_mantenimientos,
+    generar_reporte_tecnico_pdf,
+    generar_reporte_sede_pdf,
 )
 
 router = APIRouter()
@@ -192,6 +194,200 @@ def alertas_mantenimiento(db: Session = Depends(get_db), current_user: User = De
         )
     resultado.sort(key=lambda x: x["fecha_programada"])
     return resultado
+
+
+def _parse_rango(desde: str, hasta: str):
+    """Valida parámetros de fecha YYYY-MM-DD y devuelve datetimes o None."""
+    def _parse(val, nombre):
+        if not val:
+            return None
+        try:
+            return datetime.strptime(val, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"{nombre} debe tener formato YYYY-MM-DD")
+
+    d = _parse(desde, "desde")
+    h = _parse(hasta, "hasta")
+    if d and h and d > h:
+        raise HTTPException(status_code=400, detail="desde no puede ser posterior a hasta")
+    return d, h
+
+
+def _filas_mt_rango(db: Session, current_user: User, desde: datetime, hasta: datetime) -> list:
+    query = db.query(MaintenanceRecord)
+    if current_user.empresa_id:
+        query = query.filter(MaintenanceRecord.empresa_id == current_user.empresa_id)
+    if desde:
+        query = query.filter(MaintenanceRecord.fecha_programada >= desde)
+    if hasta:
+        query = query.filter(MaintenanceRecord.fecha_programada <= hasta.replace(hour=23, minute=59, second=59))
+    registros = query.order_by(MaintenanceRecord.fecha_programada).all()
+
+    filas = []
+    for r in registros:
+        filas.append(
+            {
+                "id": r.id,
+                "folio": f"MT-{r.id}",
+                "equipo": f"{r.equipo.marca} {r.equipo.modelo}".strip() if r.equipo else "-",
+                "tipo": r.tipo or "-",
+                "descripcion": r.descripcion or "",
+                "tecnico": r.tecnico,
+                "punto_id": r.punto_id,
+                "punto": r.punto.nombre if r.punto else None,
+                "prioridad": r.prioridad or "media",
+                "estado": r.estado or "-",
+                "fecha_programada": r.fecha_programada,
+            }
+        )
+    return filas
+
+
+def _agrupar_por(filas: list, campo: str) -> list:
+    ahora = datetime.now(timezone.utc)
+    grupos = {}
+    for f in filas:
+        key = f.get(campo) or "SIN " + campo.upper()
+        if key not in grupos:
+            grupos[key] = []
+        grupos[key].append(f)
+
+    resultado = []
+    for key, regs in grupos.items():
+        conteos = _conteos_mt(regs, ahora)
+        resultado.append(
+            {
+                (campo if campo != "tecnico" else "tecnico"): key,
+                "punto_id": regs[0].get("punto_id"),
+                "punto": regs[0].get("punto") or key,
+                "conteos": conteos,
+                "registros": regs,
+            }
+        )
+    return resultado
+
+
+def _conteos_mt(regs: list, ahora: datetime) -> dict:
+    total = len(regs)
+    programado = sum(1 for r in regs if r["estado"] == "programado")
+    en_proceso = sum(1 for r in regs if r["estado"] == "en_proceso")
+    finalizado = sum(1 for r in regs if r["estado"] == "finalizado")
+    vencidos = sum(
+        1
+        for r in regs
+        if r["estado"] != "finalizado" and r["fecha_programada"] and _normalize_dt(r["fecha_programada"]) < ahora
+    )
+    return {
+        "total": total,
+        "programado": programado,
+        "en_proceso": en_proceso,
+        "pendientes": programado + en_proceso,
+        "finalizado": finalizado,
+        "vencidos": vencidos,
+    }
+
+
+def _json_reporte(grupos: list, total: int, desde: str, hasta: str) -> dict:
+    out = []
+    for g in grupos:
+        gg = {"registros": []}
+        for k, v in g.items():
+            if k == "registros":
+                for r in v:
+                    gg["registros"].append(
+                        {
+                            "id": r["id"],
+                            "folio": r["folio"],
+                            "equipo": r["equipo"],
+                            "tipo": r["tipo"],
+                            "descripcion": r["descripcion"],
+                            "tecnico": r["tecnico"],
+                            "punto": r["punto"],
+                            "prioridad": r["prioridad"],
+                            "estado": r["estado"],
+                            "fecha_programada": r["fecha_programada"].isoformat() if r["fecha_programada"] else None,
+                        }
+                    )
+            else:
+                gg[k] = v
+        out.append(gg)
+    return {"desde": desde or None, "hasta": hasta or None, "total": total, "grupos": out}
+
+
+@router.get("/mantenimiento/por-tecnico")
+def reporte_mantenimiento_por_tecnico(
+    desde: str = "",
+    hasta: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mantenimientos agrupados por técnico en un rango de fechas (fecha programada)."""
+    d, h = _parse_rango(desde, hasta)
+    filas = _filas_mt_rango(db, current_user, d, h)
+    grupos = _agrupar_por(filas, "tecnico")
+    return _json_reporte(grupos, len(filas), desde, hasta)
+
+
+@router.get("/mantenimiento/por-sede")
+def reporte_mantenimiento_por_sede(
+    desde: str = "",
+    hasta: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mantenimientos realizados y pendientes agrupados por sede (punto de venta)."""
+    d, h = _parse_rango(desde, hasta)
+    filas = _filas_mt_rango(db, current_user, d, h)
+    grupos = _agrupar_por(filas, "punto")
+    return _json_reporte(grupos, len(filas), desde, hasta)
+
+
+@router.get("/mantenimiento/por-tecnico/pdf")
+def pdf_reporte_mantenimiento_por_tecnico(
+    desde: str = "",
+    hasta: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Acta de nombramiento por técnico en PDF."""
+    from app.core.config import COMPANY
+
+    d, h = _parse_rango(desde, hasta)
+    filas = _filas_mt_rango(db, current_user, d, h)
+    grupos = _agrupar_por(filas, "tecnico")
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = PDF_DIR / "reporte_nombramiento_por_tecnico.pdf"
+    generar_reporte_tecnico_pdf(
+        grupos, len(filas), desde or "—", hasta or "—", company=COMPANY, output_path=out
+    )
+    return FileResponse(
+        path=str(out), media_type="application/pdf",
+        filename="nombramiento_mantenimiento_por_tecnico.pdf",
+    )
+
+
+@router.get("/mantenimiento/por-sede/pdf")
+def pdf_reporte_mantenimiento_por_sede(
+    desde: str = "",
+    hasta: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reporte por sede / farmacia en PDF."""
+    from app.core.config import COMPANY
+
+    d, h = _parse_rango(desde, hasta)
+    filas = _filas_mt_rango(db, current_user, d, h)
+    grupos = _agrupar_por(filas, "punto")
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = PDF_DIR / "reporte_mantenimientos_por_sede.pdf"
+    generar_reporte_sede_pdf(
+        grupos, len(filas), desde or "—", hasta or "—", company=COMPANY, output_path=out
+    )
+    return FileResponse(
+        path=str(out), media_type="application/pdf",
+        filename="mantenimientos_por_sede.pdf",
+    )
 
 
 @router.get("/depreciacion")
@@ -384,7 +580,7 @@ def pdf_resumen_mantenimientos(
                 "tipo": r.tipo,
                 "tecnico": r.tecnico,
                 "estado": r.estado,
-                "costo": r.costo,
+                "prioridad": r.prioridad,
             }
         )
 

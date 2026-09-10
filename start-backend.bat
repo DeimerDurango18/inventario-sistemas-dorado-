@@ -1,5 +1,5 @@
 @echo off
-title Inventario - Backend (:8010)
+title Inventario - Backend (:8500)
 chcp 65001 >nul
 setlocal
 
@@ -14,12 +14,12 @@ if not exist "%PY%" (
     exit /b 1
 )
 
-echo [INFO] Liberando puerto 8010 si hay una instancia previa...
-powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"
+echo [INFO] Liberando puerto 8500 si hay una instancia previa...
+powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Get-NetTCPConnection -LocalPort 8500 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"
 
 echo [INFO] Iniciando Backend FastAPI  (DB: SQL Server / InventarioEquipos)
-echo          Health: http://localhost:8010/health
-echo          Docs:   http://localhost:8010/docs
+echo          Health: http://localhost:8500/health
+echo          Docs:   http://localhost:8500/docs
 echo.
 cd /d "%BACKEND%"
-"%PY%" -m uvicorn app.main:app --host 0.0.0.0 --port 8010
+"%PY%" -m uvicorn app.main:app --host 0.0.0.0 --port 8500

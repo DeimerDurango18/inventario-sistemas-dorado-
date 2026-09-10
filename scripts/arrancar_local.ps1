@@ -1,8 +1,8 @@
 ﻿# ============================================================
 # ARRANCAR_LOCAL.ps1
-#   Modo desarrollo (por defecto): backend (8010) + frontend dev (5173) + navegador.
+#   Modo desarrollo (por defecto): backend (8500) + frontend dev (4123) + navegador.
 #   Modo producción:  .\scripts\arrancar_local.ps1 -Produccion
-#     backend (8010) + túnel Cloudflare + deploy a Pages + verificación.
+#     backend (8500) + túnel Cloudflare + deploy a Pages + verificación.
 # ============================================================
 param(
     [switch]$Produccion
@@ -24,13 +24,13 @@ if (-not (Test-Path $py)) {
 
 # --- Helper: asegurar backend corriendo con el código actual ---
 function Start-Backend {
-    Write-Host "==> Backend FastAPI en http://127.0.0.1:8010 ..." -ForegroundColor Cyan
-    Start-Process cmd -ArgumentList "/k title Inventario-Backend-8010 && cd /d `"$backend`" && `"$py`" -m uvicorn app.main:app --host 127.0.0.1 --port 8010"
+    Write-Host "==> Backend FastAPI en http://127.0.0.1:8500 ..." -ForegroundColor Cyan
+    Start-Process cmd -ArgumentList "/k title Inventario-Backend-8500 && cd /d `"$backend`" && `"$py`" -m uvicorn app.main:app --host 127.0.0.1 --port 8500"
     # Esperar a que responda (/health)
     for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Seconds 1
         try {
-            $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8010/health' -UseBasicParsing -TimeoutSec 2
+            $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8500/health' -UseBasicParsing -TimeoutSec 2
             if ($r.StatusCode -eq 200) { return $true }
         } catch { }
     }
@@ -39,8 +39,8 @@ function Start-Backend {
 }
 
 # --- Liberar backend anterior (para cargar el código actual) ---
-Write-Host "==> Liberando puertos 8010 (y 5173 en modo dev)..." -ForegroundColor Yellow
-$puertos = if ($Produccion) { @(8010) } else { @(8010, 5173) }
+Write-Host "==> Liberando puertos 8500 (y 4123 en modo dev)..." -ForegroundColor Yellow
+$puertos = if ($Produccion) { @(8500) } else { @(8500, 4123) }
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -74,25 +74,25 @@ if ($Produccion) {
 
 # ---- Modo DESARROLLO (por defecto) ----
 # [2/3] Frontend
-Write-Host "==> [2/3] Frontend Vite en http://localhost:5173 ..." -ForegroundColor Cyan
+Write-Host "==> [2/3] Frontend Vite en http://localhost:4123 ..." -ForegroundColor Cyan
 if (-not (Test-Path (Join-Path $front 'node_modules'))) {
     Write-Host "    Instalando dependencias del frontend (npm install)..."
     Push-Location $front
     npm install
     Pop-Location
 }
-Start-Process cmd -ArgumentList "/k title Inventario-Frontend-5173 && cd /d `"$front`" && npm run dev -- --host 0.0.0.0 --port 5173"
+Start-Process cmd -ArgumentList "/k title Inventario-Frontend-4123 && cd /d `"$front`" && npm run dev -- --host 0.0.0.0 --port 4123"
 
 # [3/3] Navegador
 Write-Host "==> [3/3] Abriendo navegador..." -ForegroundColor Cyan
 Start-Sleep -Seconds 5
-Start-Process "http://localhost:5173"
+Start-Process "http://localhost:4123"
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
 Write-Host "  LOCAL LISTO" -ForegroundColor Green
-Write-Host "  App:      http://localhost:5173" -ForegroundColor Green
-Write-Host "  API:      http://127.0.0.1:8010  (/health, /docs)"
+Write-Host "  App:      http://localhost:4123" -ForegroundColor Green
+Write-Host "  API:      http://127.0.0.1:8500  (/health, /docs)"
 Write-Host "  Login:    admin@sistemasbogota.com / Admin2026!"
 Write-Host "  Detener:  cierra las ventanas de consola abiertas"
 Write-Host "============================================" -ForegroundColor Green
