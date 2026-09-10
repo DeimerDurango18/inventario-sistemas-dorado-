@@ -97,6 +97,7 @@ def _draw_watermark(c: canvas.Canvas, text: str):
 
 def _header(c: canvas.Canvas, company: dict, numero: str, acta_id: int):
     top = PAGE_H - MARGIN
+    qr_size = 22 * mm
     if acta_id:
         verify_url = f"{get_public_verify_url()}/api/actas-mantenimiento/{acta_id}/verify"
         qr = qrcode.QRCode(version=1, box_size=10, border=0)
@@ -107,13 +108,12 @@ def _header(c: canvas.Canvas, company: dict, numero: str, acta_id: int):
         img.save(buf, format="PNG")
         buf.seek(0)
         qr_img = ImageReader(buf)
-        qr_size = 25 * mm
-        c.drawImage(qr_img, MARGIN, top - 25 * mm, width=qr_size, height=qr_size)
+        c.drawImage(qr_img, MARGIN, top - qr_size, width=qr_size, height=qr_size)
         c.setFont("Helvetica", 6)
-        c.drawCentredString(MARGIN + qr_size / 2, top - 25 * mm - 3, "Verificar Acta")
+        c.drawCentredString(MARGIN + qr_size / 2, top - qr_size - 4, "Verificar Acta")
 
-    qr_offset = (25 * mm + 10 * mm) if acta_id else 0
-    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_offset, top - 24, 46, 24
+    qr_offset = (qr_size + 8 * mm) if acta_id else 0
+    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_offset, top - 22, 44, 22
     logo_path = company.get("logo_path")
     if logo_path and Path(logo_path).exists():
         c.drawImage(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask="auto")
@@ -123,28 +123,28 @@ def _header(c: canvas.Canvas, company: dict, numero: str, acta_id: int):
     c.setFont("Helvetica-Bold", 10)
     c.drawString(text_x, top - 8, company["nombre"].upper())
     c.setFont("Helvetica", 7.5)
-    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
-    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
-    c.drawString(text_x, top - 36, company["direccion"].upper())
+    c.drawString(text_x, top - 19, f"NIT: {company['nit']}")
+    c.drawString(text_x, top - 30, f"TELEFONO: {company['telefono']}")
+    c.drawString(text_x, top - 41, company["direccion"].upper())
 
-    box_w, box_h = 62 * mm, 15 * mm
+    box_w, box_h = 62 * mm, 18 * mm
     box_x = PAGE_W - MARGIN - box_w
-    box_y = top - box_h
+    box_y = top - box_h - 4
     c.setLineWidth(0.8)
     c.setStrokeColorRGB(*BLACK)
     c.rect(box_x, box_y, box_w, box_h, fill=0, stroke=1)
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 10, f"MANTENIMIENTO N° {numero}")
+    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 12, f"MANTENIMIENTO N° {numero}")
     c.setFont("Helvetica", 8.5)
     c.drawCentredString(box_x + box_w / 2, box_y + 4, _fmt_fecha(datetime.now()))
-    return top - 48
+    return top - qr_size - 10
 
 
 def _title(c: canvas.Canvas, y: float):
     c.setFillColorRGB(*BLACK)
     c.setFont("Helvetica-Bold", 14)
     c.drawCentredString(PAGE_W / 2, y, "ACTA DE MANTENIMIENTO DE EQUIPOS")
-    return y - 22
+    return y - 26
 
 
 def _section_bar(c: canvas.Canvas, y: float, title: str):
@@ -153,19 +153,20 @@ def _section_bar(c: canvas.Canvas, y: float, title: str):
     c.setFillColorRGB(*WHITE)
     c.setFont("Helvetica-Bold", 9.5)
     c.drawString(MARGIN + 6, y - 13, title.upper())
-    return y - 32
+    return y - 36
 
 
 def _label_row(c: canvas.Canvas, y: float, label: str, value: str):
     c.setFont("Helvetica-Bold", 9)
     c.setFillColorRGB(*BLACK)
-    c.drawString(MARGIN, y, label.upper())
+    c.drawString(MARGIN + 4, y, label.upper())
+    label_w = c.stringWidth(label.upper(), "Helvetica-Bold", 9)
+    value_x = MARGIN + 4 + label_w + 12
+    max_w = PAGE_W - MARGIN - value_x - 4
     c.setFont("Helvetica", 9)
     c.setFillColorRGB(*GRAY_TEXT)
-    value_x = MARGIN + 150
-    max_w = PAGE_W - MARGIN - value_x - 4
     c.drawString(value_x, y, _fit(c, value or "-", "Helvetica", 9, max_w))
-    return y - 15
+    return y - 18
 
 
 def _equipos_table(c: canvas.Canvas, y: float, items, marca: str, numero: str):

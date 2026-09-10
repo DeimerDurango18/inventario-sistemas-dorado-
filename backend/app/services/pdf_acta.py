@@ -72,15 +72,15 @@ def _header(c: canvas.Canvas, acta, company: dict, numero: str):
     qr_buf.seek(0)
     qr_image = ImageReader(qr_buf)
 
-    qr_size = 25 * mm
+    qr_size = 22 * mm
     qr_x = MARGIN
-    qr_y = top - 25 * mm
+    qr_y = top - qr_size
     c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
     c.setFont("Helvetica", 6)
-    c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Acta")
+    c.drawCentredString(qr_x + qr_size/2, qr_y - 4, "Verificar Acta")
 
     # --- Logo (desplazado a la derecha del QR) ---
-    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_size + 10*mm, top - 24, 46, 24
+    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_size + 8*mm, top - 22, 44, 22
     logo_path = company.get("logo_path")
     if logo_path and Path(logo_path).exists():
         try:
@@ -100,24 +100,24 @@ def _header(c: canvas.Canvas, acta, company: dict, numero: str):
     c.setFont("Helvetica-Bold", 10)
     c.drawString(text_x, top - 8, company["nombre"].upper())
     c.setFont("Helvetica", 7.5)
-    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
-    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
-    c.drawString(text_x, top - 36, company["direccion"].upper())
+    c.drawString(text_x, top - 19, f"NIT: {company['nit']}")
+    c.drawString(text_x, top - 30, f"TELEFONO: {company['telefono']}")
+    c.drawString(text_x, top - 41, company["direccion"].upper())
 
     # --- Caja "SALIDA N° ..." arriba a la derecha ---
-    box_w, box_h = 55 * mm, 15 * mm
+    box_w, box_h = 55 * mm, 18 * mm
     box_x = PAGE_W - MARGIN - box_w
-    box_y = top - box_h
+    box_y = top - box_h - 4
     c.setLineWidth(0.8)
     c.setStrokeColorRGB(*BLACK)
     c.rect(box_x, box_y, box_w, box_h, fill=0, stroke=1)
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 10, f"{acta.tipo} N° {numero}")
+    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 12, f"{acta.tipo} N° {numero}")
     c.setFont("Helvetica", 8.5)
     fecha = acta.created_at or datetime.now()
     c.drawCentredString(box_x + box_w / 2, box_y + 4, fecha.strftime("%Y-%m-%d %H:%M:%S"))
 
-    return top - 46  # y disponible tras el encabezado
+    return top - qr_size - 10  # y disponible tras el encabezado
 
 
 def _title(c: canvas.Canvas, y: float, acta):
@@ -125,7 +125,7 @@ def _title(c: canvas.Canvas, y: float, acta):
     c.setFont("Helvetica-Bold", 13)
     titulo = "ORDEN DE SALIDA" if acta.tipo == "SALIDA" else "ORDEN DE ENTRADA"
     c.drawCentredString(PAGE_W / 2, y, titulo)
-    return y - 18
+    return y - 24
 
 
 def _paragraph(c: canvas.Canvas, y: float, acta, company: dict):
@@ -155,25 +155,32 @@ def _paragraph(c: canvas.Canvas, y: float, acta, company: dict):
 
 
 def _info_block(c: canvas.Canvas, y: float, acta):
-    c.setFont("Helvetica-Bold", 9)
-    left_x = MARGIN + 30
-    right_x = PAGE_W / 2 + 20
-    col_w = right_x - 10 - left_x           # ancho columna izquierda (con respiro)
-    right_w = PAGE_W - MARGIN - right_x - 2  # ancho columna derecha
-
-    proy = _fit_text(c, (acta.proyecto or "").upper(), "Helvetica-Bold", 9, col_w)
-    cuid = _fit_text(c, (acta.ciudad_destino or "").upper(), "Helvetica-Bold", 9, right_w)
     c.setFillColorRGB(*BLACK)
-    c.drawString(left_x, y, proy)
-    c.drawString(right_x, y, cuid)
-    y -= 11
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(MARGIN, y, "PROYECTO:")
+    c.drawString(PAGE_W / 2 + 20, y, "CIUDAD DESTINO:")
+    y -= 13
 
     c.setFont("Helvetica", 8.5)
-    resp = _fit_text(c, (acta.responsable_destino or "").upper(), "Helvetica", 8.5, col_w)
-    dir_ = _fit_text(c, (acta.direccion_destino or "").upper(), "Helvetica", 8.5, right_w)
-    c.drawString(left_x, y, resp)
-    c.drawString(right_x, y, dir_)
-    return y - 16
+    c.setFillColorRGB(*GRAY_TEXT)
+    proy = _fit_text(c, (acta.proyecto or "-").upper(), "Helvetica", 8.5, (PAGE_W / 2) - MARGIN - 90)
+    c.drawString(MARGIN, y, proy)
+    c.drawString(PAGE_W / 2 + 20, y, _fit_text(c, (acta.ciudad_destino or "-").upper(), "Helvetica", 8.5, (PAGE_W / 2) - MARGIN - 90))
+    y -= 15
+
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColorRGB(*BLACK)
+    c.drawString(MARGIN, y, "RESPONSABLE DESTINO:")
+    c.drawString(PAGE_W / 2 + 20, y, "DIRECCIÓN DESTINO:")
+    y -= 13
+
+    c.setFont("Helvetica", 8.5)
+    c.setFillColorRGB(*GRAY_TEXT)
+    resp = _fit_text(c, (acta.responsable_destino or "-").upper(), "Helvetica", 8.5, (PAGE_W / 2) - MARGIN - 90)
+    dir_ = _fit_text(c, (acta.direccion_destino or "-").upper(), "Helvetica", 8.5, (PAGE_W / 2) - MARGIN - 90)
+    c.drawString(MARGIN, y, resp)
+    c.drawString(PAGE_W / 2 + 20, y, dir_)
+    return y - 22
 
 
 def _fit_text(c: canvas.Canvas, text: str, font: str, size: float, max_w: float) -> str:
@@ -276,15 +283,21 @@ def _table(c: canvas.Canvas, y: float, items, marca_agua: str, acta):
     return y - 8
 
 
-def _observations(c: canvas.Canvas, y: float, acta):
+def _observations(c: canvas.Canvas, y: float, acta, marca_agua: str):
+    # Si no queda espacio para las observaciones + bloque de valores, abrir página nueva.
+    if y - 90 < MARGIN + 90:
+        c.showPage()
+        _draw_watermark(c, marca_agua)
+        y = _continuation_header(c, f"{acta.tipo} N° {acta.numero} — CONTINUACIÓN")
+
     c.setFillColorRGB(*BLACK)
     c.setFont("Helvetica-Bold", 8)
     max_w = PAGE_W - 2 * MARGIN
     lines = _wrap_text(c, f"OBSERVACIONES: {(acta.observaciones or '').upper()}", "Helvetica-Bold", 8, max_w, max_lines=3)
     for ln in lines:
         c.drawString(MARGIN, y, ln)
-        y -= 11
-    y -= 3
+        y -= 12
+    y -= 6
 
     # Caja negra "VALOR APROX"
     box_w, box_h = 60 * mm, 12
@@ -293,12 +306,16 @@ def _observations(c: canvas.Canvas, y: float, acta):
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica-Bold", 8)
     c.drawString(MARGIN + 4, y - box_h + 7, f"VALOR APROX : {_fmt_money(acta.valor_aprox)}")
-    y -= box_h + 6
+    y -= box_h + 8
 
+    # Caja negra "CAJAS"
     c.setFillColorRGB(*BLACK)
+    c.rect(MARGIN, y - box_h + 3, box_w, box_h, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica-Bold", 8)
-    c.drawString(MARGIN, y, f"CAJAS       : {acta.cajas or 1}")
-    return y - 10
+    c.drawString(MARGIN + 4, y - box_h + 7, f"CAJAS       : {acta.cajas or 1}")
+    y -= box_h + 10
+    return y
 
 
 def _fotos(c: canvas.Canvas, y: float, fotos: list, marca_agua: str, acta):
@@ -351,9 +368,9 @@ def _fotos(c: canvas.Canvas, y: float, fotos: list, marca_agua: str, acta):
     return y - thumb_h - 6
 
 
-def _recibido_conforme(c: canvas.Canvas, acta):
+def _recibido_conforme(c: canvas.Canvas, acta, y: float = None):
     """Constancia de la firma del responsable del destino (se imprime bajo la tabla)."""
-    y = MARGIN + 58
+    y = y if y is not None else MARGIN + 58
     col_w = PAGE_W - 2 * MARGIN
 
     c.setStrokeColorRGB(*BLACK)
@@ -365,13 +382,13 @@ def _recibido_conforme(c: canvas.Canvas, acta):
     c.drawCentredString(PAGE_W / 2 - 15, y + 6, "RECIBIDO CONFORME POR EL RESPONSABLE DEL DESTINO")
 
     c.setFont("Helvetica-Bold", 8.5)
-    c.drawCentredString(PAGE_W / 2 - 15, y - 10, acta.firmado_por or "")
+    c.drawCentredString(PAGE_W / 2 - 15, y - 12, acta.firmado_por or "")
 
     c.setFont("Helvetica", 7.5)
     c.setFillColorRGB(*GRAY_TEXT)
-    c.drawCentredString(PAGE_W / 2 - 15, y - 19, f"C.C./DOC.: {acta.documento_firma or '—'}")
+    c.drawCentredString(PAGE_W / 2 - 15, y - 23, f"C.C./DOC.: {acta.documento_firma or '—'}")
     if acta.fecha_firma:
-        c.drawCentredString(PAGE_W / 2 - 15, y - 27, f"FECHA: {acta.fecha_firma.strftime('%Y-%m-%d %H:%M')}")
+        c.drawCentredString(PAGE_W / 2 - 15, y - 33, f"FECHA: {acta.fecha_firma.strftime('%Y-%m-%d %H:%M')}")
 
 
 def _footer(c: canvas.Canvas, company: dict, acta, page_label="Pág. 1"):
@@ -436,9 +453,14 @@ def generar_acta_pdf(acta, items, company: dict, output_path: Path) -> Path:
         fotos = []
     y = _fotos(c, y, fotos, marca, acta)
 
-    y = _observations(c, y, acta)
+    y = _observations(c, y, acta, marca)
+    # Si el bloque de valores bajó demasiado, abrir página para recibido/firmas
+    if y < MARGIN + 110:
+        c.showPage()
+        _draw_watermark(c, marca)
+        y = _continuation_header(c, f"{acta.tipo} N° {acta.numero} — CONTINUACIÓN")
     if acta.firmado_por:
-        _recibido_conforme(c, acta)
+        _recibido_conforme(c, acta, y=y)
     _footer(c, company, acta, f"Pág. {c.getPageNumber()}")
 
     c.showPage()

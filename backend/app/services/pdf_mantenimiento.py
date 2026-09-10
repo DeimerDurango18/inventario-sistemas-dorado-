@@ -84,7 +84,8 @@ def _draw_watermark(c: canvas.Canvas, text: str):
 def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = None):
     top = PAGE_H - MARGIN
 
-    # --- QR de Verificación (A la izquierda) ---
+    # --- QR de Verificación (arriba a la izquierda) ---
+    qr_size = 22 * mm
     if registro_id:
         verify_url = f"{get_public_verify_url()}/api/mantenimientos/{registro_id}/verify"
         qr = qrcode.QRCode(version=1, box_size=10, border=0)
@@ -97,16 +98,15 @@ def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = Non
         qr_buf.seek(0)
         qr_image = ImageReader(qr_buf)
 
-        qr_size = 25 * mm
         qr_x = MARGIN
-        qr_y = top - 25 * mm
+        qr_y = top - qr_size
         c.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size)
         c.setFont("Helvetica", 6)
-        c.drawCentredString(qr_x + qr_size/2, qr_y - 3, "Verificar Registro")
+        c.drawCentredString(qr_x + qr_size / 2, qr_y - 4, "Verificar Registro")
 
     # --- Logo (desplazado a la derecha del QR) ---
-    qr_offset = (25 * mm + 10 * mm) if registro_id else 0
-    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_offset, top - 24, 46, 24
+    qr_offset = (qr_size + 8 * mm) if registro_id else 0
+    logo_x, logo_y, logo_w, logo_h = MARGIN + qr_offset, top - 22, 44, 22
     logo_path = company.get("logo_path")
     if logo_path and Path(logo_path).exists():
         try:
@@ -117,8 +117,8 @@ def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = Non
         c.setFillColorRGB(*BLUE)
         c.roundRect(logo_x, logo_y, logo_w, logo_h, 4, fill=1, stroke=0)
         c.setFillColorRGB(*WHITE)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(logo_x + logo_w / 2, logo_y + 8, company["nombre"].split()[0][:4].upper())
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(logo_x + logo_w / 2, logo_y + 7, company["nombre"].split()[0][:4].upper())
 
     # --- Datos de la empresa (a la derecha del logo) ---
     text_x = logo_x + logo_w + 10
@@ -126,47 +126,48 @@ def _header(c: canvas.Canvas, company: dict, numero: str, registro_id: int = Non
     c.setFont("Helvetica-Bold", 10)
     c.drawString(text_x, top - 8, company["nombre"].upper())
     c.setFont("Helvetica", 7.5)
-    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
-    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
-    c.drawString(text_x, top - 36, company["direccion"].upper())
+    c.drawString(text_x, top - 19, f"NIT: {company['nit']}")
+    c.drawString(text_x, top - 30, f"TELEFONO: {company['telefono']}")
+    c.drawString(text_x, top - 41, company["direccion"].upper())
 
-    # --- Caja "MANTENIMIENTO N° ..." arriba a la derecha ---
-    box_w, box_h = 60 * mm, 15 * mm
+    # --- Caja "MANTENIMIENTO N° ..." (arriba a la derecha, bajo la info) ---
+    box_w, box_h = 62 * mm, 18 * mm
     box_x = PAGE_W - MARGIN - box_w
-    box_y = top - box_h
+    box_y = top - box_h - 4
     c.setLineWidth(0.8)
     c.setStrokeColorRGB(*BLACK)
     c.rect(box_x, box_y, box_w, box_h, fill=0, stroke=1)
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 10, f"MANTENIMIENTO N° {numero}")
+    c.drawCentredString(box_x + box_w / 2, box_y + box_h - 12, f"MANTENIMIENTO N° {numero}")
     c.setFont("Helvetica", 8.5)
     c.drawCentredString(box_x + box_w / 2, box_y + 4, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    return top - 48
+    return top - qr_size - 10
 
 
 def _title(c: canvas.Canvas, y: float):
     c.setFillColorRGB(*BLACK)
     c.setFont("Helvetica-Bold", 14)
     c.drawCentredString(PAGE_W / 2, y, "ACTA DE MANTENIMIENTO")
-    return y - 22
+    return y - 28
 
 
 def _label_row(c: canvas.Canvas, y: float, label: str, value: str, wrap: int = None):
     c.setFont("Helvetica-Bold", 9)
     c.setFillColorRGB(*BLACK)
-    c.drawString(MARGIN, y, label.upper())
+    c.drawString(MARGIN + 4, y, label.upper())
+    label_w = c.stringWidth(label.upper(), "Helvetica-Bold", 9)
+    value_x = MARGIN + 4 + label_w + 10
+    max_w = PAGE_W - MARGIN - value_x - 4
     c.setFont("Helvetica", 9)
     c.setFillColorRGB(*GRAY_TEXT)
-    value_x = MARGIN + 130
-    max_w = PAGE_W - MARGIN - value_x - 4
     if wrap:
         for ln in _wrap_text(c, value or "-", "Helvetica", 9, max_w, max_lines=wrap):
             c.drawString(value_x, y, ln)
-            y -= 11
-        return y - 4
+            y -= 12
+        return y - 6
     c.drawString(value_x, y, _fit_text(c, value or "-", "Helvetica", 9, max_w))
-    return y - 15
+    return y - 19
 
 
 def _section(c: canvas.Canvas, y: float, title: str):
@@ -175,7 +176,7 @@ def _section(c: canvas.Canvas, y: float, title: str):
     c.setFillColorRGB(*WHITE)
     c.setFont("Helvetica-Bold", 9.5)
     c.drawString(MARGIN + 6, y - 13, title.upper())
-    return y - 32
+    return y - 36
 
 
 def _movements_table(c: canvas.Canvas, y: float, movimientos):
@@ -227,7 +228,7 @@ def _final_account(c: canvas.Canvas, y: float, registro, equipo):
     c.setStrokeColorRGB(*BLACK)
     c.setLineWidth(0.6)
     c.line(MARGIN, y, PAGE_W - MARGIN, y)
-    y -= 14
+    y -= 16
 
     col_w = (PAGE_W - 2 * MARGIN) / 3
     c.setFont("Helvetica-Bold", 8.5)
@@ -236,11 +237,11 @@ def _final_account(c: canvas.Canvas, y: float, registro, equipo):
     c.drawString(MARGIN + 2 * col_w, y, "PRIORIDAD")
     c.setFont("Helvetica-Bold", 9)
     c.setFillColorRGB(*BLUE)
-    c.drawString(MARGIN, y - 13, (registro.tipo or "-").upper())
-    c.drawString(MARGIN + col_w, y - 13, (registro.estado or "-").upper())
-    c.drawString(MARGIN + 2 * col_w, y - 13, (registro.prioridad or "media").upper())
+    c.drawString(MARGIN, y - 14, (registro.tipo or "-").upper())
+    c.drawString(MARGIN + col_w, y - 14, (registro.estado or "-").upper())
+    c.drawString(MARGIN + 2 * col_w, y - 14, (registro.prioridad or "media").upper())
     c.setFillColorRGB(*BLACK)
-    return y - 40
+    return y - 44
 
 
 def _continuation(c: canvas.Canvas, marca: str):
@@ -291,14 +292,15 @@ def generar_acta_mantenimiento_pdf(
     if y < MARGIN + 130:
         y = _continuation(c, marca)
 
-    # Firmas
-    firma_y = MARGIN + 34
+    # Firmas (dinámicas según posición actual)
+    firma_y = max(y - 30, MARGIN + 34)
     col_w = (PAGE_W - 2 * MARGIN) / 2
     c.setStrokeColorRGB(*BLACK)
     c.setLineWidth(0.6)
     c.line(MARGIN, firma_y, MARGIN + col_w - 20, firma_y)
     c.line(MARGIN + col_w + 20, firma_y, PAGE_W - MARGIN, firma_y)
     c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColorRGB(*BLACK)
     c.drawString(MARGIN, firma_y - 12, _fit_text(c, (registro.tecnico or "TÉCNICO").upper(), "Helvetica-Bold", 8.5, col_w - 24))
     c.drawString(MARGIN + col_w + 20, firma_y - 12, "RESPONSABLE / BODEGA")
 

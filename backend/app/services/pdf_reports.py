@@ -70,9 +70,9 @@ def _header(c: canvas.Canvas, company: dict, titulo: str):
     c.setFont("Helvetica-Bold", 10)
     c.drawString(text_x, top - 8, company["nombre"].upper())
     c.setFont("Helvetica", 7.5)
-    c.drawString(text_x, top - 18, f"NIT: {company['nit']}")
-    c.drawString(text_x, top - 27, f"TELEFONO: {company['telefono']}")
-    c.drawString(text_x, top - 36, company["direccion"].upper())
+    c.drawString(text_x, top - 19, f"NIT: {company['nit']}")
+    c.drawString(text_x, top - 30, f"TELEFONO: {company['telefono']}")
+    c.drawString(text_x, top - 41, company["direccion"].upper())
 
     c.setFont("Helvetica-Bold", 12)
     c.setFillColorRGB(*BLUE)
