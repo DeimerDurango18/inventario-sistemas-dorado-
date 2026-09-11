@@ -1,6 +1,11 @@
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
+
+# Carga backend/.env si existe (las variables de entorno del sistema tienen prioridad)
+load_dotenv(Path(__file__).resolve().parents[3] / "backend" / ".env", override=False)
+
 # ============================================================
 # CONFIGURACION
 # Se permite sobreescribir cada valor con variables de entorno
