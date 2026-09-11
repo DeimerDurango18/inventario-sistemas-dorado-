@@ -52,6 +52,14 @@ SMTP = {
     "use_tls": os.getenv("SMTP_TLS", "1") in {"1", "true", "yes"},
 }
 
+# WhatsApp (gateway local whatsapp-web.js + números destino)
+WHATSAPP_GATEWAY_URL = os.getenv("WHATSAPP_GATEWAY_URL", "http://127.0.0.1:8900")
+WHATSAPP_DESTINOS = [
+    d.strip()
+    for d in os.getenv("WHATSAPP_DESTINOS", "").split(",")
+    if d.strip()
+]
+
 # Datos de la empresa para PDFs de actas
 _COMPANY_LOGO_DEFAULT = Path(__file__).resolve().parent.parent / "services" / "logo.jpg"
 COMPANY = {

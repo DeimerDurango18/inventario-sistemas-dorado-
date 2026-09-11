@@ -1494,6 +1494,22 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
     }
   }
 
+  const handleEnviarWhatsApp = async () => {
+    try {
+      const res = await api('/api/notificaciones/whatsapp', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const enviados = data.enviados || []
+        showToast(`Resumen enviado por WhatsApp a ${enviados.length} número(s)`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        showToast(err.detail || 'No se pudo enviar por WhatsApp')
+      }
+    } catch {
+      showToast('Error conectando con el servidor')
+    }
+  }
+
 
   useEffect(() => {
     if (isScannerOpen && scannerInputRef.current) {
@@ -5727,18 +5743,23 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
               </div>
             </div>
 
-            {/* Notificaciones por correo */}
+            {/* Notificaciones por correo / WhatsApp */}
             <div style={{ margin: '28px 0' }}>
               <h3 style={{ margin: '0 0 10px', fontSize: '1.05rem', color: 'var(--primary)' }}>
-                📧 Notificaciones por correo
+                Notificaciones (correo / WhatsApp)
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: '0 0 12px' }}>
                 Envía un resumen automático de garantías, mantenimientos pendientes y actas sin firmar a los
-                responsables configurados. Requiere SMTP configurado en el servidor.
+                responsables configurados.
               </p>
-              <button type="button" className="btn-quick-status" onClick={handleEnviarCorreo}>
-                <Icon name="download" /> Enviar resumen por correo
-              </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button type="button" className="btn-quick-status" onClick={handleEnviarCorreo}>
+                  Enviar resumen por correo
+                </button>
+                <button type="button" className="btn-primary" onClick={handleEnviarWhatsApp}>
+                  Enviar resumen por WhatsApp
+                </button>
+              </div>
             </div>
 
             {/* Resumen de parámetros */}

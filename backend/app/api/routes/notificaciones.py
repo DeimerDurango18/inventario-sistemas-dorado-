@@ -21,6 +21,12 @@ from app.models.maintenance import MaintenanceRecord
 from app.models.acta import Acta
 from app.models.user import User
 from app.services.email_service import construir_resumen_html, destinatarios_por_defecto, enviar_correo
+from app.services.whatsapp_service import (
+    construir_resumen_wa,
+    enviar_whatsapp_grupo,
+    gateway_estado,
+    whatsapp_configurado,
+)
 
 router = APIRouter()
 
@@ -207,3 +213,43 @@ def enviar_correo_resumen(
     if not ok:
         raise HTTPException(status_code=502, detail="No se pudo enviar el correo. Revisa la configuración SMTP")
     return {"message": "Correo enviado", "destinatarios": destinatarios}
+
+
+@router.get("/whatsapp")
+def whatsapp_status(
+    current_user: User = Depends(require_roles("admin", "supervisor")),
+):
+    """Estado del gateway de WhatsApp."""
+    return gateway_estado()
+
+
+@router.post("/whatsapp")
+def enviar_resumen_whatsapp(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "supervisor")),
+):
+    """Envía por WhatsApp el resumen operativo a los números configurados."""
+    if not whatsapp_configurado():
+        raise HTTPException(
+            status_code=400,
+            detail="WhatsApp no configurado. Define WHATSAPP_DESTINOS en el entorno.",
+        )
+
+    est = gateway_estado()
+    if not est.get("autenticado"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Gateway no autenticado (estado={est.get('estado')}). Escanea el QR de WhatsApp con la app.",
+        )
+
+    mensaje = construir_resumen_wa(db)
+    resultado = enviar_whatsapp_grupo(mensaje)
+    if not resultado["ok"]:
+        raise HTTPException(status_code=502, detail=f"Envío fallido: {resultado}")
+
+    return {
+        "message": "Resumen enviado por WhatsApp",
+        "enviados": resultado["enviados"],
+        "fallidos": resultado["fallidos"],
+        "tamanio_chars": len(mensaje),
+    }
