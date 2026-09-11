@@ -61,12 +61,14 @@ def test_crear_equipo_roles(client, admin_headers):
     assert resp.status_code == 401
 
     # operativo -> 403 (admin ya existe: admin_headers)
-    reg = client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "Oper", "correo": "op@test.com", "password": "secreto1", "rol": "operativo"},
+        headers=admin_headers,
     )
-    assert reg.json()["user"]["rol"] == "operativo"
-    op_headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    assert creado.json()["rol"] == "operativo"
+    login = client.post("/api/auth/login", json={"correo": "op@test.com", "password": "secreto1"})
+    op_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = client.post(
         "/api/inventory/equipos",
         json={"folio": "A2", "marca": "A", "modelo": "B"},
@@ -172,4 +174,3 @@ def test_subir_foto_y_servir_estatico(client, admin_headers):
     resp_static = client.get(foto_url)
     assert resp_static.status_code == 200
     assert resp_static.content == dummy_png
-

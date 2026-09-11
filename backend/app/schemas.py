@@ -53,6 +53,11 @@ class LoginIn(BaseModel):
     password: str
 
 
+class ChangePasswordIn(BaseModel):
+    password_actual: str
+    password_nueva: str
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -266,4 +271,3 @@ class AtencionPuntoUpdate(BaseModel):
     descripcion: Optional[str] = None
     tecnico: Optional[str] = None
     resultado: Optional[str] = None
-

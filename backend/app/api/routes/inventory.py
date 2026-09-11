@@ -30,6 +30,18 @@ FOTO_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 
 
+def _get_equipo_visible(db: Session, equipo_id: int, current_user: User) -> Equipment:
+    """Obtiene un equipo y aplica el alcance de la empresa del usuario."""
+    query = db.query(Equipment).filter(Equipment.id == equipo_id)
+    if current_user.empresa_id:
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+    equipo = query.first()
+    if not equipo:
+        # Se responde 404 para no revelar si existe un equipo de otra empresa.
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    return equipo
+
+
 def _serialize_equipo(equipo: Equipment) -> dict:
     return {
         "id": equipo.id,
@@ -250,9 +262,7 @@ def historial_equipo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
     movimientos = (
         db.query(Movement)
         .filter(Movement.equipo_id == equipo_id)
@@ -275,10 +285,12 @@ def historial_equipo(
 
 
 @router.get("/equipos/{equipo_id}")
-def get_equipo(equipo_id: int, db: Session = Depends(get_db)):
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+def get_equipo(
+    equipo_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
     return _serialize_equipo(equipo)
 
 
@@ -473,9 +485,7 @@ def actualizar_equipo(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
 
     # Capturar valores antiguos para auditoría
     old_values = {
@@ -543,9 +553,7 @@ def dar_baja_equipo(
     current_user: User = Depends(MODIFY_ROLES),
 ):
     """Registra la baja o venta de un equipo y actualiza su estado."""
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
 
     estado_anterior = equipo.estado
     equipo.estado = "baja"
@@ -574,9 +582,7 @@ def registrar_prestamo(
     current_user: User = Depends(MODIFY_ROLES),
 ):
     """Registra un préstamo del equipo a una persona/ubicación."""
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
     if equipo.estado not in ("disponible",):
         raise HTTPException(status_code=400, detail="Solo se puede prestar un equipo disponible")
 
@@ -606,9 +612,7 @@ def retornar_prestamo(
     current_user: User = Depends(MODIFY_ROLES),
 ):
     """Registra el retorno de un equipo en préstamo."""
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
     if equipo.estado != "prestamo":
         raise HTTPException(status_code=400, detail="El equipo no está en préstamo")
 
@@ -691,9 +695,7 @@ def subir_foto(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
 
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
@@ -716,9 +718,7 @@ def eliminar_equipo(
     db: Session = Depends(get_db),
     current_user: User = Depends(MODIFY_ROLES),
 ):
-    equipo = db.query(Equipment).filter(Equipment.id == equipo_id).first()
-    if not equipo:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    equipo = _get_equipo_visible(db, equipo_id, current_user)
 
     # Registrar eliminación en Auditoría
     log_change(

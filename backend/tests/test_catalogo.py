@@ -82,12 +82,14 @@ def test_catalogos_requieren_rol(client, admin_headers):
     resp = client.post("/api/catalogo/categorias", json={"nombre": "X"})
     assert resp.status_code == 401
     # operativo -> 403 (admin ya existe vía admin_headers)
-    reg = client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "Oper", "correo": "opcat@test.com", "password": "secreto1", "rol": "operativo"},
+        headers=admin_headers,
     )
-    assert reg.json()["user"]["rol"] == "operativo"
-    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    assert creado.json()["rol"] == "operativo"
+    login = client.post("/api/auth/login", json={"correo": "opcat@test.com", "password": "secreto1"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = client.post("/api/catalogo/categorias", json={"nombre": "X"}, headers=headers)
     assert resp.status_code == 403
 
@@ -105,4 +107,3 @@ def test_seed_catalogos(client, admin_headers):
     assert resp2.status_code == 200
     assert resp2.json()["categorias_creadas"] == 0
     assert resp2.json()["ubicaciones_creadas"] == 0
-

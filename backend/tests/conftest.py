@@ -92,27 +92,25 @@ def admin_headers(admin_token):
 
 @pytest.fixture()
 def auth_headers_factory(client):
-    """Devuelve una función que registra/crea un usuario y devuelve sus headers."""
+    """Crea un usuario mediante el administrador y devuelve sus headers."""
+
+    admin = client.post(
+        "/api/auth/register",
+        json={"nombre": "Admin", "correo": "admin-factory@test.com", "password": "admin123"},
+    )
+    assert admin.status_code in (200, 201), admin.text
+    admin_headers = {"Authorization": f"Bearer {admin.json()['access_token']}"}
 
     def _make(nombre_correo, rol="operativo", password="pass1234", use_register=False):
         correo = f"{nombre_correo}@test.com"
-        if use_register:
-            resp = client.post(
-                "/api/auth/register",
-                json={"nombre": nombre_correo, "correo": correo, "password": password},
-            )
-        else:
-            # El primer admin ya existe (admin_token), crear el resto vía /api/usuarios
-            resp = client.post(
-                "/api/auth/register",
-                json={
-                    "nombre": nombre_correo,
-                    "correo": correo,
-                    "password": password,
-                    "rol": rol,
-                },
-            )
+        resp = client.post(
+            "/api/usuarios",
+            json={"nombre": nombre_correo, "correo": correo, "password": password, "rol": rol},
+            headers=admin_headers,
+        )
         assert resp.status_code in (200, 201), resp.text
-        return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+        login = client.post("/api/auth/login", json={"correo": correo, "password": password})
+        assert login.status_code == 200, login.text
+        return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
     return _make

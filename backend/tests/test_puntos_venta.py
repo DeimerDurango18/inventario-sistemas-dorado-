@@ -114,11 +114,13 @@ def test_mantenimiento_vinculado_a_punto(client, admin_headers):
 def test_punto_requiere_rol(client, admin_headers):
     resp = client.post("/api/puntos", json={"nombre": "X", "tipo": "drogueria"})
     assert resp.status_code == 401
-    reg = client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "Oper", "correo": "opptos@test.com", "password": "secreto1", "rol": "operativo"},
+        headers=admin_headers,
     )
-    assert reg.json()["user"]["rol"] == "operativo"
-    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    assert creado.json()["rol"] == "operativo"
+    login = client.post("/api/auth/login", json={"correo": "opptos@test.com", "password": "secreto1"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = client.post("/api/puntos", json={"nombre": "X", "tipo": "drogueria"}, headers=headers)
     assert resp.status_code == 403

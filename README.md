@@ -30,8 +30,9 @@ cd ..
 La BD `InventarioEquipos` debe existir en SQL Server. El backend crea/actualiza las tablas
 automáticamente al arrancar (usa el usuario `inventario_app`).
 
-> La configuración (BD, claves JWT, datos de empresa) está directamente en
-> `backend/app/core/config.py`. **No se necesitan archivos `.env`.**
+Antes del primer arranque, copia `backend/.env.example` como `backend/.env` y
+completa como mínimo `DB_PASSWORD` y `SECRET_KEY`. El archivo `.env` queda
+fuera de Git para que las credenciales no se publiquen.
 
 ## Levantar el proyecto: 3 comandos
 
@@ -60,7 +61,10 @@ iniciar_proyecto.bat
 - App: http://localhost:4123
 - API: http://127.0.0.1:8500
 - Docs API (Swagger): http://127.0.0.1:8500/docs
-- Login inicial: `admin@sistemasbogota.com` / `Admin2026!`
+- En una instalación nueva, crea el primer administrador mediante
+  `POST /api/auth/register` (Swagger en `/docs`). Después, las cuentas nuevas
+  se crean desde **Usuarios** por un administrador; el registro público queda
+  cerrado automáticamente.
 
 ## Notas importantes
 

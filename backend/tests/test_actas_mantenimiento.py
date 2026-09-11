@@ -46,12 +46,14 @@ def test_finalizar_mantenimiento_devuelve_equipo_disponible(client, admin_header
 def test_mantenimiento_requiere_rol(client, admin_headers):
     resp = client.post("/api/mantenimientos", json={"equipo_id": 1})
     assert resp.status_code == 401
-    reg = client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "Oper", "correo": "opmt@test.com", "password": "secreto1", "rol": "operativo"},
+        headers=admin_headers,
     )
-    assert reg.json()["user"]["rol"] == "operativo"
-    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    assert creado.json()["rol"] == "operativo"
+    login = client.post("/api/auth/login", json={"correo": "opmt@test.com", "password": "secreto1"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = client.post("/api/mantenimientos", json={"equipo_id": 1}, headers=headers)
     assert resp.status_code == 403
 

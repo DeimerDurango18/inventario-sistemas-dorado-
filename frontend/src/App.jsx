@@ -271,6 +271,10 @@ function App() {
     try { return JSON.parse(localStorage.getItem('inv_user') || 'null') } catch { return null }
   })
   const [loginForm, setLoginForm] = useState({ correo: '', password: '' })
+  const [setupForm, setSetupForm] = useState({ nombre: '', correo: '', password: '' })
+  const [setupMode, setSetupMode] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmacion: '' })
+  const [changingPassword, setChangingPassword] = useState(false)
   const [loginError, setLoginError] = useState('')
   const [logging, setLogging] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -620,6 +624,39 @@ function App() {
     }
   }
 
+  const handleInitialSetup = async (event) => {
+    event.preventDefault()
+    setLoginError('')
+    if (!setupForm.nombre.trim() || !setupForm.correo.trim() || setupForm.password.length < 6) {
+      setLoginError('Completa tu nombre, correo y una contraseña de al menos 6 caracteres')
+      return
+    }
+    setLogging(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(setupForm),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setLoginError(data.detail || 'No se pudo crear la cuenta inicial')
+        return
+      }
+      setToken(data.access_token)
+      setCurrentUser(data.user)
+      localStorage.setItem('inv_token', data.access_token)
+      localStorage.setItem('inv_user', JSON.stringify(data.user))
+      setSetupForm({ nombre: '', correo: '', password: '' })
+      setSetupMode(false)
+      showToast(`Bienvenido, ${data.user.nombre}`)
+    } catch {
+      setLoginError('No se pudo conectar con el servidor')
+    } finally {
+      setLogging(false)
+    }
+  }
+
   const handleGlobalSearch = async (q) => {
     setSearchQuery(q)
     if (!q || q.length < 2) {
@@ -647,6 +684,37 @@ function App() {
     localStorage.removeItem('inv_user')
     setActiveSection('dashboard')
     showToast('Sesión cerrada')
+  }
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault()
+    if (passwordForm.nueva.length < 8) {
+      showToast('La nueva contraseña debe tener al menos 8 caracteres')
+      return
+    }
+    if (passwordForm.nueva !== passwordForm.confirmacion) {
+      showToast('La confirmación de contraseña no coincide')
+      return
+    }
+    setChangingPassword(true)
+    try {
+      const res = await api('/api/auth/me/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password_actual: passwordForm.actual, password_nueva: passwordForm.nueva }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        showToast(data.detail || 'No se pudo actualizar la contraseña')
+        return
+      }
+      setPasswordForm({ actual: '', nueva: '', confirmacion: '' })
+      showToast('Contraseña actualizada. Conserva tus datos de acceso en un lugar seguro.')
+    } catch {
+      showToast('No se pudo conectar con el servidor')
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   const loadCategorias = () => {
@@ -5559,6 +5627,54 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
               </div>
             </div>
 
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                Seguridad de mi cuenta
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', margin: '0 0 12px' }}>
+                Sesión activa: <strong>{currentUser?.correo}</strong>. Usa una contraseña única de al menos 8 caracteres.
+              </p>
+              <form className="form-grid" onSubmit={handleChangePassword}>
+                <label>
+                  <span>Contraseña actual</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={passwordForm.actual}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, actual: e.target.value })}
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Nueva contraseña</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={passwordForm.nueva}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, nueva: e.target.value })}
+                    minLength="8"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Confirmar nueva contraseña</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={passwordForm.confirmacion}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmacion: e.target.value })}
+                    minLength="8"
+                    required
+                  />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary small" disabled={changingPassword}>
+                    {changingPassword ? 'Actualizando…' : 'Actualizar contraseña'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
             {/* Ajustes de la aplicación */}
             <div style={{ marginBottom: '28px' }}>
               <h3 style={{ margin: '0 0 14px', fontSize: '1.05rem', color: 'var(--primary)' }}>
@@ -5928,20 +6044,33 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
             </div>
           </div>
 
-          <h2 style={{ margin: '0 0 4px' }}>Iniciar sesión</h2>
+          <h2 style={{ margin: '0 0 4px' }}>{setupMode ? 'Configurar administrador' : 'Iniciar sesión'}</h2>
           <p style={{ margin: '0 0 20px', color: 'var(--text-soft)', fontSize: '0.9rem' }}>
-            Ingresa con tu cuenta para acceder al inventario
+            {setupMode ? 'Crea la primera cuenta para activar el inventario' : 'Ingresa con tu cuenta para acceder al inventario'}
           </p>
 
-          <form className="form-grid" onSubmit={handleLogin}>
+          <form className="form-grid" onSubmit={setupMode ? handleInitialSetup : handleLogin}>
+            {setupMode && (
+              <label>
+                <span>Nombre completo</span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  autoFocus
+                  value={setupForm.nombre}
+                  onChange={(e) => setSetupForm({ ...setupForm, nombre: e.target.value })}
+                  placeholder="Nombre del administrador"
+                />
+              </label>
+            )}
             <label>
               <span>Correo electrónico</span>
               <input
                 type="email"
                 autoComplete="username"
-                autoFocus
-                value={loginForm.correo}
-                onChange={(e) => setLoginForm({ ...loginForm, correo: e.target.value })}
+                autoFocus={!setupMode}
+                value={setupMode ? setupForm.correo : loginForm.correo}
+                onChange={(e) => setupMode ? setSetupForm({ ...setupForm, correo: e.target.value }) : setLoginForm({ ...loginForm, correo: e.target.value })}
                 placeholder="usuario@empresa.com"
               />
             </label>
@@ -5949,9 +6078,9 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
               <span>Contraseña</span>
               <input
                 type="password"
-                autoComplete="current-password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                autoComplete={setupMode ? 'new-password' : 'current-password'}
+                value={setupMode ? setupForm.password : loginForm.password}
+                onChange={(e) => setupMode ? setSetupForm({ ...setupForm, password: e.target.value }) : setLoginForm({ ...loginForm, password: e.target.value })}
                 placeholder="••••••••"
               />
             </label>
@@ -5964,10 +6093,19 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
 
             <div className="form-actions">
               <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={logging}>
-                {logging ? 'Ingresando…' : 'Entrar'}
+                {logging ? (setupMode ? 'Creando…' : 'Ingresando…') : (setupMode ? 'Crear administrador' : 'Entrar')}
               </button>
             </div>
           </form>
+
+          <button
+            type="button"
+            className="link-button"
+            style={{ width: '100%', marginTop: '12px' }}
+            onClick={() => { setSetupMode(!setupMode); setLoginError('') }}
+          >
+            {setupMode ? 'Ya tengo una cuenta' : 'Configurar primera cuenta'}
+          </button>
 
           <details className="login-help" style={{ marginTop: '18px' }}>
             <summary style={{ cursor: 'pointer', fontSize: '0.83rem', color: 'var(--brand)', textAlign: 'center' }}>
@@ -5975,17 +6113,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
             </summary>
             <div style={{ marginTop: '10px', fontSize: '0.84rem', color: 'var(--text-soft)', lineHeight: 1.6 }}>
               <p style={{ margin: '0 0 8px' }}>Tu cuenta la crea el administrador del sistema. Si tu correo no funciona o aún no tienes cuenta, contacta al administrador.</p>
-              <p style={{ margin: '0 0 10px' }}>
-                Para probar con una cuenta de ejemplo, usa:
-              </p>
-              <button
-                type="button"
-                className="btn-outline"
-                style={{ width: '100%' }}
-                onClick={() => setLoginForm({ correo: 'admin@sistemasbogota.com', password: 'Admin2026!' })}
-              >
-                Llenar con cuenta de ejemplo
-              </button>
+              <p style={{ margin: 0 }}>Si esta es una instalación nueva, usa «Configurar primera cuenta». Después, las cuentas nuevas se crean desde Usuarios.</p>
             </div>
           </details>
 

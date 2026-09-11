@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -22,16 +23,16 @@ DB_CONFIG = {
     "server": os.getenv("DB_SERVER", r"localhost\SQLExpress"),
     "database": os.getenv("DB_DATABASE", "InventarioEquipos"),
     "username": os.getenv("DB_USERNAME", "inventario_app"),
-    "password": os.getenv("DB_PASSWORD", "@Yay0qSOa-@95WSZTCIcIaqe"),
+    "password": os.getenv("DB_PASSWORD", ""),
     "port": os.getenv("DB_PORT", "1433"),
 }
 
 # Seguridad - JWT
 DEBUG = os.getenv("DEBUG", "True").lower() in {"1", "true", "yes"}
-SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "YrGkuxnbe2lQ9PG5Kg8SAhg75gLQ4pk4KF06kW8wIJ1y55scY_6mHA5nMyEDWK9eFWNX7layZ_qo9c7ORQZGcg",
-)
+# En desarrollo se usa una clave efímera para no publicar secretos en el
+# repositorio. En producción SECRET_KEY es obligatoria: conserva las sesiones
+# tras reinicios y evita que otra instalación pueda firmar tokens válidos.
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(48)
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 # Hosts y CORS

@@ -26,25 +26,28 @@ def test_register_password_corto(client):
 
 
 def test_register_correo_duplicado(client, admin_headers):
-    client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "A", "correo": "dup@test.com", "password": "secreto1"},
+        headers=admin_headers,
     )
+    assert creado.status_code == 200
     resp = client.post(
-        "/api/auth/register",
+        "/api/usuarios",
         json={"nombre": "B", "correo": "dup@test.com", "password": "secreto1"},
+        headers=admin_headers,
     )
     assert resp.status_code == 400
     assert "correo" in resp.json()["detail"].lower()
 
 
-def test_register_segundo_usuario_rol_definido(client, admin_headers):
+def test_register_se_cierra_despues_del_administrador_inicial(client, admin_headers):
     resp = client.post(
         "/api/auth/register",
         json={"nombre": "Oper", "correo": "oper@test.com", "password": "secreto1", "rol": "operativo"},
     )
-    assert resp.status_code in (200, 201)
-    assert resp.json()["user"]["rol"] == "operativo"
+    assert resp.status_code == 403
+    assert "cerrado" in resp.json()["detail"].lower()
 
 
 def test_login_correcto(client, admin_headers):
@@ -78,3 +81,27 @@ def test_me_con_token(client, admin_headers):
 def test_me_con_token_invalido(client):
     resp = client.get("/api/auth/me", headers={"Authorization": "Bearer token-invalido"})
     assert resp.status_code == 401
+
+
+def test_cambiar_password_propia(client, admin_headers):
+    resp = client.patch(
+        "/api/auth/me/password",
+        json={"password_actual": "admin123", "password_nueva": "ClaveNueva2026!"},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200, resp.text
+
+    login = client.post(
+        "/api/auth/login",
+        json={"correo": "admin@test.com", "password": "ClaveNueva2026!"},
+    )
+    assert login.status_code == 200
+
+
+def test_cambiar_password_rechaza_clave_actual_incorrecta(client, admin_headers):
+    resp = client.patch(
+        "/api/auth/me/password",
+        json={"password_actual": "incorrecta", "password_nueva": "ClaveNueva2026!"},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 400

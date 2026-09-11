@@ -8,11 +8,14 @@ def test_listar_usuarios_admin(client, admin_headers):
 
 
 def test_usuarios_requiere_admin(client, admin_headers):
-    reg = client.post(
-        "/api/auth/register",
+    creado = client.post(
+        "/api/usuarios",
         json={"nombre": "Oper", "correo": "opus@test.com", "password": "secreto1", "rol": "operativo"},
+        headers=admin_headers,
     )
-    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    assert creado.status_code == 200
+    login = client.post("/api/auth/login", json={"correo": "opus@test.com", "password": "secreto1"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     resp = client.get("/api/usuarios", headers=headers)
     assert resp.status_code == 403
 
@@ -56,4 +59,4 @@ def test_no_eliminar_unico_admin(client, admin_headers):
     admin_id = next(u["id"] for u in usuarios if u["correo"] == "admin@test.com")
     resp = client.delete(f"/api/usuarios/{admin_id}", headers=admin_headers)
     assert resp.status_code == 400
-    assert "administrador" in resp.json()["detail"].lower()
+    assert "propia cuenta" in resp.json()["detail"].lower()
