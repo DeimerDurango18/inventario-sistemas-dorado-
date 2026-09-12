@@ -145,6 +145,11 @@ function parseCSVLine(line) {
   return out
 }
 
+function csvCell(value) {
+  const text = String(value ?? '')
+  return `"${text.replaceAll('"', '""')}"`
+}
+
 function Icon({ name }) {
   const icons = {
     grid: (
@@ -2068,6 +2073,28 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
     )
   }
 
+  const handleExportStock = (items) => {
+    if (!items.length) {
+      showToast('No hay equipos para exportar con los filtros actuales')
+      return
+    }
+    const headers = ['Folio', 'Marca', 'Modelo', 'Serie', 'Categoría', 'Ubicación', 'Estado', 'Valor aproximado', 'Observaciones']
+    const rows = items.map((item) => [
+      item.folio, item.marca, item.modelo, item.serie,
+      item.categoria_nombre || 'General', item.ubicacion_nombre || item.ubicacion || '',
+      statLabels[item.estado] || item.estado, item.valor_aprox || '', item.observaciones || '',
+    ])
+    const content = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `inventario_${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    showToast(`${items.length} equipo(s) exportados a CSV`)
+  }
+
   const handleBulkEdit = async (action) => {
     if (!stockSelected.length) {
       showToast('Selecciona al menos un equipo')
@@ -2818,6 +2845,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
       const equiposDisponibles = equipos.filter((e) => e.estado === 'disponible').length
       const equiposAsignados = equipos.filter((e) => e.estado === 'asignado').length
       const equiposReparacion = equipos.filter((e) => e.estado === 'reparacion').length
+      const equiposPrestamo = equipos.filter((e) => e.estado === 'prestamo').length
       const totalEquipos = equipos.length
       const pctDisp = totalEquipos ? Math.round((equiposDisponibles / totalEquipos) * 100) : 0
 
@@ -2844,6 +2872,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
         let vb = b[stockSortKey] != null ? b[stockSortKey] : b.folio
         if (stockSortKey === 'estado') { va = a.estado || ''; vb = b.estado || '' }
         if (stockSortKey === 'categoria_nombre') { va = a.categoria_nombre || 'General'; vb = b.categoria_nombre || 'General' }
+        if (stockSortKey === 'valor_aprox') { va = Number(a.valor_aprox) || 0; vb = Number(b.valor_aprox) || 0 }
         if (typeof va === 'number' && typeof vb === 'number') {
           return stockSortDir === 'asc' ? va - vb : vb - va
         }
@@ -2864,6 +2893,21 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
           setStockSortKey(key)
           setStockSortDir('asc')
         }
+        setStockPage(1)
+      }
+
+      const applyStockStatus = (estado) => {
+        setStockFilterOnlyAvailable(false)
+        setStockStatusFilter(estado)
+        setStockPage(1)
+      }
+
+      const resetStockFilters = () => {
+        setStockFilterOnlyAvailable(false)
+        setStockCategoryFilter('todas')
+        setStockLocationFilter('todas')
+        setStockStatusFilter('todos')
+        setStockSearchQuery('')
         setStockPage(1)
       }
 
@@ -2904,11 +2948,37 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
               </div>
               <div className="header-actions">
                 {canModify && (
-                  <button type="button" className="btn-primary small" onClick={() => setIsCreateModalOpen(true)}>
-                    + Emitir Acta con Stock
-                  </button>
+                  <>
+                    <button type="button" className="btn-outline small" onClick={() => {
+                      setActiveSection('equipos')
+                      window.setTimeout(handleAddEquipment, 120)
+                    }}>
+                      + Registrar equipo
+                    </button>
+                    <button type="button" className="btn-primary small" onClick={() => setIsCreateModalOpen(true)}>
+                      + Emitir Acta con Stock
+                    </button>
+                  </>
                 )}
               </div>
+            </div>
+
+            <div className="stock-status-summary" aria-label="Filtrar inventario por estado">
+              <button type="button" className={`stock-status-card ${stockStatusFilter === 'todos' && !stockFilterOnlyAvailable ? 'active' : ''}`} onClick={() => applyStockStatus('todos')}>
+                <span>Todos</span><strong>{totalEquipos}</strong>
+              </button>
+              <button type="button" className={`stock-status-card available ${stockFilterOnlyAvailable || stockStatusFilter === 'disponible' ? 'active' : ''}`} onClick={() => { setStockStatusFilter('todos'); setStockFilterOnlyAvailable(true); setStockPage(1) }}>
+                <span>En stock</span><strong>{equiposDisponibles}</strong>
+              </button>
+              <button type="button" className={`stock-status-card ${stockStatusFilter === 'asignado' ? 'active' : ''}`} onClick={() => applyStockStatus('asignado')}>
+                <span>Asignados</span><strong>{equiposAsignados}</strong>
+              </button>
+              <button type="button" className={`stock-status-card warning ${stockStatusFilter === 'reparacion' ? 'active' : ''}`} onClick={() => applyStockStatus('reparacion')}>
+                <span>Reparación</span><strong>{equiposReparacion}</strong>
+              </button>
+              <button type="button" className={`stock-status-card ${stockStatusFilter === 'prestamo' ? 'active' : ''}`} onClick={() => applyStockStatus('prestamo')}>
+                <span>Préstamos</span><strong>{equiposPrestamo}</strong>
+              </button>
             </div>
 
             <div className="stock-toolbar">
@@ -2916,7 +2986,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                 <button
                   type="button"
                   className={`filter-pill ${stockFilterOnlyAvailable ? 'active' : ''}`}
-                  onClick={() => setStockFilterOnlyAvailable(!stockFilterOnlyAvailable)}
+                    onClick={() => { setStockFilterOnlyAvailable(!stockFilterOnlyAvailable); setStockPage(1) }}
                 >
                   <Icon name="box" />
                   <span>Solo Disponibles / En Stock</span>
@@ -2932,7 +3002,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                 <select
                   className="filter-select"
                   value={stockCategoryFilter}
-                  onChange={(e) => setStockCategoryFilter(e.target.value)}
+                  onChange={(e) => { setStockCategoryFilter(e.target.value); setStockPage(1) }}
                 >
                   <option value="todas">Todas las categorías</option>
                   {categorias.map((c) => (
@@ -2943,7 +3013,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                 <select
                   className="filter-select"
                   value={stockLocationFilter}
-                  onChange={(e) => setStockLocationFilter(e.target.value)}
+                  onChange={(e) => { setStockLocationFilter(e.target.value); setStockPage(1) }}
                 >
                   <option value="todas">Todas las ubicaciones</option>
                   {ubicaciones.map((u) => (
@@ -2954,7 +3024,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                 <select
                   className="filter-select"
                   value={stockStatusFilter}
-                  onChange={(e) => setStockStatusFilter(e.target.value)}
+                  onChange={(e) => { setStockStatusFilter(e.target.value); setStockFilterOnlyAvailable(false); setStockPage(1) }}
                 >
                   <option value="todos">Todos los estados</option>
                   <option value="disponible">Disponible</option>
@@ -2969,13 +3039,7 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                     type="button"
                     className="link-button"
                     style={{ fontSize: '0.8rem', color: 'var(--danger)' }}
-                    onClick={() => {
-                      setStockFilterOnlyAvailable(false)
-                      setStockCategoryFilter('todas')
-                      setStockLocationFilter('todas')
-                      setStockStatusFilter('todos')
-                      setStockSearchQuery('')
-                    }}
+                    onClick={resetStockFilters}
                   >
                     Restablecer filtros
                   </button>
@@ -2987,12 +3051,19 @@ setPuntoForm({ nombre: '', tipo: 'drogueria', ciudad: '', direccion: '', telefon
                 <input
                   placeholder="Buscar folio, marca, modelo, serie..."
                   value={stockSearchQuery}
-                  onChange={(e) => setStockSearchQuery(e.target.value)}
+                  onChange={(e) => { setStockSearchQuery(e.target.value); setStockPage(1) }}
                 />
               </div>
             </div>
 
-            {canModify && (
+            <div className="stock-results-info">
+              <span><strong>{sortedEquipos.length}</strong> de {totalEquipos} equipo(s) visibles</span>
+              <button type="button" className="link-button" onClick={() => handleExportStock(sortedEquipos)}>
+                Exportar resultado CSV
+              </button>
+            </div>
+
+            {canModify && stockSelected.length > 0 && (
               <div
                 className="stock-bulk-bar"
                 style={{
