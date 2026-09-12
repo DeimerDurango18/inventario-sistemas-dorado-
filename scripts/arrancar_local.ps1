@@ -39,8 +39,8 @@ function Start-Backend {
 }
 
 # --- Liberar backend anterior (para cargar el código actual) ---
-Write-Host "==> Liberando puertos 8500 (y 4123 en modo dev)..." -ForegroundColor Yellow
-$puertos = if ($Produccion) { @(8500) } else { @(8500, 4123) }
+Write-Host "==> Liberando puertos 8500 (y 4123/8900 en modo dev)..." -ForegroundColor Yellow
+$puertos = if ($Produccion) { @(8500) } else { @(8500, 4123, 8900) }
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'uvicorn app.main:app' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -50,15 +50,25 @@ Start-Sleep -Seconds 1
 
 $backendOk = Start-Backend
 
+# --- Gateway de WhatsApp (siempre, dev y producción) ---
+$gateway = Join-Path $root 'whatsapp-gateway'
+if (-not (Test-Path (Join-Path $gateway 'node_modules\whatsapp-web.js'))) {
+    Write-Host "    Instalando dependencias del gateway (npm install)..."
+    Push-Location $gateway
+    npm install
+    Pop-Location
+}
+Start-Process cmd -ArgumentList "/k title Inventario-WhatsApp-8900 && cd /d `"$gateway`" && node server.js"
+
 if ($Produccion) {
     # ---- Modo PRODUCCIÓN: todo el pipeline en un comando ----
     Write-Host ""
-    Write-Host "==> [2/3] Túnel Cloudflare (URL nueva en tunel_url.txt)..." -ForegroundColor Cyan
+    Write-Host "==> [3/4] Túnel Cloudflare (URL nueva en tunel_url.txt)..." -ForegroundColor Cyan
     & (Join-Path $scriptDir 'tunel.ps1')
     if (-not (Test-Path $urlFile)) { Write-Error "Fallo al levantar el túnel. Revisa cloudflared.log"; exit 1 }
 
     Write-Host ""
-    Write-Host "==> [3/3] Deploy a Cloudflare Pages con verificación..." -ForegroundColor Cyan
+    Write-Host "==> [4/4] Deploy a Cloudflare Pages con verificación..." -ForegroundColor Cyan
     & (Join-Path $scriptDir 'desplegar.ps1')
     $deployCode = $LASTEXITCODE
 
@@ -73,8 +83,8 @@ if ($Produccion) {
 }
 
 # ---- Modo DESARROLLO (por defecto) ----
-# [2/3] Frontend
-Write-Host "==> [2/3] Frontend Vite en http://localhost:4123 ..." -ForegroundColor Cyan
+# [3/4] Frontend
+Write-Host "==> [3/4] Frontend Vite en http://localhost:4123 ..." -ForegroundColor Cyan
 if (-not (Test-Path (Join-Path $front 'node_modules'))) {
     Write-Host "    Instalando dependencias del frontend (npm install)..."
     Push-Location $front
@@ -83,8 +93,8 @@ if (-not (Test-Path (Join-Path $front 'node_modules'))) {
 }
 Start-Process cmd -ArgumentList "/k title Inventario-Frontend-4123 && cd /d `"$front`" && npm run dev -- --host 0.0.0.0 --port 4123"
 
-# [3/3] Navegador
-Write-Host "==> [3/3] Abriendo navegador..." -ForegroundColor Cyan
+# [4/4] Navegador
+Write-Host "==> [4/4] Abriendo navegador..." -ForegroundColor Cyan
 Start-Sleep -Seconds 5
 Start-Process "http://localhost:4123"
 
@@ -93,6 +103,7 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "  LOCAL LISTO" -ForegroundColor Green
 Write-Host "  App:      http://localhost:4123" -ForegroundColor Green
 Write-Host "  API:      http://127.0.0.1:8500  (/health, /docs)"
+Write-Host "  WhatsApp: http://127.0.0.1:8900  (escanea QR la 1a vez)"
 Write-Host "  Login:    admin@sistemasbogota.com / Admin2026!"
 Write-Host "  Detener:  cierra las ventanas de consola abiertas"
 Write-Host "============================================" -ForegroundColor Green
