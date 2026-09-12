@@ -34,27 +34,61 @@ Antes del primer arranque, copia `backend/.env.example` como `backend/.env` y
 completa como mínimo `DB_PASSWORD` y `SECRET_KEY`. El archivo `.env` queda
 fuera de Git para que las credenciales no se publiquen.
 
-## Levantar el proyecto: 3 comandos
+## Levantar el proyecto: 4 comandos
 
-Abre 3 terminales (o ejecuta cada `.bat`):
+Abre 4 terminales (o ejecuta cada `.bat`):
 
 ```powershell
 # 1) Backend  -> http://localhost:8500  (/health, /docs)
 start-backend.bat
 
-# 2) Frontend -> http://localhost:4123
+# 2) Gateway WhatsApp -> http://127.0.0.1:8900  (/health)  para avisos por WhatsApp
+start-whatsapp.bat
+
+# 3) Frontend -> http://localhost:4123
 start-frontend.bat
 
-# 3) Túnel público -> guarda la URL en tunel_url.txt (opcional, solo si quieres
+# 4) Túnel público -> guarda la URL en tunel_url.txt (opcional, solo si quieres
 #    acceder desde internet o desplegar el frontend apuntando a la API)
 start-tunnel.bat
 ```
 
-Alternativa "todo en uno" para desarrollo local (backend + frontend + navegador):
+Alternativa "todo en uno" para desarrollo local
+(backend + gateway WhatsApp + frontend + navegador):
 
 ```powershell
 iniciar_proyecto.bat
 ```
+
+## Notificaciones por WhatsApp
+
+El sistema puede enviar avisos (mantenimientos vencidos, garantías, actas sin
+firmar, préstamos vencidos) por WhatsApp mediante un gateway local
+(`whatsapp-gateway/`) basado en `whatsapp-web.js`:
+
+1. Ejecuta `start-whatsapp.bat` (o lo levanta `iniciar_proyecto.bat`).
+   La primera vez genera un código QR en la consola: escánalo con
+   WhatsApp > **Dispositivos vinculados** > **Vincular un equipo**.
+2. La sesión queda guardada en `whatsapp-gateway/session/`; en arranques
+   posteriores no hace falta re-escanear (si el teléfono deja de vincular el
+   equipo, escanea el QR de nuevo).
+3. Configura los números destino en `backend/.env`:
+
+```ini
+WHATSAPP_GATEWAY_URL=http://127.0.0.1:8900
+WHATSAPP_DESTINOS=3157410696,3153199403
+```
+
+4. En la app (Configuración → Notificaciones) usa **Enviar resumen por WhatsApp**
+   (endpoint `POST /api/notificaciones/whatsapp`), o envía el mismo resumen por
+   correo con **Enviar resumen por correo** (`POST /api/notificaciones/correo`,
+   requiere SMTP configurado).
+
+Notas:
+
+- El gateway corre en la misma máquina que el backend (requiere Node.js y
+  Chromium descargado por `whatsapp-web.js`).
+- La sesión y el caché de `whatsapp-gateway/` están en `.gitignore`.
 
 ## Acceso
 
