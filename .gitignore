@@ -1,0 +1,40 @@
+# ---- Python / FastAPI ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+
+# ---- Node / Vite ----
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Runtime / archivos generados ----
+backend/storage/actas/*
+backend/storage/archivos/*
+backend/storage/etiquetas/*
+backend/storage/firmas/*
+backend/storage/qr/*
+backend/storage/backups/*
+!backend/storage/actas/.gitkeep
+!backend/storage/archivos/.gitkeep
+!backend/storage/etiquetas/.gitkeep
+!backend/storage/firmas/.gitkeep
+!backend/storage/qr/.gitkeep
+!backend/storage/backups/.gitkeep
+*.log
+
+# ---- IDE / SO ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

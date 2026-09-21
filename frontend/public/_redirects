@@ -1,0 +1,4 @@
+# Cloudflare Pages: SPA fallback (servir index.html para cualquier ruta
+# que no coincida con un archivo estático). La API se expone en el mismo
+# origen bajo /api (mismo túnel/dominio que el frontend).
+/*    /index.html   200

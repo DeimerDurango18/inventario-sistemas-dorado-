@@ -1,0 +1,161 @@
+:root {
+  --eticos-primary: #696cff;
+  --eticos-primary-hover: #5f61e6;
+  --eticos-primary-active: #595cd9;
+  --eticos-primary-soft: rgba(105, 108, 255, 0.16);
+  --eticos-primary-soft-bg: #e7e7ff;
+  --eticos-body-bg: #f5f5f9;
+  --eticos-sidebar-bg: #ffffff;
+  --eticos-text: #697a8d;
+  --eticos-text-strong: #566a7f;
+  --eticos-text-table: #435971;
+  --eticos-border: rgba(67, 89, 113, 0.12);
+  --eticos-shadow: 0 0 0.375rem 0.25rem rgba(161, 172, 184, 0.18);
+  --eticos-shadow-sm: 0 0.125rem 0.375rem 0 rgba(161, 172, 184, 0.16);
+}
+
+body {
+  background: var(--eticos-body-bg);
+  color: var(--eticos-text-strong);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------ sidebar (estilo Sneat) */
+.eticos-sidebar {
+  background: var(--eticos-sidebar-bg);
+  color: var(--eticos-text);
+  min-height: 100vh;
+  box-shadow: var(--eticos-shadow-sm);
+  border-right: 1px solid var(--eticos-border);
+}
+
+.eticos-sidebar .brand {
+  color: var(--eticos-text-strong);
+  font-weight: 700;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--eticos-border);
+}
+
+.eticos-sidebar .brand .brand-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 0.5rem;
+  background: var(--eticos-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eticos-sidebar .nav-link {
+  color: var(--eticos-text);
+  border-radius: 0.375rem;
+  margin: 0.15rem 0.6rem;
+  position: relative;
+  font-size: 0.9rem;
+}
+
+.eticos-sidebar .nav-link:hover {
+  background: rgba(67, 89, 113, 0.04);
+  color: var(--eticos-text-strong);
+}
+
+.eticos-sidebar .nav-link.active {
+  color: var(--eticos-primary);
+  background: var(--eticos-primary-soft);
+  font-weight: 600;
+}
+
+.eticos-sidebar .nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.25rem;
+  height: 1.6rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+  background: var(--eticos-primary);
+}
+
+.eticos-sidebar .group-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8f9baa;
+  padding: 0.9rem 1.25rem 0.25rem;
+}
+
+/* ------------------------------------------------ topbar / tarjetas */
+.eticos-topbar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: saturate(200%) blur(6px);
+  border-radius: 0.75rem;
+  box-shadow: var(--eticos-shadow);
+  padding: 0.6rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.card.stat-card {
+  border: 1px solid var(--eticos-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--eticos-shadow);
+}
+
+.card > .card-header {
+  background: #fff;
+  border-bottom: 1px solid var(--eticos-border);
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.badge-estado {
+  font-size: 0.75rem;
+}
+
+.table-clickable tbody tr {
+  cursor: pointer;
+}
+
+.table-clickable tbody tr:hover {
+  background: #f2f3fe;
+}
+
+.table thead th {
+  color: var(--eticos-text);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------ botones y acentos */
+.btn-brand,
+.btn-brand:hover,
+.btn-brand:focus,
+.btn-brand:active {
+  background: var(--eticos-primary) !important;
+  border-color: var(--eticos-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 0.125rem 0.25rem 0 rgba(105, 108, 255, 0.4);
+}
+
+.btn-brand:hover {
+  background: var(--eticos-primary-hover) !important;
+  transform: translateY(-1px);
+}
+
+a {
+  color: var(--eticos-primary);
+}
+
+a:hover {
+  color: var(--eticos-primary-hover);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--eticos-primary);
+  box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.15);
+}
