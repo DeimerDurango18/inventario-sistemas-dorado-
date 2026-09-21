@@ -70,7 +70,9 @@ Write-Host "== [3/4] Actualizar secret BACKEND_URL (Cloudflare Pages) =="
 $env:CLOUDFLARE_ACCOUNT_ID = $accountId
 $url | & npx --yes wrangler@4 pages secret put BACKEND_URL --project-name $project
 Write-Host "   Secret actualizado. Redesplegando para refrescar bindings..."
-& npx --yes wrangler@4 pages deploy (Join-Path $root "frontend\dist") --project-name $project --branch main | Out-Host
+Push-Location (Join-Path $root "frontend")
+& npx --yes wrangler@4 pages deploy dist --project-name $project --branch main | Out-Host
+Pop-Location
 Write-Host "   Redeploy completado."
 
 Write-Host "== [4/4] Verificacion publica =="
@@ -79,7 +81,7 @@ for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 3
     try {
         $h = Invoke-WebRequest -Uri "$site/api/health" -UseBasicParsing -TimeoutSec 10
-        if ($h.StatusCode -eq 200) {
+        if ($h.StatusCode -eq 200 -and $h.Content -match '"success"') {
             Write-Host "   OK: $site/api/health -> $($h.Content)"
             Write-Host ""
             Write-Host "=================================================="
