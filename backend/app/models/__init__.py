@@ -15,6 +15,7 @@ from app.models.loan import Prestamo, PrestamoAccesorio
 from app.models.maintenance import Mantenimiento, MantenimientoProgramacion, MantenimientoRepuesto
 from app.models.movement import Movimiento
 from app.models.system import Notificacion, Parametro, Ticket
+from app.models.stock import MovimientoStock, StockItem, StockItemUbicacion
 from app.models.user import Auditoria, Permiso, Rol, Usuario
 
 __all__ = [
@@ -49,6 +50,9 @@ __all__ = [
     "Notificacion",
     "Parametro",
     "Ticket",
+    "StockItem",
+    "StockItemUbicacion",
+    "MovimientoStock",
     "Auditoria",
     "Permiso",
     "Rol",

@@ -7,7 +7,9 @@ from app.models.user import Usuario
 from app.schemas.geo import (
     CiudadCreate,
     CiudadRead,
+    DepartamentoCreate,
     DepartamentoRead,
+    PaisCreate,
     PaisRead,
     SedeCreate,
     SedeRead,
@@ -31,6 +33,15 @@ def listar_paises(
     return geo_service.list_paises(db)
 
 
+@router.post("/paises", response_model=PaisRead, status_code=201)
+def crear_pais(
+    data: PaisCreate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("gestionar_catalogos")),
+):
+    return geo_service.create_pais(db, data)
+
+
 @router.get("/departamentos", response_model=list[DepartamentoRead])
 def listar_departamentos(
     pais_id: int | None = None,
@@ -47,6 +58,15 @@ def listar_ciudades(
     _: Usuario = Depends(require_permiso("ver_activos")),
 ):
     return geo_service.list_ciudades(db, departamento_id)
+
+
+@router.post("/departamentos", response_model=DepartamentoRead, status_code=201)
+def crear_departamento(
+    data: DepartamentoCreate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("gestionar_catalogos")),
+):
+    return geo_service.create_departamento(db, data)
 
 
 @router.post("/ciudades", response_model=CiudadRead, status_code=201)

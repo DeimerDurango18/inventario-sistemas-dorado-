@@ -54,6 +54,12 @@ class ActivoAtributoValue(BaseModel):
     valor: str
 
 
+class ActivoAtributoValueRead(ORMModel):
+    id: int
+    atributo_definicion_id: int
+    valor: str
+
+
 class ActivoCreate(BaseModel):
     tipo: str
     categoria_id: Optional[int] = None
@@ -139,6 +145,23 @@ class ActivoRead(ORMModel):
     responsable: Optional[ResponsableRead] = None
     ubicacion: Optional[UbicacionRead] = None
     proveedor: Optional[ProveedorRead] = None
+    atributos_valores: Optional[List[ActivoAtributoValueRead]] = None
+
+
+class ConsultaPublicaRead(BaseModel):
+    existente: bool
+    codigo: str
+    tipo: str
+    estado: str
+    estado_color: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    serial: Optional[str] = None
+    ubicacion: Optional[str] = None
+    sede: Optional[str] = None
+    responsable: Optional[str] = None
+    fecha_fin_garantia: Optional[datetime] = None
+    observaciones: Optional[str] = None
 
 
 # ------------------------------------------------------------------ movimientos
@@ -227,6 +250,7 @@ class MantenimientoCerrar(BaseModel):
     resultado: Optional[str] = None
     observaciones: Optional[str] = None
     costo: Optional[float] = None
+    proxima_fecha: Optional[datetime] = None
 
 
 class MantenimientoRead(ORMModel):
@@ -243,6 +267,7 @@ class MantenimientoRead(ORMModel):
     costo: Optional[float] = None
     proveedor_id: Optional[int] = None
     estado: str
+    proposito: Optional[str] = None
     proxima_fecha: Optional[datetime] = None
     observaciones: Optional[str] = None
     acta_id: Optional[int] = None
@@ -287,10 +312,6 @@ class BajaCreate(BaseModel):
     estado_fisico: Optional[str] = None
 
 
-class BajaAprobar(BaseModel):
-    observaciones: Optional[str] = None
-
-
 class BajaRead(ORMModel):
     id: int
     numero: str
@@ -325,4 +346,4 @@ class ActaRead(ORMModel):
     estado: str
     created_at: datetime
 
-    activo: Optional[object] = None
+    activo: Optional[ActivoRead] = None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends
@@ -32,6 +33,8 @@ def authenticate(db: Session, username: str, password: str) -> Usuario:
         raise UnauthorizedError("Credenciales inválidas o usuario inactivo.")
     if not verify_password(password, user.password_hash or ""):
         raise UnauthorizedError("Credenciales inválidas.")
+    user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
     return user
 
 

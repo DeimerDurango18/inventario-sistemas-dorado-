@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.common import ORMModel
 
@@ -21,7 +21,7 @@ class RolRead(ORMModel):
     nombre: str
     descripcion: Optional[str] = None
     activo: bool
-    permisos: List[PermisoRead] = []
+    permisos: List[PermisoRead] = Field(default_factory=list)
 
 
 class RolCreate(BaseModel):
@@ -39,16 +39,16 @@ class RolUpdate(BaseModel):
 
 
 class UsuarioBase(BaseModel):
-    username: str
-    correo: Optional[str] = None
-    nombre: str
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9._-]+$")
+    correo: Optional[EmailStr] = None
+    nombre: str = Field(min_length=2, max_length=150)
     documento: Optional[str] = None
     telefono: Optional[str] = None
 
 
 class UsuarioCreate(UsuarioBase):
-    password: str
-    rol_ids: List[int] = []
+    password: str = Field(min_length=10, max_length=128)
+    rol_ids: List[int] = Field(default_factory=list)
 
 
 class UsuarioUpdate(BaseModel):
@@ -71,12 +71,12 @@ class UsuarioRead(ORMModel):
     activo: bool
     created_at: datetime
     last_login: Optional[datetime] = None
-    roles: List[RolRead] = []
+    roles: List[RolRead] = Field(default_factory=list)
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class TokenResponse(BaseModel):
@@ -86,9 +86,16 @@ class TokenResponse(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
-    new_password2: str
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+    new_password2: str = Field(min_length=10, max_length=128)
+
+    @field_validator("new_password2")
+    @classmethod
+    def passwords_match(cls, value: str, info):
+        if info.data.get("new_password") != value:
+            raise ValueError("Las nuevas contraseñas no coinciden.")
+        return value
 
 
 class AuditLogRead(ORMModel):

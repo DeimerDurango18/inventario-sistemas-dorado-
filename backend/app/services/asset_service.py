@@ -22,6 +22,7 @@ from app.schemas.asset import (
     ActivoCreate,
     ActivoUpdate,
     BajaCreate,
+    ConsultaPublicaRead,
     GarantiaCreate,
     MantenimientoCreate,
     MovimientoCreate,
@@ -29,7 +30,11 @@ from app.schemas.asset import (
     ResponsableCreate,
     ResponsableUpdate,
 )
+from app.services import files_service, notifications, pdf_service
 from app.services.numbering import audit as audit_op, get_next_number
+
+_APROBADORES = ["ADMINISTRADOR", "SUPERVISOR"]
+_OPERATIVOS = ["ADMINISTRADOR", "SUPERVISOR", "TECNICO", "INVENTARIO"]
 
 _EST_CLAVE = {
     "DISPONIBLE": "DISPONIBLE",
@@ -116,12 +121,17 @@ def create_activo(db: Session, data: ActivoCreate, actor_id: int | None = None) 
         dup = db.scalar(select(Activo).where(Activo.codigo_inventario == data.codigo_inventario))
         if dup:
             raise ConflictError("Ya existe un activo con ese código de inventario.")
-    estado = (
-        _get_or_404(db, EstadoActivo, data.estado_id, "Estado")
-        if data.estado_id
-        else _estado(db, _EST_CLAVE["DISPONIBLE"])
-        or _get_or_404(db, EstadoActivo, db.scalars(select(EstadoActivo).limit(1)).first().id, "Estado")
-    )
+    if data.estado_id:
+        estado = _get_or_404(db, EstadoActivo, data.estado_id, "Estado")
+    else:
+        estado = _estado(db, _EST_CLAVE["DISPONIBLE"])
+        if not estado:
+            primero = db.scalar(select(EstadoActivo).order_by(EstadoActivo.id).limit(1))
+            if not primero:
+                raise ValidationError(
+                    "No hay estados de activo configurados. Cree un estado de activo antes de registrar activos."
+                )
+            estado = primero
     activo = Activo(
         codigo=codigo,
         tipo=data.tipo,
@@ -223,6 +233,38 @@ def get_activo_by_codigo(db: Session, codigo: str) -> Activo:
     return a
 
 
+def get_consulta_publica(db: Session, codigo: str) -> ConsultaPublicaRead:
+    """Información mínima y pública de un activo a partir de su código QR."""
+    a = db.scalar(
+        select(Activo)
+        .where(Activo.codigo == codigo)
+        .options(
+            selectinload(Activo.marca),
+            selectinload(Activo.modelo),
+            selectinload(Activo.estado),
+            selectinload(Activo.responsable),
+            selectinload(Activo.ubicacion).selectinload(Ubicacion.sede),
+        )
+    )
+    if not a:
+        return ConsultaPublicaRead(existente=False, codigo=codigo, tipo="", estado="NO_ENCONTRADO")
+    return ConsultaPublicaRead(
+        existente=True,
+        codigo=a.codigo,
+        tipo=a.tipo or "",
+        estado=a.estado.nombre if a.estado else "Sin estado",
+        estado_color=a.estado.color if a.estado else None,
+        marca=a.marca.nombre if a.marca else None,
+        modelo=a.modelo.nombre if a.modelo else None,
+        serial=a.serial,
+        ubicacion=a.ubicacion.nombre if a.ubicacion else None,
+        sede=a.ubicacion.sede.nombre if a.ubicacion and a.ubicacion.sede else None,
+        responsable=a.responsable.nombre if a.responsable else None,
+        fecha_fin_garantia=a.fecha_fin_garantia,
+        observaciones=a.observaciones,
+    )
+
+
 def update_activo(db: Session, activo_id: int, data: ActivoUpdate, actor_id: int | None = None) -> Activo:
     a = _get_or_404(db, Activo, activo_id, "Activo")
     if data.serial and data.serial != a.serial:
@@ -305,6 +347,10 @@ def registrar_movimiento(db: Session, activo_id: int, data: MovimientoCreate, ac
     tipo = data.tipo.upper()
     if tipo not in ("ASIGNACION", "TRASLADO", "DEVOLUCION", "AJUSTE"):
         raise ValidationError(f"Tipo de movimiento no soportado: {tipo}")
+    if activo.estado and activo.estado.codigo in ("PRESTAMO", "MANTENIMIENTO", "BAJA"):
+        raise ValidationError(
+            f"No se puede registrar el movimiento: el activo está en estado {activo.estado.nombre}."
+        )
     numero = get_next_number(db, "MOV", Movimiento)
 
     mov = Movimiento(
@@ -346,9 +392,27 @@ def registrar_movimiento(db: Session, activo_id: int, data: MovimientoCreate, ac
             activo.responsable_id = data.responsable_nuevo_id
         activo.estado_id = _estado_o(db, _EST_CLAVE["BODEGA"], activo.estado).id
 
-    acta = _crear_acta(db, "MOVIMIENTO", mov, actor_id, data.observaciones)
+    acta = _crear_acta(
+        db,
+        "MOVIMIENTO",
+        mov.tipo,
+        mov.id,
+        activo.id,
+        actor_id,
+        data.observaciones,
+        operacion_obj=mov,
+    )
     mov.acta_id = acta.id
     db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="MOVIMIENTO",
+        titulo=f"Movimiento {numero} ({tipo})",
+        mensaje=f"Se registró un {tipo} sobre el activo {activo.codigo}.",
+        entidad_tipo="Movimiento",
+        entidad_id=mov.id,
+        roles_destino=_APROBADORES,
+    )
     audit_op(db, "ACTIVOS", "Movimiento", mov.id, "CREAR", f"Movimiento {numero} ({tipo}) para {activo.codigo}")
     db.commit()
     return _get_movimiento(db, mov.id)
@@ -394,22 +458,27 @@ def anular_movimiento(db: Session, mov_id: int, motivo: str, actor_id: int) -> M
     return _get_movimiento(db, mov_id)
 
 
-def _crear_acta(db: Session, tipo: str, mov: Movimiento, actor_id: int, obs: str | None) -> Acta:
-    numero = get_next_number(db, "ACT", Acta)
+def _crear_acta(db: Session, tipo: str, operacion_tipo: str, operacion_id: int | None, activo_id: int, actor_id: int, obs: str | None, operacion_obj=None, prefix: str = "ACT") -> Acta:
+    numero = get_next_number(db, prefix, Acta)
     acta = Acta(
         numero=numero,
         tipo=tipo,
         fecha=datetime.now(timezone.utc),
-        activo_id=mov.activo_id,
-        movimiento_id=mov.id,
-        operacion_tipo=mov.tipo,
-        operacion_id=mov.id,
+        activo_id=activo_id,
+        operacion_tipo=operacion_tipo,
+        operacion_id=operacion_id,
         observaciones=obs,
         usuario_id=actor_id,
         estado="GENERADA",
     )
     db.add(acta)
     db.flush()
+    try:
+        acta.ruta_pdf = pdf_service.generar_acta(db, acta, operacion_obj)
+        db.flush()
+    except Exception:
+        # El PDF es complementario; si falla su generación el registro del acta continúa.
+        pass
     return acta
 
 
@@ -420,6 +489,42 @@ def list_actas(db: Session, activo_id: int | None = None, page: int = 1, size: i
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = db.scalars(stmt.order_by(Acta.fecha.desc()).offset((page - 1) * size).limit(size)).all()
     return rows, total
+
+
+def _operacion_acta(db: Session, acta: Acta):
+    """Devuelve el objeto de la operación vinculada al acta (si existe)."""
+    if not acta.operacion_id:
+        return None
+    por_tipo = {
+        "MOVIMIENTO": Movimiento,
+        "PRESTAMO": Prestamo,
+        "MANTENIMIENTO": Mantenimiento,
+        "BAJA": Baja,
+        "STOCK": None,
+    }
+    if (acta.tipo or "").upper() == "STOCK":
+        from app.models.stock import MovimientoStock
+
+        return db.get(MovimientoStock, acta.operacion_id)
+    modelo = por_tipo.get((acta.tipo or "").upper())
+    if not modelo:
+        return None
+    return db.get(modelo, acta.operacion_id)
+
+
+def pdf_acta(db: Session, acta_id: int):
+    acta = _get_or_404(db, Acta, acta_id, "Acta")
+    if acta.ruta_pdf:
+        try:
+            p = files_service.leer_pdf(acta.ruta_pdf)
+            return p.read_bytes(), acta.numero
+        except Exception:
+            pass
+    op = _operacion_acta(db, acta)
+    ruta = pdf_service.generar_acta(db, acta, op)
+    acta.ruta_pdf = ruta
+    db.commit()
+    return files_service.leer_pdf(ruta).read_bytes(), acta.numero
 
 
 # ------------------------------------------------------------------ préstamos
@@ -458,6 +563,15 @@ def crear_prestamo(db: Session, activo_id: int, data: PrestamoCreate, actor_id: 
     db.add(p)
     db.flush()
     activo.estado_id = _estado_o(db, _EST_CLAVE["PRESTAMO"], activo.estado).id
+    notifications.crear_notificacion(
+        db,
+        tipo="PRESTAMO",
+        titulo=f"Préstamo {numero} solicitado",
+        mensaje=f"El activo {activo.codigo} fue solicitado en préstamo, requiere aprobación.",
+        entidad_tipo="Prestamo",
+        entidad_id=p.id,
+        roles_destino=_APROBADORES,
+    )
     audit_op(db, "ACTIVOS", "Prestamo", p.id, "CREAR", f"Préstamo {numero} para {activo.codigo}")
     db.commit()
     db.refresh(p)
@@ -470,7 +584,52 @@ def aprobar_prestamo(db: Session, prestamo_id: int, actor_id: int) -> Prestamo:
         raise ConflictError("El préstamo no está en estado SOLICITADO.")
     p.estado = "ACTIVO"
     db.flush()
+    acta = _crear_acta(
+        db,
+        "PRESTAMO",
+        "PRESTAMO",
+        p.id,
+        p.activo_id,
+        actor_id,
+        p.observaciones or p.motivo,
+        operacion_obj=p,
+    )
+    p.acta_id = acta.id
+    db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="PRESTAMO",
+        titulo=f"Préstamo {p.numero} aprobado",
+        mensaje=f"El préstamo del activo {p.activo.codigo if p.activo else p.activo_id} fue aprobado.",
+        entidad_tipo="Prestamo",
+        entidad_id=p.id,
+        roles_destino=_OPERATIVOS,
+    )
     audit_op(db, "ACTIVOS", "Prestamo", p.id, "EDITAR", f"Préstamo {p.numero} aprobado")
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+def rechazar_prestamo(db: Session, prestamo_id: int, actor_id: int) -> Prestamo:
+    p = _get_or_404(db, Prestamo, prestamo_id, "Préstamo")
+    if p.estado != "SOLICITADO":
+        raise ConflictError("El préstamo no está en estado SOLICITADO.")
+    p.estado = "RECHAZADO"
+    activo = _get_or_404(db, Activo, p.activo_id, "Activo")
+    if activo.estado and activo.estado.codigo == "PRESTAMO":
+        activo.estado_id = _estado_o(db, _EST_CLAVE["DISPONIBLE"], activo.estado).id
+    db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="PRESTAMO",
+        titulo=f"Préstamo {p.numero} rechazado",
+        mensaje=f"La solicitud de préstamo del activo {activo.codigo} fue rechazada.",
+        entidad_tipo="Prestamo",
+        entidad_id=p.id,
+        roles_destino=_OPERATIVOS,
+    )
+    audit_op(db, "ACTIVOS", "Prestamo", p.id, "EDITAR", f"Préstamo {p.numero} rechazado")
     db.commit()
     db.refresh(p)
     return p
@@ -483,10 +642,19 @@ def devolver_prestamo(db: Session, prestamo_id: int, actor_id: int) -> Prestamo:
     p.estado = "DEVUELTO"
     p.fecha_devolucion_real = datetime.now(timezone.utc)
     activo = _get_or_404(db, Activo, p.activo_id, "Activo")
-    if not activo.activo:
-        activo.estado_id = _estado_o(db, _EST_CLAVE["BODEGA"], activo.estado).id
-    else:
-        activo.estado_id = _estado_o(db, _EST_CLAVE["BODEGA"], activo.estado).id
+    activo.estado_id = _estado_o(db, _EST_CLAVE["BODEGA"], activo.estado).id
+    db.flush()
+    acta = _crear_acta(
+        db,
+        "PRESTAMO",
+        "DEVOLUCION",
+        p.id,
+        p.activo_id,
+        actor_id,
+        p.observaciones or p.motivo,
+        operacion_obj=p,
+    )
+    p.acta_id = acta.id
     db.flush()
     audit_op(db, "ACTIVOS", "Prestamo", p.id, "EDITAR", f"Préstamo {p.numero} devuelto")
     db.commit()
@@ -519,6 +687,7 @@ def crear_mantenimiento(db: Session, activo_id: int, data: MantenimientoCreate, 
         tecnico_id=data.tecnico_id,
         diagnostico=data.diagnostico,
         actividades=data.actividades,
+        proposito=data.proposito,
         costo=data.costo,
         proveedor_id=data.proveedor_id,
         estado=(data.estado or "PROGRAMADO").upper(),
@@ -534,7 +703,7 @@ def crear_mantenimiento(db: Session, activo_id: int, data: MantenimientoCreate, 
     return m
 
 
-def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None) -> Mantenimiento:
+def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None, proxima_fecha: datetime | None = None) -> Mantenimiento:
     m = _get_or_404(db, Mantenimiento, mant_id, "Mantenimiento")
     m.fecha_ejecucion = datetime.now(timezone.utc)
     m.estado = "COMPLETADO"
@@ -544,10 +713,33 @@ def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: st
         m.observaciones = observaciones
     if costo is not None:
         m.costo = costo
+    if proxima_fecha:
+        m.proxima_fecha = proxima_fecha
     activo = _get_or_404(db, Activo, m.activo_id, "Activo")
     if activo.estado and activo.estado.codigo == "MANTENIMIENTO":
         activo.estado_id = _estado_o(db, _EST_CLAVE["DISPONIBLE"], activo.estado).id
     db.flush()
+    acta = _crear_acta(
+        db,
+        "MANTENIMIENTO",
+        "MANTENIMIENTO",
+        m.id,
+        m.activo_id,
+        actor_id,
+        resultado or observaciones,
+        operacion_obj=m,
+    )
+    m.acta_id = acta.id
+    db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="MANTENIMIENTO",
+        titulo=f"Mantenimiento {m.numero} completado",
+        mensaje=f"El mantenimiento del activo {activo.codigo} fue completado.",
+        entidad_tipo="Mantenimiento",
+        entidad_id=m.id,
+        roles_destino=_APROBADORES,
+    )
     audit_op(db, "ACTIVOS", "Mantenimiento", m.id, "EDITAR", f"Mantenimiento {m.numero} completado")
     db.commit()
     db.refresh(m)
@@ -581,10 +773,12 @@ def crear_garantia(db: Session, activo_id: int, data: GarantiaCreate, actor_id: 
 
 
 # ------------------------------------------------------------------ bajas
-def list_bajas(db: Session, estado: str | None = None):
+def list_bajas(db: Session, estado: str | None = None, activo_id: int | None = None):
     stmt = select(Baja).options(selectinload(Baja.activo))
     if estado:
         stmt = stmt.where(Baja.estado == estado)
+    if activo_id:
+        stmt = stmt.where(Baja.activo_id == activo_id)
     return db.scalars(stmt.order_by(Baja.id.desc())).all()
 
 
@@ -602,7 +796,39 @@ def registrar_baja(db: Session, activo_id: int, data: BajaCreate, actor_id: int)
     )
     db.add(b)
     db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="BAJA",
+        titulo=f"Baja {numero} solicitada",
+        mensaje=f"Se solicitó la baja del activo {activo.codigo} ({data.motivo_tipo}), requiere aprobación.",
+        entidad_tipo="Baja",
+        entidad_id=b.id,
+        roles_destino=_APROBADORES,
+    )
     audit_op(db, "ACTIVOS", "Baja", b.id, "CREAR", f"Baja {numero} solicitada para {activo.codigo}")
+    db.commit()
+    db.refresh(b)
+    return b
+
+
+def rechazar_baja(db: Session, baja_id: int, actor_id: int, motivo: str | None = None) -> Baja:
+    b = _get_or_404(db, Baja, baja_id, "Baja")
+    if b.estado != "SOLICITADA":
+        raise ConflictError("La baja no está en estado SOLICITADA.")
+    b.estado = "RECHAZADA"
+    if motivo:
+        b.motivo_descripcion = (b.motivo_descripcion or "") + (f" · Rechazo: {motivo}" if motivo else "")
+    db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="BAJA",
+        titulo=f"Baja {b.numero} rechazada",
+        mensaje=f"La solicitud de baja del activo {b.activo.codigo if b.activo else b.activo_id} fue rechazada.",
+        entidad_tipo="Baja",
+        entidad_id=b.id,
+        roles_destino=_OPERATIVOS,
+    )
+    audit_op(db, "ACTIVOS", "Baja", b.id, "EDITAR", f"Baja {b.numero} rechazada")
     db.commit()
     db.refresh(b)
     return b
@@ -619,6 +845,27 @@ def aprobar_baja(db: Session, baja_id: int, actor_id: int, observaciones: str | 
     activo.estado_id = _estado_o(db, _EST_CLAVE["BAJA"], activo.estado).id
     activo.activo = False
     db.flush()
+    acta = _crear_acta(
+        db,
+        "BAJA",
+        "BAJA",
+        b.id,
+        b.activo_id,
+        actor_id,
+        observaciones or b.motivo_descripcion,
+        operacion_obj=b,
+    )
+    b.acta_id = acta.id
+    db.flush()
+    notifications.crear_notificacion(
+        db,
+        tipo="BAJA",
+        titulo=f"Baja {b.numero} aprobada",
+        mensaje=f"El activo {activo.codigo} fue dado de baja.",
+        entidad_tipo="Baja",
+        entidad_id=b.id,
+        roles_destino=_OPERATIVOS,
+    )
     audit_op(db, "ACTIVOS", "Baja", b.id, "EDITAR", f"Baja {b.numero} aprobada")
     db.commit()
     db.refresh(b)

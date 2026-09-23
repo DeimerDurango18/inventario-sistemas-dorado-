@@ -1,4 +1,5 @@
 """Smoke test de la API usando TestClient (sin levantar servidor)."""
+import os
 import sys
 from pathlib import Path
 
@@ -17,7 +18,11 @@ def check():
     print("health:", r.status_code, r.json())
     assert r.status_code == 200
 
-    r = client.post("/api/auth/login", json={"username": "admin", "password": "Admin123!"})
+    username = os.getenv("SMOKE_USERNAME", "admin")
+    password = os.getenv("SMOKE_PASSWORD")
+    if not password:
+        raise RuntimeError("Define SMOKE_PASSWORD antes de ejecutar el smoke test.")
+    r = client.post("/api/auth/login", json={"username": username, "password": password})
     print("login:", r.status_code)
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]

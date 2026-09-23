@@ -22,15 +22,15 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   useEffect(() => {
-    const token = localStorage.getItem("eticos_token");
+    const token = sessionStorage.getItem("eticos_token");
     if (!token) {
       setLoading(false);
       return;
     }
     api
       .get("/auth/me")
-      .then(({ data }) => setUser(data.user))
-      .catch(() => setToken(null))
+      .then(({ data }) => setUser(data.user ?? data))
+      .catch(() => { setToken(null); setUser(null); })
       .finally(() => setLoading(false));
   }, []);
 

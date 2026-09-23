@@ -47,7 +47,7 @@ def create_usuario(db: Session, data: UsuarioCreate) -> Usuario:
             raise ConflictError("El correo ya está registrado.")
     user = Usuario(
         username=data.username,
-        email=data.correo or f"{data.username}@etiticos.local",
+        email=data.correo or f"{data.username}@eticos.local",
         password_hash=hash_password(data.password),
         nombre=data.nombre,
         documento=data.documento,
@@ -104,7 +104,8 @@ def change_password(db: Session, user: Usuario, current: str, new: str) -> None:
     from app.core.security import verify_password
 
     if not verify_password(current, user.password_hash or ""):
-        raise NotFoundError("La contraseña actual no es correcta.")
+        from app.core.errors import UnauthorizedError
+        raise UnauthorizedError("La contraseña actual no es correcta.")
     user.password_hash = hash_password(new)
     db.flush()
     audit_op(db, "USUARIOS", "Usuario", user.id, "EDITAR", "Contraseña cambiada")

@@ -12,6 +12,7 @@ from app.schemas.asset import (
     ActivoUpdate,
     BajaCreate,
     BajaRead,
+    ConsultaPublicaRead,
     GarantiaCreate,
     GarantiaRead,
     MantenimientoCerrar,
@@ -131,6 +132,20 @@ def listar_actas(
     return Paginated(items=rows, total=total, page=page, page_size=size, pages=-(total // -size))
 
 
+@router.get("/actas/{acta_id}/pdf")
+def descargar_pdf_acta(
+    acta_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("ver_activos")),
+):
+    data, numero = asset_service.pdf_acta(db, acta_id)
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{numero}.pdf"'},
+    )
+
+
 # ------------------------------------------------------------------ préstamos
 @router.get("/prestamos", response_model=list[PrestamoRead])
 def listar_prestamos(
@@ -160,6 +175,15 @@ def devolver_prestamo(
     return asset_service.devolver_prestamo(db, prestamo_id, actor.id)
 
 
+@router.put("/prestamos/{prestamo_id}/rechazar", response_model=PrestamoRead)
+def rechazar_prestamo(
+    prestamo_id: int,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permiso("aprobar_movimientos")),
+):
+    return asset_service.rechazar_prestamo(db, prestamo_id, actor.id)
+
+
 # ------------------------------------------------------------------ mantenimientos
 @router.get("/mantenimientos", response_model=list[MantenimientoRead])
 def listar_mantenimientos(
@@ -178,7 +202,7 @@ def cerrar_mantenimiento(
     db: Session = Depends(get_db),
     actor: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo)
+    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo, data.proxima_fecha)
 
 
 # ------------------------------------------------------------------ garantías
@@ -195,10 +219,11 @@ def listar_garantias(
 @router.get("/bajas", response_model=list[BajaRead])
 def listar_bajas(
     estado: str | None = None,
+    activo_id: int | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_permiso("ver_activos")),
 ):
-    return asset_service.list_bajas(db, estado)
+    return asset_service.list_bajas(db, estado, activo_id)
 
 
 @router.put("/bajas/{baja_id}/aprobar", response_model=BajaRead)
@@ -210,6 +235,15 @@ def aprobar_baja(
     return asset_service.aprobar_baja(db, baja_id, actor.id)
 
 
+@router.put("/bajas/{baja_id}/rechazar", response_model=BajaRead)
+def rechazar_baja(
+    baja_id: int,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permiso("aprobar_movimientos")),
+):
+    return asset_service.rechazar_baja(db, baja_id, actor.id)
+
+
 # ------------------------------------------------------------------ consulta por código
 @router.get("/consulta/{codigo}", response_model=ActivoRead)
 def consultar_por_codigo(
@@ -218,6 +252,14 @@ def consultar_por_codigo(
     _: Usuario = Depends(require_permiso("ver_activos")),
 ):
     return asset_service.get_activo_by_codigo(db, codigo)
+
+
+@router.get("/consulta-publica/{codigo}", response_model=ConsultaPublicaRead)
+def consulta_publica_por_codigo(
+    codigo: str,
+    db: Session = Depends(get_db),
+):
+    return asset_service.get_consulta_publica(db, codigo)
 
 
 # ------------------------------------------------------------------ activo individual y operaciones

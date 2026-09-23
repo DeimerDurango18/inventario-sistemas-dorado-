@@ -9,6 +9,8 @@ from app.core.errors import ConflictError, NotFoundError
 from app.models.geo import Ciudad, Departamento, Pais, Sede, TipoUbicacion, Ubicacion
 from app.schemas.geo import (
     CiudadCreate,
+    DepartamentoCreate,
+    PaisCreate,
     SedeCreate,
     SedeUpdate,
     TipoUbicacionCreate,
@@ -30,11 +32,43 @@ def list_paises(db: Session):
     return db.scalars(select(Pais).order_by(Pais.nombre)).all()
 
 
+def create_pais(db: Session, data: PaisCreate):
+    dup = db.scalar(select(Pais).where(Pais.nombre == data.nombre))
+    if dup:
+        raise ConflictError("Ya existe un país con ese nombre.")
+    p = Pais(nombre=data.nombre)
+    db.add(p)
+    db.flush()
+    audit_op(db, "GEO", "Pais", p.id, "CREAR", f"País {data.nombre} creado")
+    db.commit()
+    db.refresh(p)
+    return p
+
+
 def list_departamentos(db: Session, pais_id: int | None = None):
     stmt = select(Departamento).order_by(Departamento.nombre)
     if pais_id:
         stmt = stmt.where(Departamento.pais_id == pais_id)
     return db.scalars(stmt).all()
+
+
+def create_departamento(db: Session, data: DepartamentoCreate):
+    _get_or_404(db, Pais, data.pais_id, "País")
+    dup = db.scalar(
+        select(Departamento).where(
+            Departamento.nombre == data.nombre,
+            Departamento.pais_id == data.pais_id,
+        )
+    )
+    if dup:
+        raise ConflictError("Ya existe un departamento con ese nombre en el país.")
+    departamento = Departamento(nombre=data.nombre, pais_id=data.pais_id)
+    db.add(departamento)
+    db.flush()
+    audit_op(db, "GEO", "Departamento", departamento.id, "CREAR", f"Departamento {data.nombre} creado")
+    db.commit()
+    db.refresh(departamento)
+    return departamento
 
 
 def list_ciudades(db: Session, departamento_id: int | None = None):

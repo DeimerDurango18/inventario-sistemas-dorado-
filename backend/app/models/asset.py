@@ -38,6 +38,7 @@ class Activo(Base):
     categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias.id"))
     subcategoria_id: Mapped[int | None] = mapped_column(ForeignKey("subcategorias.id"))
     estado_id: Mapped[int] = mapped_column(ForeignKey("estados_activo.id"), nullable=False, index=True)
+    cantidad_stock: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
 
     fecha_adquisicion: Mapped[datetime | None] = mapped_column(DateTime)
     fecha_ingreso: Mapped[datetime | None] = mapped_column(DateTime)

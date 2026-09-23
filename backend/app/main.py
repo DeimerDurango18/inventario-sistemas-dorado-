@@ -1,76 +1,109 @@
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
-from app.api.routes import assets, auth, catalogs, dashboard, geo, system, users
+from app.api.routes import assets, auth, catalogs, dashboard, files, geo, operations, reports, stock, system, users
 from app.core.config import settings
-from app.core.database import Base, engine
-from app.core.errors import AppError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
+from app.core.database import Base, SessionLocal, engine
+from app.core.errors import AppError
+from app.services.seed import seed_initial
 
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger("eticos.api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicialización controlada: esquema/seed solo cuando está expresamente habilitado."""
+    if settings.auto_create_schema:
+        Base.metadata.create_all(bind=engine)
+    if settings.allow_dev_seed:
+        try:
+            with SessionLocal() as db:
+                seed_initial(db)
+        except Exception:
+            logger.exception("No se pudo ejecutar el bootstrap de datos iniciales")
+    yield
+    engine.dispose()
+
 
 app = FastAPI(
     title="ETICOS - Gestión de Activos TI",
-    version="1.0.0",
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
+    version="2.0.0",
+    docs_url="/api/docs" if settings.enable_docs else None,
+    redoc_url="/api/redoc" if settings.enable_docs else None,
+    openapi_url="/api/openapi.json" if settings.enable_docs else None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
 )
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Error no controlado request_id=%s path=%s", request_id, request.url.path)
+        response = JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Error interno del servidor." if not settings.debug else "Error interno del servidor.",
+                "code": "INTERNAL_ERROR",
+                "request_id": request_id,
+            },
+        )
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api/") else "no-cache"
+    logger.info("%s %s -> %s %.1fms request_id=%s", request.method, request.url.path, response.status_code, elapsed_ms, request_id)
+    return response
 
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
     return JSONResponse(
-        status_code=400,
+        status_code=exc.status_code,
         content={"success": False, "message": exc.message, "code": exc.code},
     )
 
 
-@app.exception_handler(NotFoundError)
-async def not_found_handler(request: Request, exc: NotFoundError):
-    return JSONResponse(
-        status_code=404,
-        content={"success": False, "message": exc.message, "code": exc.code},
-    )
-
-
-@app.exception_handler(ValidationError)
-async def validation_handler(request: Request, exc: ValidationError):
-    return JSONResponse(
-        status_code=422,
-        content={"success": False, "message": exc.message, "code": exc.code},
-    )
-
-
-@app.exception_handler(ConflictError)
-async def conflict_handler(request: Request, exc: ConflictError):
-    return JSONResponse(
-        status_code=409,
-        content={"success": False, "message": exc.message, "code": exc.code},
-    )
-
-
-@app.exception_handler(UnauthorizedError)
-async def unauthorized_handler(request: Request, exc: UnauthorizedError):
-    return JSONResponse(
-        status_code=401,
-        content={"success": False, "message": exc.message, "code": exc.code},
-    )
-
-
-@app.exception_handler(ForbiddenError)
-async def forbidden_handler(request: Request, exc: ForbiddenError):
-    return JSONResponse(
-        status_code=403,
-        content={"success": False, "message": exc.message, "code": exc.code},
-    )
+@app.get("/api/health", tags=["Sistema"])
+def health():
+    """Healthcheck real de aplicación y base de datos."""
+    db_ok = False
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        logger.exception("Healthcheck de base de datos falló")
+    return {
+        "success": db_ok,
+        "status": "ok" if db_ok else "degraded",
+        "version": app.version,
+        "database": "ok" if db_ok else "error",
+    }
 
 
 API_PREFIX = "/api"
@@ -81,8 +114,7 @@ app.include_router(geo.router, prefix=API_PREFIX)
 app.include_router(assets.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)
 app.include_router(system.router, prefix=API_PREFIX)
-
-
-@app.get("/api/health", tags=["Sistema"])
-def health():
-    return {"success": True, "message": "ETICOS API operativa", "version": app.version}
+app.include_router(stock.router, prefix=API_PREFIX)
+app.include_router(files.router, prefix=API_PREFIX)
+app.include_router(reports.router, prefix=API_PREFIX)
+app.include_router(operations.router, prefix=API_PREFIX)

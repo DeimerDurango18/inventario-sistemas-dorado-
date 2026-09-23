@@ -81,6 +81,7 @@ CATEGORIAS = [
     ("TELEFONIA", ["Smartphone", "Teléfono fijo"]),
     ("VIDEOVIGILANCIA", ["Cámara", "DVR", "NVR"]),
     ("ACCESORIO", ["Teclado", "Mouse", "Disco externo"]),
+    ("PAPELERIA",["Rollos de Stiker","Cinta termica"]),
 ]
 
 MARCAS = ["Samsung", "Hewlett Packard", "Dell", "Lenovo", "Epson", "Cisco", "APC", "Logitech", "Xiaomi", "Panasonic"]
@@ -91,6 +92,9 @@ TIPOS_UBICACION = [
     ("OFICINA", "Oficina"),
     ("LABORATORIO", "Laboratorio"),
     ("PUNTO_VENTA", "Punto de Venta"),
+    ("DISPENSARIO", "Dispensario"),
+    ("FARMACIA", "Farmacia"),
+    ("CEDIS", "Cedis"),
 ]
 
 # (departamento, [ciudades])
@@ -131,7 +135,7 @@ COLOMBIA = [
 ]
 
 SEDES = [
-    ("SEDE-001", "Sede Principal Bogotá", "Bogotá"),
+    ("SEDE-001", "Dorado - Bogotá", "Bogotá"),
     ("SEDE-002", "Centro Distribución Medellín", "Medellín"),
     ("SEDE-003", "Sede Cali", "Cali"),
 ]
@@ -292,7 +296,7 @@ def seed_sedes(db: Session, ciudades: dict, tipos: dict):
             db.add(s)
             db.flush()
         # ubicaciones típicas por sede
-        for tipo, nombre_ubi in (("OFICINA", "Administración"), ("BODEGA", "Bodega central")):
+        for tipo, nombre_ubi in (("OFICINA", "Administración"), ("Cedis", "Cedis Dorado")):
             u = db.scalar(
                 select(Ubicacion).where(
                     Ubicacion.nombre == nombre_ubi, Ubicacion.sede_id == s.id
@@ -311,7 +315,7 @@ def seed_sedes(db: Session, ciudades: dict, tipos: dict):
 
 def seed_responsables(db: Session, sedes: list):
     datos = [
-        ("1020203040", "Juan Carlos Pérez", "Técnico TI", "Sede Principal Bogotá"),
+        ("1062676023", "Deimer David DurangoPetro", "Técnico TI", "Cedis Dorado - Bogotá"),
         ("1030506070", "María Fernanda Gómez", "Administradora sistema", "Sede Principal Bogotá"),
         ("1040607080", "Andrés Felipe Ramírez", "Auxiliar de inventario", "Centro Distribución Medellín"),
     ]

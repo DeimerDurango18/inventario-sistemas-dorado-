@@ -9,6 +9,7 @@ from app.schemas.common import ORMModel
 
 class CategoriaCreate(BaseModel):
     nombre: str
+    subcategorias: List[str] = []
 
 
 class CategoriaRead(ORMModel):

@@ -8,9 +8,18 @@ from pydantic import BaseModel
 from app.schemas.common import ORMModel
 
 
+class PaisCreate(BaseModel):
+    nombre: str
+
+
 class PaisRead(ORMModel):
     id: int
     nombre: str
+
+
+class DepartamentoCreate(BaseModel):
+    nombre: str
+    pais_id: int
 
 
 class DepartamentoRead(ORMModel):
@@ -88,6 +97,7 @@ class UbicacionCreate(BaseModel):
     nombre: str
     sede_id: Optional[int] = None
     tipo_ubicacion_id: Optional[int] = None
+    es_activa: Optional[bool] = True
     observaciones: Optional[str] = None
 
 

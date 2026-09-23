@@ -21,6 +21,7 @@ class Mantenimiento(Base):
     tecnico_id: Mapped[int | None] = mapped_column(ForeignKey("responsables.id"))
     diagnostico: Mapped[str | None] = mapped_column(Text)
     actividades: Mapped[str | None] = mapped_column(Text)
+    proposito: Mapped[str | None] = mapped_column(Text)
     resultado: Mapped[str | None] = mapped_column(String(500))
     costo: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))

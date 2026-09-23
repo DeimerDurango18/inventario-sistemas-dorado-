@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { EmptyState, PageHeader } from "../../components/ui";
 
 export default function ActivosList() {
   const { can } = useAuth();
@@ -9,7 +10,7 @@ export default function ActivosList() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [size] = useState(20);
+  const size = 20;
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState({ estado_id: "", categoria_id: "", sede_id: "" });
   const [categorias, setCategorias] = useState([]);
@@ -17,20 +18,19 @@ export default function ActivosList() {
   const [sedes, setSedes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadFiltros = async () => {
-    const [c, e, s] = await Promise.all([
+  const loadFiltros = useCallback(() => {
+    Promise.all([
       api.get("/catalogo/categorias/todas").catch(() => ({ data: { items: [] } })),
       api.get("/catalogo/estados").catch(() => ({ data: [] })),
       api.get("/geo/sedes").catch(() => ({ data: [] })),
-    ]);
-    setCategorias(c.data?.items || c.data || []);
-    setEstados(e.data || []);
-    setSedes(s.data || []);
-  };
-
-  useEffect(() => {
-    loadFiltros();
+    ]).then(([c, e, s]) => {
+      setCategorias(c.data?.items || c.data || []);
+      setEstados(e.data || []);
+      setSedes(s.data || []);
+    });
   }, []);
+
+  useEffect(loadFiltros, [loadFiltros]);
 
   useEffect(() => {
     let cancelado = false;
@@ -56,62 +56,67 @@ export default function ActivosList() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="m-0">Activos TI</h5>
-        {can("crear_activos") && (
-          <Link to="/activos/nuevo" className="btn text-white btn-sm" style={{ background: "var(--eticos-primary)" }}>
-            <i className="bi bi-plus-lg me-1"></i>Nuevo activo
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title={`Activos (${total})`}
+        subtitle="Inventario de equipos de TI"
+        icon="box-seam"
+        actions={
+          can("crear_activos") && (
+            <Link to="/activos/nuevo" className="btn btn-sm btn-brand">
+              <i className="bi bi-plus-lg me-1" /> Nuevo activo
+            </Link>
+          )
+        }
+      />
 
-      <div className="card stat-card mb-3">
-        <div className="card-body py-2">
-          <div className="row g-2">
-            <div className="col-12 col-md-4">
+      <div className="eticos-card p-3 mb-3">
+        <div className="row g-2">
+          <div className="col-12 col-lg-4">
+            <div className="eticos-search">
+              <i className="bi bi-search"></i>
               <input
                 className="form-control form-control-sm"
-                placeholder="Buscar por cÃ³digo, serial, inventario, placaâ€¦"
+                placeholder="Buscar por código, serial, inventario, placa…"
                 value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setQ(e.target.value); setPage(1); }}
               />
             </div>
-            <div className="col-6 col-md-3">
-              <select className="form-select form-select-sm" value={filters.estado_id} onChange={(e) => { setFilters({ ...filters, estado_id: e.target.value }); setPage(1); }}>
-                <option value="">Estado: todos</option>
-                {estados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-              </select>
-            </div>
-            <div className="col-6 col-md-3">
-              <select className="form-select form-select-sm" value={filters.categoria_id} onChange={(e) => { setFilters({ ...filters, categoria_id: e.target.value }); setPage(1); }}>
-                <option value="">CategorÃ­a: todas</option>
-                {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="col-6 col-md-2">
-              <select className="form-select form-select-sm" value={filters.sede_id} onChange={(e) => { setFilters({ ...filters, sede_id: e.target.value }); setPage(1); }}>
-                <option value="">Sede: todas</option>
-                {sedes.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-            </div>
+          </div>
+          <div className="col-6 col-md-3 col-lg-3">
+            <select className="form-select form-select-sm" value={filters.estado_id} onChange={(e) => { setFilters({ ...filters, estado_id: e.target.value }); setPage(1); }}>
+              <option value="">Estado: todos</option>
+              {estados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </select>
+          </div>
+          <div className="col-6 col-md-3 col-lg-3">
+            <select className="form-select form-select-sm" value={filters.categoria_id} onChange={(e) => { setFilters({ ...filters, categoria_id: e.target.value }); setPage(1); }}>
+              <option value="">Categoría: todas</option>
+              {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div className="col-6 col-md-3 col-lg-2">
+            <select className="form-select form-select-sm" value={filters.sede_id} onChange={(e) => { setFilters({ ...filters, sede_id: e.target.value }); setPage(1); }}>
+              <option value="">Sede: todas</option>
+              {sedes.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
           </div>
         </div>
       </div>
 
-      <div className="card stat-card">
-        <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-hover table-clickable mb-0 align-middle">
+      <div className="eticos-card p-0">
+        {items.length === 0 && !loading ? (
+          <EmptyState icon="box-seam" title="Sin resultados" hint="Ajusta la búsqueda o registra un nuevo activo" />
+        ) : (
+          <div className="eticos-table-wrap">
+            <table className="table table-hover table-clickable align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th>CÃ³digo</th>
+                  <th>Código</th>
                   <th>Tipo</th>
                   <th>Serial</th>
-                  <th>CategorÃ­a</th>
+                  <th>Categoría</th>
                   <th>Marca</th>
+                  <th>Stock</th>
                   <th>Sede</th>
                   <th>Responsable</th>
                   <th>Estado</th>
@@ -119,23 +124,25 @@ export default function ActivosList() {
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={8} className="text-center py-4">Cargandoâ€¦</td></tr>
-                )}
-                {!loading && items.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-4 text-secondary">Sin resultados</td></tr>
+                  <tr><td colSpan={9} className="text-center py-4"><span className="spinner-border spinner-border-sm eticos-spinner" /></td></tr>
                 )}
                 {items.map((a) => (
                   <tr key={a.id} onClick={() => navigate(`/activos/${a.id}`)}>
-                    <td className="fw-semibold">{a.codigo}</td>
-                    <td>{a.tipo}</td>
-                    <td>{a.serial || "â€”"}</td>
-                    <td>{a.categoria?.nombre || "â€”"}</td>
-                    <td>{a.marca?.nombre || "â€”"}</td>
-                    <td>{a.ubicacion?.sede?.nombre || "â€”"}</td>
-                    <td>{a.responsable?.nombre || "â€”"}</td>
+                    <td><span className="fw-semibold">{a.codigo}</span></td>
+                    <td><span className="badge eta-badge" style={{ background: "#e9f2fc", color: "#0b66c2" }}>{a.tipo}</span></td>
+                    <td className="small">{a.serial || "—"}</td>
+                    <td className="small">{a.categoria?.nombre || "—"}</td>
+                    <td className="small">{a.marca?.nombre || "—"}</td>
                     <td>
-                      <span className="badge xml-rounded-pill badge-estado" style={{ background: a.estado?.color || "#6c757d" }}>
-                        {a.estado?.nombre || "â€”"}
+                      <span className="badge eta-badge" style={(a.cantidad_stock ?? 0) > 0 ? { background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" } : { background: "#eb3f5b1c", color: "#eb3f5b" }}>
+                        {a.cantidad_stock ?? 0}
+                      </span>
+                    </td>
+                    <td className="small">{a.ubicacion?.sede?.nombre || "—"}</td>
+                    <td className="small">{a.responsable?.nombre || "—"}</td>
+                    <td>
+                      <span className="badge eta-badge" style={{ background: `${a.estado?.color || "#6c757d"}22`, color: a.estado?.color || "#6c757d", border: `1px solid ${a.estado?.color || "#6c757d"}55` }}>
+                        {a.estado?.nombre || "—"}
                       </span>
                     </td>
                   </tr>
@@ -143,17 +150,17 @@ export default function ActivosList() {
               </tbody>
             </table>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="d-flex justify-content-between align-items-center mt-3">
         <small className="text-secondary">{total} registro(s)</small>
-        <div className="btn-group">
-          <button className="btn btn-outline-secondary btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+        <div className="d-flex gap-2">
+          <button className="btn btn-sm btn-light" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             <i className="bi bi-chevron-left"></i>
           </button>
-          <span className="btn btn-sm btn-light disabled">PÃ¡gina {page} de {pages}</span>
-          <button className="btn btn-outline-secondary btn-sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+          <span className="btn btn-sm btn-light disabled">Página {page} de {pages}</span>
+          <button className="btn btn-sm btn-light" disabled={page >= pages} onClick={() => setPage(page + 1)}>
             <i className="bi bi-chevron-right"></i>
           </button>
         </div>

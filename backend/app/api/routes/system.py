@@ -86,19 +86,38 @@ def atender_ticket(
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    t = db.get(Ticket, ticket_id)
-    if not t:
-        from app.core.errors import NotFoundError
-
-        raise NotFoundError("Ticket")
     from datetime import datetime, timezone
 
-    if data.get("estado") == "RESUELTO":
-        t.estado = "RESUELTO"
+    from app.core.errors import NotFoundError, ValidationError
+
+    t = db.get(Ticket, ticket_id)
+    if not t:
+        raise NotFoundError("Ticket")
+
+    estados = {"ABIERTO", "EN_PROCESO", "EN_ATENCION", "RESUELTO", "CERRADO", "CANCELADO"}
+    terminales = {"RESUELTO", "CERRADO", "CANCELADO"}
+
+    nuevo = data.get("estado")
+    if not nuevo:
+        raise ValidationError("El campo 'estado' es obligatorio.")
+    if nuevo not in estados:
+        raise ValidationError(f"El estado '{nuevo}' no es válido para un ticket.")
+    if t.estado in terminales:
+        raise ValidationError(f"El ticket ya está {t.estado.lower()}; no puede volver a cambiar de estado.")
+
+    if nuevo == "RESUELTO":
+        if not data.get("solucion"):
+            raise ValidationError("Debe indicar la solución antes de marcar el ticket como resuelto.")
         t.solucion = data.get("solucion")
         t.fecha_solucion = datetime.now(timezone.utc)
-    elif data.get("estado"):
-        t.estado = data["estado"]
+    elif nuevo == "CERRADO":
+        if data.get("solucion"):
+            t.solucion = data.get("solucion")
+            t.fecha_solucion = datetime.now(timezone.utc)
+    else:
+        t.solucion = None
+        t.fecha_solucion = None
+    t.estado = nuevo
     db.commit()
     db.refresh(t)
     return t
@@ -122,9 +141,8 @@ def actualizar_parametro(
 ):
     p = db.scalar(select(Parametro).where(Parametro.clave == clave))
     if not p:
-        from app.core.errors import NotFoundError
-
-        raise NotFoundError("Parámetro")
+        p = Parametro(clave=clave, valor="", grupo="General", descripcion="")
+        db.add(p)
     p.valor = str(data.get("valor", ""))
     db.commit()
     db.refresh(p)

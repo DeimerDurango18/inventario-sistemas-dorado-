@@ -60,7 +60,13 @@ def create_categoria(db: Session, data: CategoriaCreate) -> Categoria:
     cat = Categoria(nombre=data.nombre)
     db.add(cat)
     db.flush()
-    audit_log(db, "Categoria", cat.id, "CREAR", f"Categoría {data.nombre} creada")
+    for nombre in data.subcategorias:
+        if not nombre or not nombre.strip():
+            continue
+        sub = Subcategoria(categoria_id=cat.id, nombre=nombre.strip())
+        db.add(sub)
+    db.flush()
+    audit_log(db, "CATALOGOS", "Categoria", cat.id, "CREAR", f"Categoría {data.nombre} creada")
     db.commit()
     db.refresh(cat)
     return cat
@@ -70,7 +76,7 @@ def deactivate_categoria(db: Session, cat_id: int) -> Categoria:
     cat = _get_or_404(db, Categoria, cat_id, "Categoría")
     cat.activo = False
     db.flush()
-    audit_log(db, "Categoria", cat.id, "ANULAR", f"Categoría {cat.nombre} desactivada")
+    audit_log(db, "CATALOGOS", "Categoria", cat.id, "ANULAR", f"Categoría {cat.nombre} desactivada")
     db.commit()
     db.refresh(cat)
     return cat
@@ -96,7 +102,7 @@ def create_subcategoria(db: Session, data: SubcategoriaCreate) -> Subcategoria:
     sub = Subcategoria(categoria_id=data.categoria_id, nombre=data.nombre)
     db.add(sub)
     db.flush()
-    audit_log(db, "Subcategoria", sub.id, "CREAR", f"Subcategoría {data.nombre} creada")
+    audit_log(db, "CATALOGOS", "Subcategoria", sub.id, "CREAR", f"Subcategoría {data.nombre} creada")
     db.commit()
     db.refresh(sub)
     return sub
@@ -119,7 +125,7 @@ def create_marca(db: Session, data: MarcaCreate) -> Marca:
     m = Marca(nombre=data.nombre)
     db.add(m)
     db.flush()
-    audit_log(db, "Marca", m.id, "CREAR", f"Marca {data.nombre} creada")
+    audit_log(db, "CATALOGOS", "Marca", m.id, "CREAR", f"Marca {data.nombre} creada")
     db.commit()
     db.refresh(m)
     return m
@@ -129,7 +135,7 @@ def deactivate_marca(db: Session, marca_id: int) -> Marca:
     m = _get_or_404(db, Marca, marca_id, "Marca")
     m.activo = False
     db.flush()
-    audit_log(db, "Marca", m.id, "ANULAR", f"Marca {m.nombre} desactivada")
+    audit_log(db, "CATALOGOS", "Marca", m.id, "ANULAR", f"Marca {m.nombre} desactivada")
     db.commit()
     db.refresh(m)
     return m
@@ -155,7 +161,7 @@ def create_modelo(db: Session, data: ModeloCreate) -> Modelo:
     m = Modelo(marca_id=data.marca_id, nombre=data.nombre)
     db.add(m)
     db.flush()
-    audit_log(db, "Modelo", m.id, "CREAR", f"Modelo {data.nombre} creado")
+    audit_log(db, "CATALOGOS", "Modelo", m.id, "CREAR", f"Modelo {data.nombre} creado")
     db.commit()
     db.refresh(m)
     return m
@@ -171,7 +177,7 @@ def update_modelo(db: Session, modelo_id: int, data: ModeloUpdate) -> Modelo:
     if data.activo is not None:
         m.activo = data.activo
     db.flush()
-    audit_log(db, "Modelo", m.id, "EDITAR", f"Modelo {m.nombre} actualizado")
+    audit_log(db, "CATALOGOS", "Modelo", m.id, "EDITAR", f"Modelo {m.nombre} actualizado")
     db.commit()
     db.refresh(m)
     return m
@@ -194,7 +200,7 @@ def create_proveedor(db: Session, data: ProveedorCreate) -> Proveedor:
     p = Proveedor(**data.model_dump())
     db.add(p)
     db.flush()
-    audit_log(db, "Proveedor", p.id, "CREAR", f"Proveedor {data.nombre} creado")
+    audit_log(db, "CATALOGOS", "Proveedor", p.id, "CREAR", f"Proveedor {data.nombre} creado")
     db.commit()
     db.refresh(p)
     return p
@@ -207,7 +213,7 @@ def update_proveedor(db: Session, prov_id: int, data: ProveedorUpdate) -> Provee
         if v is not None:
             setattr(p, campo, v)
     db.flush()
-    audit_log(db, "Proveedor", p.id, "EDITAR", f"Proveedor {p.nombre} actualizado")
+    audit_log(db, "CATALOGOS", "Proveedor", p.id, "EDITAR", f"Proveedor {p.nombre} actualizado")
     db.commit()
     db.refresh(p)
     return p
@@ -217,7 +223,7 @@ def deactivate_proveedor(db: Session, proveedor_id: int) -> Proveedor:
     p = _get_or_404(db, Proveedor, proveedor_id, "Proveedor")
     p.activo = False
     db.flush()
-    audit_log(db, "Proveedor", p.id, "ANULAR", f"Proveedor {p.nombre} desactivado")
+    audit_log(db, "CATALOGOS", "Proveedor", p.id, "ANULAR", f"Proveedor {p.nombre} desactivado")
     db.commit()
     db.refresh(p)
     return p
@@ -238,7 +244,7 @@ def create_estado(db: Session, data: EstadoActivoCreate) -> EstadoActivo:
     e = EstadoActivo(**data.model_dump())
     db.add(e)
     db.flush()
-    audit_log(db, "EstadoActivo", e.id, "CREAR", f"Estado {data.codigo} creado")
+    audit_log(db, "CATALOGOS", "EstadoActivo", e.id, "CREAR", f"Estado {data.codigo} creado")
     db.commit()
     db.refresh(e)
     return e
@@ -253,7 +259,7 @@ def update_estado(db: Session, estado_id: int, data: EstadoActivoUpdate) -> Esta
     if data.activo is not None:
         e.activo = data.activo
     db.flush()
-    audit_log(db, "EstadoActivo", e.id, "EDITAR", f"Estado {e.codigo} actualizado")
+    audit_log(db, "CATALOGOS", "EstadoActivo", e.id, "EDITAR", f"Estado {e.codigo} actualizado")
     db.commit()
     db.refresh(e)
     return e
@@ -272,7 +278,7 @@ def create_atributo(db: Session, data: AtributoDefCreate) -> AtributoDefinicion:
     a = AtributoDefinicion(**data.model_dump())
     db.add(a)
     db.flush()
-    audit_log(db, "AtributoDefinicion", a.id, "CREAR", f"Atributo {data.nombre} creado")
+    audit_log(db, "CATALOGOS", "AtributoDefinicion", a.id, "CREAR", f"Atributo {data.nombre} creado")
     db.commit()
     db.refresh(a)
     return a
