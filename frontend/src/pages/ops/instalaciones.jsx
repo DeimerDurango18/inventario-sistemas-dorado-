@@ -83,7 +83,7 @@ export default function Instalaciones() {
                     </td>
                     <td className="text-end">
                       <div className="dropdown">
-                        <button className="btn btn-sm btn-light" data-bs-toggle="dropdown"><i className="bi bi-three-dots"></i></button>
+                        <button className="btn btn-sm btn-light" data-bs-toggle="dropdown" data-bs-boundary="viewport"><i className="bi bi-three-dots"></i></button>
                         <ul className="dropdown-menu dropdown-menu-end shadow">
                           <li><button className="dropdown-item" onClick={() => setModal({ item: it })}><i className="bi bi-pencil me-2 text-primary"></i>Editar</button></li>
                           {ESTADOS.filter((s) => s !== it.estado).map((s) => (

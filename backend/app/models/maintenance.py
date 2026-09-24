@@ -1,5 +1,6 @@
 """Modelos de mantenimiento: preventivo/correctivo, repuestos, costos y programaciones recurrentes."""
 
+import json
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,6 +17,8 @@ class Mantenimiento(Base):
     numero: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
     activo_id: Mapped[int] = mapped_column(ForeignKey("activos.id"), nullable=False, index=True)
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
+    cantidad: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
+    seriales_json: Mapped[str | None] = mapped_column(Text)
     fecha_programada: Mapped[datetime | None] = mapped_column(DateTime)
     fecha_ejecucion: Mapped[datetime | None] = mapped_column(DateTime)
     tecnico_id: Mapped[int | None] = mapped_column(ForeignKey("responsables.id"))
@@ -38,6 +41,19 @@ class Mantenimiento(Base):
     repuestos: Mapped[list["MantenimientoRepuesto"]] = relationship(
         back_populates="mantenimiento", lazy="selectin"
     )
+
+    @property
+    def seriales(self) -> list[str]:
+        try:
+            return json.loads(self.seriales_json) if self.seriales_json else []
+        except Exception:
+            return []
+
+    @seriales.setter
+    def seriales(self, value):
+        self.seriales_json = (
+            json.dumps(value or [], ensure_ascii=False) if value else None
+        )
 
 
 class MantenimientoRepuesto(Base):

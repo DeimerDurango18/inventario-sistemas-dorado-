@@ -74,17 +74,22 @@ def _datos_tabla(acta, op) -> list[list[str]]:
     from app.models.stock import MovimientoStock
 
     if isinstance(op, MovimientoStock):
+        seriales = getattr(op, "seriales", None) or []
         if op.referencia_tipo == "ITEM" and op.item is not None:
             marca = op.item.marca.nombre if getattr(op.item.marca, "nombre", None) else ""
             modelo = op.item.modelo.nombre if getattr(op.item.modelo, "nombre", None) else ""
             detalle = op.item.nombre or ""
             if modelo:
                 detalle += f" · {modelo}"
+            if seriales:
+                return [[op.item.tipo or "ITEM", marca, detalle, "1", s] for s in seriales]
             return [[op.item.tipo or "ITEM", marca, detalle, str(op.cantidad), "—"]]
         if op.referencia_tipo == "ACTIVO" and op.activo is not None:
             a = op.activo
             marca = a.marca.nombre if getattr(a.marca, "nombre", None) else ""
             detalle = a.serial or (a.codigo_inventario or a.placa or a.codigo)
+            if seriales:
+                return [[a.tipo or "", marca, detalle, "1", s] for s in seriales]
             return [[a.tipo or "", marca, detalle, str(op.cantidad), a.serial or "—"]]
     activo = None
     if op is not None and getattr(op, "activo", None):
@@ -94,12 +99,19 @@ def _datos_tabla(acta, op) -> list[list[str]]:
     if activo is None:
         return [["", "", "", "", ""]]
     marca = activo.marca.nombre if getattr(activo.marca, "nombre", None) else (activo.tipo or "")
+    seriales = getattr(op, "seriales", None) or []
+    if seriales:
+        return [
+            [activo.tipo or "", marca, activo.serial or (activo.codigo_inventario or activo.placa or ""), "1", s]
+            for s in seriales
+        ]
+    cantidad = getattr(op, "cantidad", None)
     return [
         [
             activo.tipo or "",
             marca,
             activo.serial or (activo.codigo_inventario or activo.placa or ""),
-            "1",
+            str(cantidad or 1),
             activo.serial or "",
         ]
     ]

@@ -197,7 +197,8 @@ def registrar_movimiento(db: Session, data: MovimientoStockCreate, actor_id: int
         nombre = activo.codigo
 
     stock_actual = item.cantidad_stock if ref_tipo == "ITEM" else activo.cantidad_stock
-    cantidad_mov = data.cantidad
+    seriales = [str(s).strip() for s in (data.seriales or []) if str(s).strip()]
+    cantidad_mov = len(seriales) if seriales else data.cantidad
     stock_anterior: int | None = None
     nuevo_stock: int | None = None
     genera_acta = True
@@ -261,6 +262,7 @@ def registrar_movimiento(db: Session, data: MovimientoStockCreate, actor_id: int
         item_id=data.item_id if ref_tipo == "ITEM" else None,
         activo_id=data.activo_id if ref_tipo == "ACTIVO" else None,
         cantidad=cantidad_mov,
+        seriales=seriales,
         fecha=data.fecha or datetime.now(timezone.utc),
         proveedor_id=data.proveedor_id,
         documento=data.documento,

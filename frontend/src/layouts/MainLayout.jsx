@@ -83,6 +83,16 @@ export default function MainLayout() {
   const [sideOpen, setSideOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
+  const [dark, setDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    try {
+      localStorage.setItem("eticos-theme", dark ? "dark" : "light");
+    } catch {
+      /* sin persistencia: el tema aplica solo a la sesión */
+    }
+  }, [dark]);
 
   if (!user) return null;
   const roles = (user.roles || []).map((r) => r.nombre).join(", ");
@@ -100,7 +110,7 @@ export default function MainLayout() {
 
   return (
     <div className="d-flex">
-      {sideOpen && <div className="eticos-modal-backdrop d-lg-none" style={{ zIndex: 1038 }} onClick={() => setSideOpen(false)} />}
+      {sideOpen && <div className="eticos-overlay d-lg-none" onClick={() => setSideOpen(false)} />}
       <nav className={`eticos-sidebar ${sideOpen ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-logo">
@@ -146,6 +156,14 @@ export default function MainLayout() {
             </div>
           </div>
           <div className="d-flex align-items-center gap-2">
+            <button
+              className="icon-btn"
+              onClick={() => setDark((d) => !d)}
+              title={dark ? "Modo claro" : "Modo oscuro"}
+              aria-label={dark ? "Activar modo claro" : "Activar modo oscuro"}
+            >
+              <i className={`bi bi-${dark ? "sun" : "moon-stars"}`}></i>
+            </button>
             <NotificationBell />
             <div className="position-relative">
               <button

@@ -66,7 +66,7 @@ export default function Prestamos() {
           <div className="eticos-table-wrap">
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light"><tr>
-                <th>Número</th><th>Activo</th><th>Responsable</th><th>Fecha</th><th>Devolución prevista</th><th>Estado</th><th></th>
+                <th>Número</th><th>Activo</th><th>Responsable</th><th>Fecha</th><th>Devolución prevista</th><th>Cant.</th><th>Seriales</th><th>Estado</th><th></th>
               </tr></thead>
               <tbody>
                 {items.map((p) => (
@@ -76,6 +76,8 @@ export default function Prestamos() {
                     <td className="small">{p.responsable?.nombre || "—"}</td>
                     <td className="text-secondary small">{fmtDate(p.fecha_prestamo)}</td>
                     <td className="text-secondary small">{fmtDate(p.fecha_prevista_devolucion)}</td>
+                    <td className="small">{p.cantidad || 1}</td>
+                    <td className="small">{(p.seriales || []).length ? p.seriales.join(", ") : "—"}</td>
                     <td><Badge estado={estadoInfo(p.estado)} /></td>
                     <td className="text-end">
                       <div className="d-flex gap-1 justify-content-end">

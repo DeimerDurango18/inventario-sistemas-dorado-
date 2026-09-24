@@ -1,5 +1,6 @@
 """Modelos de garantías, bajas e historial documental (actas, firmas y archivos)."""
 
+import json
 from datetime import datetime
 from decimal import Decimal
 
@@ -33,6 +34,8 @@ class Baja(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     numero: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
     activo_id: Mapped[int] = mapped_column(ForeignKey("activos.id"), nullable=False)
+    cantidad: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
+    seriales_json: Mapped[str | None] = mapped_column(Text)
     motivo_tipo: Mapped[str] = mapped_column(String(40), nullable=False)
     motivo_descripcion: Mapped[str | None] = mapped_column(Text)
     estado_fisico: Mapped[str | None] = mapped_column(String(300))
@@ -46,6 +49,19 @@ class Baja(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     activo: Mapped["Activo"] = relationship(lazy="joined")
+
+    @property
+    def seriales(self) -> list[str]:
+        try:
+            return json.loads(self.seriales_json) if self.seriales_json else []
+        except Exception:
+            return []
+
+    @seriales.setter
+    def seriales(self, value):
+        self.seriales_json = (
+            json.dumps(value or [], ensure_ascii=False) if value else None
+        )
 
 
 class Acta(Base):

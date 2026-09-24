@@ -78,7 +78,7 @@ export default function Bajas() {
           <div className="eticos-table-wrap">
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light"><tr>
-                <th>Número</th><th>Activo</th><th>Motivo</th><th>Descripción</th><th>Solicitud</th><th>Estado</th><th></th>
+                <th>Número</th><th>Activo</th><th>Motivo</th><th>Cant.</th><th>Seriales</th><th>Descripción</th><th>Solicitud</th><th>Estado</th><th></th>
               </tr></thead>
               <tbody>
                 {items.map((b) => (
@@ -86,6 +86,8 @@ export default function Bajas() {
                     <td><span className="fw-semibold">{b.numero}</span></td>
                     <td>{b.activo ? <Link to={`/activos/${b.activo.id}`} className="fw-semibold">{b.activo.codigo}</Link> : `#${b.activo_id}`}</td>
                     <td><Badge estado={estadoInfo(b.motivo_tipo)} /></td>
+                    <td className="small">{b.cantidad || 1}</td>
+                    <td className="small">{(b.seriales || []).length ? b.seriales.join(", ") : "—"}</td>
                     <td className="small text-secondary">{b.motivo_descripcion || "—"}</td>
                     <td className="text-secondary small">{fmtDate(b.fecha_solicitud)}</td>
                     <td><Badge estado={estadoInfo(b.estado)} /></td>

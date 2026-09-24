@@ -51,7 +51,7 @@ export default function ResponsablesModal({ show, onClose }) {
   };
 
   return (
-    <div className="modal show d-block" style={{ background: "rgba(0,0,0,.45)" }} onClick={onClose}>
+    <div className="modal show d-block" style={{ background: "rgba(0,0,0,.45)", zIndex: 1070 }} onClick={onClose}>
       <div className="modal-dialog modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-content">
           <div className="modal-header">

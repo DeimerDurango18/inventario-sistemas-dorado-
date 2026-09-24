@@ -7,6 +7,7 @@ import { ConfirmModal, EmptyState, Modal, PageHeader } from "../../components/ui
 import { fmtDate, fmtDateTime, fmtMoney, estadoColor } from "../../utils/format";
 import useAsync from "../../hooks/useAsync";
 import ResponsablesModal from "./ResponsablesModal";
+import SerialListInput from "../../components/SerialListInput";
 
 function Badge({ estado }) {
   const [c, bg] = estadoColor(estado);
@@ -347,7 +348,7 @@ function PrestamosTable({ rows, canAprobar, onAprobar, onRechazar, onDevolver })
   return (
     <div className="eticos-table-wrap">
       <table className="table table-hover align-middle mb-0">
-        <thead className="table-light"><tr><th>Número</th><th>Préstamo</th><th>Devolución prevista</th><th>Beneficiario</th><th>Estado</th><th></th></tr></thead>
+        <thead className="table-light"><tr><th>Número</th><th>Préstamo</th><th>Devolución prevista</th><th>Beneficiario</th><th>Cant.</th><th>Seriales</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {rows.map((p) => (
             <tr key={p.id}>
@@ -355,6 +356,8 @@ function PrestamosTable({ rows, canAprobar, onAprobar, onRechazar, onDevolver })
               <td className="small">{fmtDate(p.fecha_prestamo)}</td>
               <td className="small">{fmtDate(p.fecha_prevista_devolucion)}</td>
               <td className="small">{p.responsable?.nombre || p.solicitante?.nombre || "—"}</td>
+              <td className="small">{p.cantidad || 1}</td>
+              <td className="small">{(p.seriales || []).length ? p.seriales.join(", ") : "—"}</td>
               <td><Badge estado={p.estado} /></td>
               <td className="text-end">
                 {p.estado === "SOLICITADO" && canAprobar && (
@@ -382,7 +385,7 @@ function MantsTable({ rows, onCerrar }) {
   return (
     <div className="eticos-table-wrap">
       <table className="table table-hover align-middle mb-0">
-        <thead className="table-light"><tr><th>Número</th><th>Prog.</th><th>Ejec.</th><th>Tipo</th><th>Estado</th><th>Costo</th><th></th></tr></thead>
+        <thead className="table-light"><tr><th>Número</th><th>Prog.</th><th>Ejec.</th><th>Tipo</th><th>Cant.</th><th>Seriales</th><th>Estado</th><th>Costo</th><th></th></tr></thead>
         <tbody>
           {rows.map((m) => (
             <tr key={m.id}>
@@ -390,6 +393,8 @@ function MantsTable({ rows, onCerrar }) {
               <td className="small">{fmtDate(m.fecha_programada)}</td>
               <td className="small">{fmtDate(m.fecha_ejecucion) || "—"}</td>
               <td><span className="badge eta-badge" style={{ background: "#e9f2fc", color: "#0b66c2" }}>{m.tipo}</span></td>
+              <td className="small">{m.cantidad || 1}</td>
+              <td className="small">{(m.seriales || []).length ? m.seriales.join(", ") : "—"}</td>
               <td><Badge estado={m.estado} /></td>
               <td className="small">{fmtMoney(m.costo)}</td>
               <td className="text-end">
@@ -431,13 +436,15 @@ function BajasTable({ rows, canAprobar, onAprobar, onRechazar }) {
   return (
     <div className="eticos-table-wrap">
       <table className="table table-hover align-middle mb-0">
-        <thead className="table-light"><tr><th>Número</th><th>Solicitud</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+        <thead className="table-light"><tr><th>Número</th><th>Solicitud</th><th>Motivo</th><th>Cant.</th><th>Seriales</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {rows.map((b) => (
             <tr key={b.id}>
               <td><span className="fw-semibold">{b.numero}</span></td>
               <td className="small">{fmtDate(b.fecha_solicitud)}</td>
               <td className="small text-secondary">{b.motivo_tipo}{b.motivo_descripcion ? " · " + b.motivo_descripcion : ""}</td>
+              <td className="small">{b.cantidad || 1}</td>
+              <td className="small">{(b.seriales || []).length ? b.seriales.join(", ") : "—"}</td>
               <td><Badge estado={b.estado} /></td>
               <td className="text-end">
                 {b.estado === "SOLICITADA" && canAprobar && (
@@ -542,15 +549,18 @@ function MovimientoForm({ activo, onDone, onClose, pushToast }) {
 }
 
 function PrestamoForm({ activo, onDone, onClose, pushToast }) {
-  const [form, setForm] = useState({ responsable_id: "", fecha_prestamo: new Date().toISOString().slice(0, 10), fecha_prevista_devolucion: "", motivo: "", observaciones: "" });
+  const [form, setForm] = useState({ responsable_id: "", cantidad: 1, seriales: activo?.serial ? [activo.serial] : [], fecha_prestamo: new Date().toISOString().slice(0, 10), fecha_prevista_devolucion: "", motivo: "", observaciones: "" });
   const [busy, setBusy] = useState(false);
   const sel = useSelectores();
+  const cantidad = form.seriales.length > 0 ? form.seriales.length : Number(form.cantidad);
 
   const guardar = async () => {
     setBusy(true);
     try {
       await api.post(`/activos/${activo.id}/prestamos`, {
         responsable_id: form.responsable_id ? Number(form.responsable_id) : null,
+        cantidad,
+        seriales: form.seriales.length > 0 ? form.seriales : null,
         fecha_prestamo: form.fecha_prestamo ? new Date(form.fecha_prestamo).toISOString() : null,
         fecha_prevista_devolucion: form.fecha_prevista_devolucion ? new Date(form.fecha_prevista_devolucion).toISOString() : null,
         motivo: form.motivo || null,
@@ -581,6 +591,22 @@ function PrestamoForm({ activo, onDone, onClose, pushToast }) {
             {sel.responsables.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
           </select>
         </div>
+        <div className="col-12">
+          <label className="form-label small fw-semibold">Seriales del préstamo{activo.serial ? ` (activo: ${activo.serial})` : ""}</label>
+          <SerialListInput value={form.seriales} onChange={(seriales) => setForm({ ...form, seriales })} />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small fw-semibold">Cantidad</label>
+          {form.seriales.length > 0 ? (
+            <div className="form-control">
+              <span className="fw-semibold">{cantidad}</span>
+              <span className="text-secondary small ms-1">(calculada de los seriales)</span>
+            </div>
+          ) : (
+            <input type="number" min="1" className="form-control" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: Number(e.target.value) })} />
+          )}
+          <small className="text-secondary d-block mt-1">Disponible en stock: {activo.cantidad_stock ?? 0}</small>
+        </div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Fecha de préstamo</label><input type="date" className="form-control" value={form.fecha_prestamo} onChange={(e) => setForm({ ...form, fecha_prestamo: e.target.value })} /></div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Devolución prevista</label><input type="date" className="form-control" value={form.fecha_prevista_devolucion} onChange={(e) => setForm({ ...form, fecha_prevista_devolucion: e.target.value })} /></div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Motivo</label><input className="form-control" value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} /></div>
@@ -591,14 +617,17 @@ function PrestamoForm({ activo, onDone, onClose, pushToast }) {
 }
 
 function MantenimientoForm({ activo, onDone, onClose, pushToast }) {
-  const [form, setForm] = useState({ tipo: "PREVENTIVO", fecha_programada: new Date().toISOString().slice(0, 10), diagnostico: "", actividades: "", proposito: "" });
+  const [form, setForm] = useState({ tipo: "PREVENTIVO", cantidad: 1, seriales: activo?.serial ? [activo.serial] : [], fecha_programada: new Date().toISOString().slice(0, 10), diagnostico: "", actividades: "", proposito: "" });
   const [busy, setBusy] = useState(false);
+  const cantidad = form.seriales.length > 0 ? form.seriales.length : Number(form.cantidad);
 
   const guardar = async () => {
     setBusy(true);
     try {
       await api.post(`/activos/${activo.id}/mantenimientos`, {
         tipo: form.tipo,
+        cantidad,
+        seriales: form.seriales.length > 0 ? form.seriales : null,
         fecha_programada: form.fecha_programada ? new Date(form.fecha_programada).toISOString() : null,
         diagnostico: form.diagnostico || null,
         actividades: form.actividades || null,
@@ -631,6 +660,21 @@ function MantenimientoForm({ activo, onDone, onClose, pushToast }) {
           </select>
         </div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Fecha programada</label><input type="date" className="form-control" value={form.fecha_programada} onChange={(e) => setForm({ ...form, fecha_programada: e.target.value })} /></div>
+        <div className="col-12">
+          <label className="form-label small fw-semibold">Seriales del equipo{activo.serial ? ` (activo: ${activo.serial})` : ""}</label>
+          <SerialListInput value={form.seriales} onChange={(seriales) => setForm({ ...form, seriales })} />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small fw-semibold">Cantidad</label>
+          {form.seriales.length > 0 ? (
+            <div className="form-control">
+              <span className="fw-semibold">{cantidad}</span>
+              <span className="text-secondary small ms-1">(calculada de los seriales)</span>
+            </div>
+          ) : (
+            <input type="number" min="1" className="form-control" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: Number(e.target.value) })} />
+          )}
+        </div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Propósito</label><input className="form-control" value={form.proposito} onChange={(e) => setForm({ ...form, proposito: e.target.value })} /></div>
         <div className="col-md-6"><label className="form-label small fw-semibold">Diagnóstico</label><input className="form-control" value={form.diagnostico} onChange={(e) => setForm({ ...form, diagnostico: e.target.value })} /></div>
         <div className="col-12"><label className="form-label small fw-semibold">Actividades a realizar</label><textarea className="form-control" rows={2} value={form.actividades} onChange={(e) => setForm({ ...form, actividades: e.target.value })} /></div>
@@ -732,14 +776,17 @@ function GarantiaForm({ activo, onDone, onClose, pushToast }) {
 }
 
 function BajaForm({ activo, onDone, onClose, pushToast }) {
-  const [form, setForm] = useState({ motivo_tipo: "OBSOLETA", motivo_descripcion: "", estado_fisico: "" });
+  const [form, setForm] = useState({ motivo_tipo: "OBSOLETA", cantidad: 1, seriales: activo?.serial ? [activo.serial] : [], motivo_descripcion: "", estado_fisico: "" });
   const [busy, setBusy] = useState(false);
+  const cantidad = form.seriales.length > 0 ? form.seriales.length : Number(form.cantidad);
 
   const guardar = async () => {
     setBusy(true);
     try {
       await api.post(`/activos/${activo.id}/bajas`, {
         motivo_tipo: form.motivo_tipo,
+        cantidad,
+        seriales: form.seriales.length > 0 ? form.seriales : null,
         motivo_descripcion: form.motivo_descripcion || null,
         estado_fisico: form.estado_fisico || null,
       });
@@ -772,6 +819,21 @@ function BajaForm({ activo, onDone, onClose, pushToast }) {
           </select>
         </div>
         <div className="col-12"><label className="form-label small fw-semibold">Descripción</label><textarea className="form-control" rows={2} value={form.motivo_descripcion} onChange={(e) => setForm({ ...form, motivo_descripcion: e.target.value })} /></div>
+        <div className="col-12">
+          <label className="form-label small fw-semibold">Seriales del equipo{activo.serial ? ` (activo: ${activo.serial})` : ""}</label>
+          <SerialListInput value={form.seriales} onChange={(seriales) => setForm({ ...form, seriales })} />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small fw-semibold">Cantidad</label>
+          {form.seriales.length > 0 ? (
+            <div className="form-control">
+              <span className="fw-semibold">{cantidad}</span>
+              <span className="text-secondary small ms-1">(calculada de los seriales)</span>
+            </div>
+          ) : (
+            <input type="number" min="1" className="form-control" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: Number(e.target.value) })} />
+          )}
+        </div>
         <div className="col-12"><label className="form-label small fw-semibold">Estado físico</label><input className="form-control" value={form.estado_fisico} onChange={(e) => setForm({ ...form, estado_fisico: e.target.value })} /></div>
       </div>
     </Modal>

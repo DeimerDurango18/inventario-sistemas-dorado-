@@ -1,9 +1,10 @@
 """Modelos del módulo de stock: ítems agregados y movimientos de entrada/salida/ajuste."""
 
+import json
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -71,6 +72,7 @@ class MovimientoStock(Base):
     item_id: Mapped[int | None] = mapped_column(ForeignKey("stock_items.id"))
     activo_id: Mapped[int | None] = mapped_column(ForeignKey("activos.id"))
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False)
+    seriales_json: Mapped[str | None] = mapped_column(Text)
     fecha: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"))
     documento: Mapped[str | None] = mapped_column(String(100))  # factura / remisión / cliente
@@ -94,3 +96,16 @@ class MovimientoStock(Base):
     proveedor: Mapped["Proveedor | None"] = relationship(lazy="joined")
     ubicacion: Mapped["Ubicacion | None"] = relationship(lazy="joined")
     usuario: Mapped["Usuario"] = relationship(foreign_keys=[usuario_id], lazy="joined")
+
+    @property
+    def seriales(self) -> list[str]:
+        try:
+            return json.loads(self.seriales_json) if self.seriales_json else []
+        except Exception:
+            return []
+
+    @seriales.setter
+    def seriales(self, value):
+        self.seriales_json = (
+            json.dumps(value or [], ensure_ascii=False) if value else None
+        )

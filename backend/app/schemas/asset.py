@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.catalog import (
     CategoriaRead,
@@ -207,6 +207,8 @@ class MovimientoAnular(BaseModel):
 class PrestamoCreate(BaseModel):
     solicitante_id: Optional[int] = None
     responsable_id: Optional[int] = None
+    cantidad: int = Field(1, ge=1)
+    seriales: Optional[List[str]] = None
     fecha_prestamo: Optional[datetime] = None
     fecha_prevista_devolucion: Optional[datetime] = None
     motivo: Optional[str] = None
@@ -219,6 +221,8 @@ class PrestamoRead(ORMModel):
     activo_id: int
     solicitante_id: Optional[int] = None
     responsable_id: Optional[int] = None
+    cantidad: int = 1
+    seriales: Optional[List[str]] = None
     fecha_prestamo: Optional[datetime] = None
     fecha_prevista_devolucion: Optional[datetime] = None
     fecha_devolucion_real: Optional[datetime] = None
@@ -236,6 +240,8 @@ class PrestamoRead(ORMModel):
 # ------------------------------------------------------------------ mantenimientos
 class MantenimientoCreate(BaseModel):
     tipo: str  # PREVENTIVO | CORRECTIVO | PREDICTIVO
+    cantidad: int = Field(1, ge=1)
+    seriales: Optional[List[str]] = None
     fecha_programada: Optional[datetime] = None
     tecnico_id: Optional[int] = None
     diagnostico: Optional[str] = None
@@ -258,6 +264,8 @@ class MantenimientoRead(ORMModel):
     numero: str
     activo_id: int
     tipo: str
+    cantidad: int = 1
+    seriales: Optional[List[str]] = None
     fecha_programada: Optional[datetime] = None
     fecha_ejecucion: Optional[datetime] = None
     tecnico_id: Optional[int] = None
@@ -308,6 +316,8 @@ class GarantiaRead(ORMModel):
 # ------------------------------------------------------------------ bajas
 class BajaCreate(BaseModel):
     motivo_tipo: str  # DONACION | OBSOLETA | DANADA | VENTA | PERDIDA
+    cantidad: int = Field(1, ge=1)
+    seriales: Optional[List[str]] = None
     motivo_descripcion: Optional[str] = None
     estado_fisico: Optional[str] = None
 
@@ -316,6 +326,8 @@ class BajaRead(ORMModel):
     id: int
     numero: str
     activo_id: int
+    cantidad: int = 1
+    seriales: Optional[List[str]] = None
     motivo_tipo: str
     motivo_descripcion: Optional[str] = None
     estado_fisico: Optional[str] = None

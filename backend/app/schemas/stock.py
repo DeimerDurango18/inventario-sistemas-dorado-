@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -72,6 +72,7 @@ class MovimientoStockCreate(BaseModel):
     item_id: Optional[int] = None
     activo_id: Optional[int] = None
     cantidad: int = Field(1, ge=1)
+    seriales: Optional[List[str]] = None
     ubicacion_id: Optional[int] = None  # bodega/sede de la operación
     nuevo_stock: Optional[int] = Field(None, ge=0)  # requerido en AJUSTE
     proveedor_id: Optional[int] = None
@@ -95,6 +96,7 @@ class MovimientoStockRead(ORMModel):
     item_id: Optional[int] = None
     activo_id: Optional[int] = None
     cantidad: int
+    seriales: Optional[List[str]] = None
     fecha: datetime
     proveedor_id: Optional[int] = None
     documento: Optional[str] = None

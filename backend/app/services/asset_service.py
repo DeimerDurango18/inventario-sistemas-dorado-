@@ -62,6 +62,19 @@ def _get_or_404(db: Session, model, pk: int, nombre: str):
     return m
 
 
+def _cantidad_seriales(data, activo):
+    """Resuelve cantidad y lista de seriales de una operación sobre un activo.
+
+    Si vienen seriales del cliente se usan tal cual (cantidad = len(seriales));
+    si no, por defecto se toma el serial del propio activo (cantidad 1).
+    """
+    seriales = [str(s).strip() for s in (getattr(data, "seriales", None) or []) if str(s).strip()]
+    if not seriales and getattr(activo, "serial", None):
+        seriales = [activo.serial]
+    cantidad = len(seriales) if seriales else (getattr(data, "cantidad", 1) or 1)
+    return cantidad, seriales
+
+
 # ------------------------------------------------------------------ responsables
 def list_responsables(db: Session, q: str = "", activo: bool | None = None):
     stmt = select(Responsable).order_by(Responsable.nombre)
@@ -548,11 +561,14 @@ def crear_prestamo(db: Session, activo_id: int, data: PrestamoCreate, actor_id: 
     if activo.estado and activo.estado.codigo not in ("DISPONIBLE", "BODEGA"):
         raise ConflictError("El activo no está disponible para préstamo.")
     numero = get_next_number(db, "PRE", Prestamo)
+    cantidad, seriales = _cantidad_seriales(data, activo)
     p = Prestamo(
         numero=numero,
         activo_id=activo.id,
         solicitante_id=data.solicitante_id,
         responsable_id=data.responsable_id,
+        cantidad=cantidad,
+        seriales=seriales,
         fecha_prestamo=data.fecha_prestamo or datetime.now(timezone.utc),
         fecha_prevista_devolucion=data.fecha_prevista_devolucion,
         motivo=data.motivo,
@@ -679,10 +695,13 @@ def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int |
 def crear_mantenimiento(db: Session, activo_id: int, data: MantenimientoCreate, actor_id: int) -> Mantenimiento:
     activo = _get_or_404(db, Activo, activo_id, "Activo")
     numero = get_next_number(db, "MANT", Mantenimiento)
+    cantidad, seriales = _cantidad_seriales(data, activo)
     m = Mantenimiento(
         numero=numero,
         activo_id=activo.id,
         tipo=data.tipo,
+        cantidad=cantidad,
+        seriales=seriales,
         fecha_programada=data.fecha_programada or datetime.now(timezone.utc),
         tecnico_id=data.tecnico_id,
         diagnostico=data.diagnostico,
@@ -785,9 +804,12 @@ def list_bajas(db: Session, estado: str | None = None, activo_id: int | None = N
 def registrar_baja(db: Session, activo_id: int, data: BajaCreate, actor_id: int) -> Baja:
     activo = _get_or_404(db, Activo, activo_id, "Activo")
     numero = get_next_number(db, "BAJA", Baja)
+    cantidad, seriales = _cantidad_seriales(data, activo)
     b = Baja(
         numero=numero,
         activo_id=activo.id,
+        cantidad=cantidad,
+        seriales=seriales,
         motivo_tipo=data.motivo_tipo,
         motivo_descripcion=data.motivo_descripcion,
         estado_fisico=data.estado_fisico,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { downloadFile } from "../../api/client";
+import SerialListInput from "../../components/SerialListInput";
 import { Badge, Card, ConfirmModal, EmptyState, LoadingBlock, Modal, PageHeader, StatCard } from "../../components/ui";
 import useAsync from "../../hooks/useAsync";
 import { estadoInfo, fmtDateTime, fmtMoney } from "../../utils/format";
@@ -442,7 +443,7 @@ export default function Stock() {
                 <thead className="table-light"><tr>
                   <th>Número</th><th>Fecha</th><th>Tipo</th><th>Referencia</th>
                   <th className="text-center">Cantidad</th><th>Ubicación</th>
-                  <th>Documento</th><th>Estado</th><th></th>
+                  <th>Documento</th><th>Seriales</th><th>Estado</th><th></th>
                 </tr></thead>
                 <tbody>
                   {movs.map((m) => (
@@ -467,6 +468,15 @@ export default function Stock() {
                       </td>
                       <td className="small">{m.ubicacion?.nombre || "—"}</td>
                       <td className="small">{m.documento || "—"}</td>
+                      <td className="small">
+                        {(m.seriales || []).length > 0 ? (
+                          <div className="d-flex flex-wrap gap-1" style={{ maxWidth: 220 }}>
+                            {(m.seriales || []).map((s, i) => (
+                              <span key={`${s}-${i}`} className="badge eta-badge" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240", fontSize: "10px" }}>{s}</span>
+                            ))}
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td><Badge estado={estadoInfo(m.estado)} /></td>
                       <td className="text-end text-nowrap">
                         {m.acta_id && (
@@ -537,6 +547,7 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
         item_id: modal.itemId ?? "",
         activo_id: modal.itemId ?? "",
         cantidad: 1,
+        seriales: [],
         nuevo_stock: "",
         ubicacion_id: "",
         proveedor_id: "",
@@ -582,14 +593,21 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
       });
       return;
     }
-    if (!f.cantidad || f.cantidad < 1) return pushToast("warning", "Indica una cantidad válida");
-    if (!esEntrada && stockActual !== null && f.cantidad > stockActual) return pushToast("warning", `Solo hay ${stockActual} unidad(es) disponibles`);
-    if (!esEntrada && stockUbicacion !== null && f.cantidad > stockUbicacion) return pushToast("warning", `En esa ubicación solo hay ${stockUbicacion} unidad(es)`);
-    onConfirm(
-      esEntrada
-        ? { ...f, referencia_tipo: f.referencia_tipo, item_id: f.referencia_tipo === "ITEM" ? Number(f.item_id) : undefined, activo_id: f.referencia_tipo === "ACTIVO" ? Number(f.activo_id) : undefined, proveedor_id: f.proveedor_id ? Number(f.proveedor_id) : undefined, valor: f.valor === "" ? undefined : Number(f.valor), ubicacion_id: f.ubicacion_id ? Number(f.ubicacion_id) : undefined }
-        : { ...f, item_id: f.referencia_tipo === "ITEM" ? Number(f.item_id) : undefined, activo_id: f.referencia_tipo === "ACTIVO" ? Number(f.activo_id) : undefined, valor: f.valor === "" ? undefined : Number(f.valor), ubicacion_id: f.ubicacion_id ? Number(f.ubicacion_id) : undefined }
-    );
+    const cantidad = f.seriales.length > 0 ? f.seriales.length : Number(f.cantidad);
+    if (f.seriales.length === 0 && (!f.cantidad || f.cantidad < 1)) return pushToast("warning", "Indica una cantidad válida");
+    if (!esEntrada && stockActual !== null && cantidad > stockActual) return pushToast("warning", `Solo hay ${stockActual} unidad(es) disponibles`);
+    if (!esEntrada && stockUbicacion !== null && cantidad > stockUbicacion) return pushToast("warning", `En esa ubicación solo hay ${stockUbicacion} unidad(es)`);
+    const base = {
+      ...f,
+      cantidad,
+      seriales: f.seriales.length > 0 ? f.seriales : undefined,
+      item_id: f.referencia_tipo === "ITEM" ? Number(f.item_id) : undefined,
+      activo_id: f.referencia_tipo === "ACTIVO" ? Number(f.activo_id) : undefined,
+      valor: f.valor === "" ? undefined : Number(f.valor),
+      ubicacion_id: f.ubicacion_id ? Number(f.ubicacion_id) : undefined,
+    };
+    if (esEntrada) base.proveedor_id = f.proveedor_id ? Number(f.proveedor_id) : undefined;
+    onConfirm(base);
   };
 
   const titulo = esAjuste ? "Registrar ajuste (conteo físico)" : esEntrada ? "Nueva entrada a bodega" : "Nueva salida de bodega";
@@ -626,15 +644,32 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
             {filtrados.length > 5 && <small className="text-secondary">Mostrando {Math.min(filtrados.length, 5)} de {filtrados.length}…</small>}
           </div>
           {!esAjuste && (
-            <div className="col-md-4">
-              <label className="form-label small fw-semibold">Cantidad *</label>
-              <input type="number" min="1" className="form-control" value={f.cantidad} onChange={(e) => setF((s) => ({ ...s, cantidad: Number(e.target.value) }))} />
-              {stockUbicacion !== null && f.ubicacion_id ? (
-                <small className="text-secondary">Disponible en esa ubicación: {stockUbicacion}</small>
-              ) : stockActual !== null ? (
-                <small className="text-secondary">Disponible: {stockActual}</small>
-              ) : null}
-            </div>
+            <>
+              <div className="col-12">
+                <label className="form-label small fw-semibold">Seriales</label>
+                <SerialListInput
+                  value={f.seriales}
+                  onChange={(seriales) => setF((s) => ({ ...s, seriales }))}
+                  placeholder="Ej: SN-0001 (Enter para agregar; también puedes pegar una lista)"
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label small fw-semibold">Cantidad</label>
+                {f.seriales.length > 0 ? (
+                  <input className="form-control" tabIndex={-1} readOnly value={`${f.seriales.length} (calculada de los seriales)`} />
+                ) : (
+                  <>
+                    <input type="number" min="1" className="form-control" value={f.cantidad} onChange={(e) => setF((s) => ({ ...s, cantidad: Number(e.target.value) }))} />
+                    <small className="text-secondary">Sin seriales capturados la cantidad se ingresa manual.</small>
+                  </>
+                )}
+                {stockUbicacion !== null && f.ubicacion_id ? (
+                  <small className="text-secondary d-block mt-1">Disponible en esa ubicación: {stockUbicacion}</small>
+                ) : stockActual !== null ? (
+                  <small className="text-secondary d-block mt-1">Disponible: {stockActual}</small>
+                ) : null}
+              </div>
+            </>
           )}
           {esAjuste && (
             <div className="col-md-6">
@@ -841,7 +876,7 @@ function HistorialModal({ open, item, canAnular, onAnular, onClose }) {
         <div className="eticos-table-wrap">
           <table className="table table-hover align-middle mb-0">
             <thead className="table-light"><tr>
-              <th>Número</th><th>Fecha</th><th>Tipo</th><th className="text-center">Cantidad</th><th>Ubicación</th><th>Motivo / Obs.</th><th>Estado</th><th></th>
+              <th>Número</th><th>Fecha</th><th>Tipo</th><th className="text-center">Cantidad</th><th>Ubicación</th><th>Seriales</th><th>Motivo / Obs.</th><th>Estado</th><th></th>
             </tr></thead>
             <tbody>
               {state.items.map((m) => (
@@ -857,6 +892,15 @@ function HistorialModal({ open, item, canAnular, onAnular, onClose }) {
                     )}
                   </td>
                   <td className="small">{m.ubicacion?.nombre || "—"}</td>
+                  <td className="small">
+                    {(m.seriales || []).length > 0 ? (
+                      <div className="d-flex flex-wrap gap-1" style={{ maxWidth: 200 }}>
+                        {(m.seriales || []).map((s, i) => (
+                          <span key={`${s}-${i}`} className="badge eta-badge" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240", fontSize: "10px" }}>{s}</span>
+                        ))}
+                      </div>
+                    ) : "—"}
+                  </td>
                   <td className="small">{m.motivo || m.observaciones || "—"}</td>
                   <td><Badge estado={estadoInfo(m.estado)} /></td>
                   <td className="text-end text-nowrap">

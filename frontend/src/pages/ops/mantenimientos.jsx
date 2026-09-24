@@ -81,7 +81,7 @@ export default function Mantenimientos() {
           <div className="eticos-table-wrap">
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light"><tr>
-                <th>Número</th><th>Activo</th><th>Tipo</th><th>Programado</th><th>Ejecutado</th><th>Costo</th><th>Estado</th><th></th>
+                <th>Número</th><th>Activo</th><th>Tipo</th><th>Cant.</th><th>Seriales</th><th>Programado</th><th>Ejecutado</th><th>Costo</th><th>Estado</th><th></th>
               </tr></thead>
               <tbody>
                 {items.map((m) => (
@@ -89,6 +89,8 @@ export default function Mantenimientos() {
                     <td><span className="fw-semibold">{m.numero}</span></td>
                     <td>{m.activo ? <Link to={`/activos/${m.activo.id}`} className="fw-semibold">{m.activo.codigo}</Link> : `#${m.activo_id}`}</td>
                     <td className="small">{m.tipo}</td>
+                    <td className="small">{m.cantidad || 1}</td>
+                    <td className="small">{(m.seriales || []).length ? m.seriales.join(", ") : "—"}</td>
                     <td className="text-secondary small">{fmtDate(m.fecha_programada)}</td>
                     <td className="text-secondary small">{fmtDate(m.fecha_ejecucion)}</td>
                     <td>{m.costo ? fmtMoney(m.costo) : "—"}</td>

@@ -1,8 +1,9 @@
 """Modelos de préstamos y sus accesorios entregados/devueltos."""
 
+import json
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -16,6 +17,8 @@ class Prestamo(Base):
     activo_id: Mapped[int] = mapped_column(ForeignKey("activos.id"), nullable=False)
     solicitante_id: Mapped[int | None] = mapped_column(ForeignKey("responsables.id"))
     responsable_id: Mapped[int | None] = mapped_column(ForeignKey("responsables.id"))
+    cantidad: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
+    seriales_json: Mapped[str | None] = mapped_column(Text)
     fecha_prestamo: Mapped[datetime | None] = mapped_column(DateTime)
     fecha_prevista_devolucion: Mapped[datetime | None] = mapped_column(DateTime)
     fecha_devolucion_real: Mapped[datetime | None] = mapped_column(DateTime)
@@ -34,6 +37,19 @@ class Prestamo(Base):
         foreign_keys=[responsable_id], lazy="joined"
     )
     accesorios: Mapped[list["PrestamoAccesorio"]] = relationship(back_populates="prestamo", lazy="selectin")
+
+    @property
+    def seriales(self) -> list[str]:
+        try:
+            return json.loads(self.seriales_json) if self.seriales_json else []
+        except Exception:
+            return []
+
+    @seriales.setter
+    def seriales(self, value):
+        self.seriales_json = (
+            json.dumps(value or [], ensure_ascii=False) if value else None
+        )
 
 
 class PrestamoAccesorio(Base):
