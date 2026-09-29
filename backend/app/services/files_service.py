@@ -14,6 +14,7 @@ from app.core.config import BASE_DIR, settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.asset import Activo
 from app.models.documental import Archivo
+from app.models.maintenance import Mantenimiento
 
 _STORAGE = Path(settings.storage_path)
 if not _STORAGE.is_absolute():
@@ -47,6 +48,8 @@ def guardar_archivo(
     """Guarda un UploadFile con límite de tamaño y extensión permitida."""
     if entidad_tipo.upper() == "ACTIVO" and not db.get(Activo, entidad_id):
         raise NotFoundError("Activo")
+    if entidad_tipo.upper() == "MANTENIMIENTO" and not db.get(Mantenimiento, entidad_id):
+        raise NotFoundError("Mantenimiento")
 
     ext = _validate_upload(archivo)
     tipo_documento = tipo_documento or "GENERAL"

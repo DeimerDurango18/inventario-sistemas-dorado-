@@ -96,10 +96,19 @@ def _datos_tabla(acta, op) -> list[list[str]]:
         activo = op.activo
     elif getattr(acta, "activo", None):
         activo = acta.activo
+    seriales = getattr(op, "seriales", None) or []
     if activo is None:
+        # Mantenimiento programado a una ubicación/farmacia: lista los seriales
+        # de los equipos atendidos, aunque no estén ligados a un activo puntual.
+        if seriales:
+            ref = "MANTENIMIENTO"
+            if getattr(op, "ubicacion", None):
+                ref = f"{op.ubicacion.nombre or 'Ubicación'}"[:40]
+            return [[ref, "", "Equipo atendido", "1", s] for s in seriales]
+        if getattr(op, "ubicacion", None):
+            return [[op.ubicacion.nombre or "Ubicación", "", "", str(getattr(op, "cantidad", 1) or 1), "—"]]
         return [["", "", "", "", ""]]
     marca = activo.marca.nombre if getattr(activo.marca, "nombre", None) else (activo.tipo or "")
-    seriales = getattr(op, "seriales", None) or []
     if seriales:
         return [
             [activo.tipo or "", marca, activo.serial or (activo.codigo_inventario or activo.placa or ""), "1", s]
@@ -134,6 +143,8 @@ def _encabezado_params(db, op) -> dict:
         if getattr(op, "destino", None):
             info["destino_nombre"] = op.destino
             info["destino_persona"] = op.destino
+        if getattr(op, "ubicacion", None) and op.ubicacion:
+            info["destino_nombre"] = op.ubicacion.nombre
         if getattr(op, "documento", None):
             info["documento"] = op.documento
         if getattr(op, "motivo_descripcion", None):

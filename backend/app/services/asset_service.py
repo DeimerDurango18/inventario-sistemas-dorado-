@@ -679,9 +679,10 @@ def devolver_prestamo(db: Session, prestamo_id: int, actor_id: int) -> Prestamo:
 
 
 # ------------------------------------------------------------------ mantenimientos
-def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int | None = None):
+def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int | None = None, ubicacion_id: int | None = None):
     stmt = select(Mantenimiento).options(
         selectinload(Mantenimiento.activo),
+        selectinload(Mantenimiento.ubicacion),
         selectinload(Mantenimiento.tecnico),
         selectinload(Mantenimiento.proveedor),
     )
@@ -689,16 +690,26 @@ def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int |
         stmt = stmt.where(Mantenimiento.estado == estado)
     if activo_id:
         stmt = stmt.where(Mantenimiento.activo_id == activo_id)
+    if ubicacion_id:
+        stmt = stmt.where(Mantenimiento.ubicacion_id == ubicacion_id)
     return db.scalars(stmt.order_by(Mantenimiento.id.desc())).all()
 
 
-def crear_mantenimiento(db: Session, activo_id: int, data: MantenimientoCreate, actor_id: int) -> Mantenimiento:
-    activo = _get_or_404(db, Activo, activo_id, "Activo")
+def crear_mantenimiento(db: Session, data: MantenimientoCreate, actor_id: int) -> Mantenimiento:
+    if not data.activo_id and not data.ubicacion_id:
+        raise ValidationError("Selecciona el activo o la ubicación (farmacia) a mantener.")
+    activo = db.get(Activo, data.activo_id) if data.activo_id else None
+    ubicacion = db.get(Ubicacion, data.ubicacion_id) if data.ubicacion_id else None
+    if data.activo_id and not activo:
+        raise NotFoundError("Activo")
+    if data.ubicacion_id and not ubicacion:
+        raise NotFoundError("Ubicación")
     numero = get_next_number(db, "MANT", Mantenimiento)
     cantidad, seriales = _cantidad_seriales(data, activo)
     m = Mantenimiento(
         numero=numero,
-        activo_id=activo.id,
+        activo_id=activo.id if activo else None,
+        ubicacion_id=ubicacion.id if ubicacion else None,
         tipo=data.tipo,
         cantidad=cantidad,
         seriales=seriales,
@@ -714,15 +725,16 @@ def crear_mantenimiento(db: Session, activo_id: int, data: MantenimientoCreate, 
     )
     db.add(m)
     db.flush()
-    if m.estado in ("EN_PROGRESO", "PROGRAMADO"):
+    if m.estado in ("EN_PROGRESO", "PROGRAMADO") and activo:
         activo.estado_id = _estado_o(db, _EST_CLAVE["MANTENIMIENTO"], activo.estado).id
-    audit_op(db, "ACTIVOS", "Mantenimiento", m.id, "CREAR", f"Mantenimiento {numero} para {activo.codigo}")
+    ref = f"ubicación {ubicacion.nombre}" if ubicacion else activo.codigo
+    audit_op(db, "ACTIVOS", "Mantenimiento", m.id, "CREAR", f"Mantenimiento {numero} para {ref}")
     db.commit()
     db.refresh(m)
     return m
 
 
-def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None, proxima_fecha: datetime | None = None) -> Mantenimiento:
+def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None, proxima_fecha: datetime | None = None, seriales: list[str] | None = None) -> Mantenimiento:
     m = _get_or_404(db, Mantenimiento, mant_id, "Mantenimiento")
     m.fecha_ejecucion = datetime.now(timezone.utc)
     m.estado = "COMPLETADO"
@@ -734,9 +746,13 @@ def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: st
         m.costo = costo
     if proxima_fecha:
         m.proxima_fecha = proxima_fecha
-    activo = _get_or_404(db, Activo, m.activo_id, "Activo")
-    if activo.estado and activo.estado.codigo == "MANTENIMIENTO":
-        activo.estado_id = _estado_o(db, _EST_CLAVE["DISPONIBLE"], activo.estado).id
+    if seriales:
+        m.seriales = seriales
+        m.cantidad = len(seriales)
+    if m.activo_id:
+        activo = _get_or_404(db, Activo, m.activo_id, "Activo")
+        if activo.estado and activo.estado.codigo == "MANTENIMIENTO":
+            activo.estado_id = _estado_o(db, _EST_CLAVE["DISPONIBLE"], activo.estado).id
     db.flush()
     acta = _crear_acta(
         db,
@@ -750,11 +766,12 @@ def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: st
     )
     m.acta_id = acta.id
     db.flush()
+    ref = m.activo.codigo if m.activo else (m.ubicacion.nombre if m.ubicacion else f"#{m.id}")
     notifications.crear_notificacion(
         db,
         tipo="MANTENIMIENTO",
         titulo=f"Mantenimiento {m.numero} completado",
-        mensaje=f"El mantenimiento del activo {activo.codigo} fue completado.",
+        mensaje=f"El mantenimiento de {ref} fue completado.",
         entidad_tipo="Mantenimiento",
         entidad_id=m.id,
         roles_destino=_APROBADORES,

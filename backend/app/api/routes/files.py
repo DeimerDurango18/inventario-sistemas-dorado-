@@ -31,6 +31,26 @@ def listar_archivos_activo(
     return files_service.listar_archivos(db, "ACTIVO", activo_id)
 
 
+# ------------------------------------------------------------------ fotos de seriales del mantenimiento
+@router.post("/mantenimiento/{mant_id}", response_model=ArchivoRead, status_code=201)
+def subir_foto_mantenimiento(
+    mant_id: int,
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_permiso("registrar_mantenimiento")),
+):
+    return files_service.guardar_archivo(db, archivo, "MANTENIMIENTO", mant_id, user.id)
+
+
+@router.get("/mantenimiento/{mant_id}", response_model=list[ArchivoRead])
+def listar_fotos_mantenimiento(
+    mant_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("ver_activos")),
+):
+    return files_service.listar_archivos(db, "MANTENIMIENTO", mant_id)
+
+
 @router.get("/{archivo_id}/descargar")
 def descargar_archivo(
     archivo_id: int,

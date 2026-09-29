@@ -239,7 +239,9 @@ class PrestamoRead(ORMModel):
 
 # ------------------------------------------------------------------ mantenimientos
 class MantenimientoCreate(BaseModel):
-    tipo: str  # PREVENTIVO | CORRECTIVO | PREDICTIVO
+    activo_id: Optional[int] = None
+    ubicacion_id: Optional[int] = None
+    tipo: str = "PREVENTIVO"  # PREVENTIVO | CORRECTIVO | PREDICTIVO
     cantidad: int = Field(1, ge=1)
     seriales: Optional[List[str]] = None
     fecha_programada: Optional[datetime] = None
@@ -257,12 +259,14 @@ class MantenimientoCerrar(BaseModel):
     observaciones: Optional[str] = None
     costo: Optional[float] = None
     proxima_fecha: Optional[datetime] = None
+    seriales: Optional[List[str]] = None
 
 
 class MantenimientoRead(ORMModel):
     id: int
     numero: str
-    activo_id: int
+    activo_id: Optional[int] = None
+    ubicacion_id: Optional[int] = None
     tipo: str
     cantidad: int = 1
     seriales: Optional[List[str]] = None
@@ -282,6 +286,7 @@ class MantenimientoRead(ORMModel):
     created_at: datetime
 
     activo: Optional[ActivoRead] = None
+    ubicacion: Optional[UbicacionRead] = None
     tecnico: Optional[ResponsableRead] = None
     proveedor: Optional[ProveedorRead] = None
 

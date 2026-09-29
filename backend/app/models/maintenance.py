@@ -15,7 +15,8 @@ class Mantenimiento(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     numero: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
-    activo_id: Mapped[int] = mapped_column(ForeignKey("activos.id"), nullable=False, index=True)
+    activo_id: Mapped[int | None] = mapped_column(ForeignKey("activos.id"), index=True)
+    ubicacion_id: Mapped[int | None] = mapped_column(ForeignKey("ubicaciones.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
     cantidad: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
     seriales_json: Mapped[str | None] = mapped_column(Text)
@@ -35,7 +36,8 @@ class Mantenimiento(Base):
     acta_id: Mapped[int | None] = mapped_column(ForeignKey("actas.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    activo: Mapped["Activo"] = relationship(lazy="joined")
+    activo: Mapped["Activo | None"] = relationship(lazy="joined")
+    ubicacion: Mapped["Ubicacion | None"] = relationship(lazy="joined")
     tecnico: Mapped["Responsable | None"] = relationship(lazy="joined")
     proveedor: Mapped["Proveedor | None"] = relationship(lazy="joined")
     repuestos: Mapped[list["MantenimientoRepuesto"]] = relationship(

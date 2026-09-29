@@ -26,12 +26,13 @@ backend/storage/etiquetas/*
 backend/storage/firmas/*
 backend/storage/qr/*
 backend/storage/backups/*
+backend/storage/adjuntos/*
 !backend/storage/actas/.gitkeep
 !backend/storage/archivos/.gitkeep
 !backend/storage/etiquetas/.gitkeep
 !backend/storage/firmas/.gitkeep
-!backend/storage/qr/.gitkeep
 !backend/storage/backups/.gitkeep
+!backend/storage/adjuntos/.gitkeep
 *.log
 
 # ---- IDE / SO ----

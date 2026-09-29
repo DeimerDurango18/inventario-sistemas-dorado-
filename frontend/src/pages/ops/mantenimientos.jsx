@@ -14,9 +14,15 @@ export default function Mantenimientos() {
   const [filtro, setFiltro] = useState("");
   const [cerrando, setCerrando] = useState(null);
   const [form, setForm] = useState({ resultado: "", observaciones: "", costo: "", proxima_fecha: "" });
+  const [serialesCierre, setSerialesCierre] = useState([]);
+  const [fotos, setFotos] = useState([]);
+  const [subiendo, setSubiendo] = useState(0);
   const [busy, setBusy] = useState(false);
   const [progOpen, setProgOpen] = useState(false);
-  const [prog, setProg] = useState({ q: "", activo: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [], fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "" });
+  const [prog, setProg] = useState({
+    destino: "ubicacion", q: "", destinoObj: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [],
+    fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "",
+  });
 
   const loader = useMemo(
     () => api.get(`/activos/mantenimientos${filtro ? `?estado=${filtro}` : ""}`),
@@ -26,26 +32,47 @@ export default function Mantenimientos() {
   const items = data || [];
 
   const activosQ = useMemo(
-    () => (prog.q.trim() ? api.get(`/activos?q=${encodeURIComponent(prog.q.trim())}&size=12`) : Promise.resolve({ data: { items: [] } })),
-    [prog.q]
+    () => (prog.destino === "activo" && prog.q.trim() ? api.get(`/activos?q=${encodeURIComponent(prog.q.trim())}&size=12`) : Promise.resolve({ data: { items: [] } })),
+    [prog.destino, prog.q]
   );
-  const activos = useAsync(() => activosQ, [prog.q]);
+  const activos = useAsync(() => activosQ, [prog.q, prog.destino]);
+
+  const ubicacionesQ = useMemo(
+    () => api.get("/geo/ubicaciones"),
+    []
+  );
+  const ubicaciones = useAsync(() => ubicacionesQ, []);
+  const ubicCandidates = useMemo(() => {
+    if (!ubicaciones.data || prog.destino !== "ubicacion") return [];
+    const q = prog.q.trim().toLowerCase();
+    if (!q) return ubicaciones.data;
+    return ubicaciones.data.filter((u) =>
+      `${u.nombre} ${u.sede?.nombre || ""} ${u.sede?.codigo || ""}`.toLowerCase().includes(q)
+    );
+  }, [ubicaciones.data, prog.q, prog.destino]);
 
   const abrirCerrar = (m) => {
     setCerrando(m);
+    setFotos([]);
+    setSubiendo(0);
+    setSerialesCierre(m.seriales || []);
     setForm({ resultado: "", observaciones: "", costo: "", proxima_fecha: m.proxima_fecha ? m.proxima_fecha.slice(0, 10) : "" });
   };
 
-  const seleccionarActivo = (a) => {
-    setProg((p) => ({ ...p, activo: a, q: `${a.codigo}${a.serial ? ` · ${a.serial}` : ""}`, seriales: a.serial ? [a.serial] : [] }));
+  const seleccionarDestino = (obj, tipo) => {
+    if (tipo === "ubicacion") {
+      setProg((p) => ({ ...p, destino: "ubicacion", destinoObj: obj, q: obj.nombre }));
+    } else {
+      setProg((p) => ({ ...p, destino: "activo", destinoObj: obj, q: `${obj.codigo}${obj.serial ? ` · ${obj.serial}` : ""}`, seriales: obj.serial ? [obj.serial] : [] }));
+    }
   };
 
   const guardarProgramado = async () => {
-    if (!prog.activo) return pushToast("warning", "Selecciona el activo a mantener");
+    if (!prog.destinoObj) return pushToast("warning", "Selecciona la farmacia o el activo a mantener");
     setBusy(true);
     try {
       const cantidad = prog.seriales.length > 0 ? prog.seriales.length : Number(prog.cantidad || 1);
-      await api.post(`/activos/${prog.activo.id}/mantenimientos`, {
+      const body = {
         tipo: prog.tipo,
         cantidad,
         seriales: prog.seriales.length > 0 ? prog.seriales : null,
@@ -53,10 +80,13 @@ export default function Mantenimientos() {
         proposito: prog.proposito || null,
         diagnostico: prog.diagnostico || null,
         actividades: prog.actividades || null,
-      });
-      pushToast("success", `Mantenimiento programado para ${prog.activo.codigo}`);
+      };
+      if (prog.destino === "ubicacion") body.ubicacion_id = prog.destinoObj.id;
+      else body.activo_id = prog.destinoObj.id;
+      await api.post("/activos/mantenimientos", body);
+      pushToast("success", `Mantenimiento programado en ${prog.destinoObj.nombre || prog.destinoObj.codigo}`);
       setProgOpen(false);
-      setProg({ q: "", activo: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [], fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "" });
+      setProg({ destino: "ubicacion", q: "", destinoObj: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [], fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "" });
       reload();
     } catch (e) {
       pushToast("error", e.message);
@@ -69,19 +99,24 @@ export default function Mantenimientos() {
     if (!form.resultado.trim()) return pushToast("warning", "Indica el resultado del mantenimiento");
     setBusy(true);
     try {
+      for (const f of fotos) {
+        await api.upload(`/archivos/mantenimiento/${cerrando.id}`, f, {}, (p) => setSubiendo(p));
+      }
       await api.put(`/activos/mantenimientos/${cerrando.id}/cerrar`, {
         resultado: form.resultado,
         observaciones: form.observaciones,
         costo: form.costo ? Number(form.costo) : null,
         proxima_fecha: form.proxima_fecha ? new Date(form.proxima_fecha).toISOString() : null,
+        seriales: serialesCierre.length > 0 ? serialesCierre : null,
       });
-      pushToast("success", `Mantenimiento ${cerrando.numero} cerrado`);
+      pushToast("success", `Mantenimiento ${cerrando.numero} cerrado con acta`);
       setCerrando(null);
       reload();
     } catch (e) {
       pushToast("error", e.message);
     } finally {
       setBusy(false);
+      setSubiendo(0);
     }
   };
 
@@ -98,7 +133,7 @@ export default function Mantenimientos() {
     <div>
       <PageHeader
         title="Mantenimientos"
-        subtitle={`${abiertos} en curso · programados y preventivos de tu flota`}
+        subtitle={`${abiertos} en curso · programados por farmacia, sede o activo`}
         icon="wrench-adjustable"
         actions={
           <>
@@ -121,18 +156,18 @@ export default function Mantenimientos() {
         {loading ? (
           <div className="text-center py-4"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
         ) : items.length === 0 ? (
-          <EmptyState icon="wrench" title="Sin mantenimientos" hint="Registra mantenimientos desde el detalle de un activo" />
+          <EmptyState icon="wrench" title="Sin mantenimientos" hint="Programa un mantenimiento a una farmacia o activo" />
         ) : (
           <div className="eticos-table-wrap">
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light"><tr>
-                <th>Número</th><th>Activo</th><th>Tipo</th><th>Cant.</th><th>Seriales</th><th>Programado</th><th>Ejecutado</th><th>Costo</th><th>Estado</th><th></th>
+                <th>Número</th><th>Farmacia / Activo</th><th>Tipo</th><th>Cant.</th><th>Seriales</th><th>Programado</th><th>Ejecutado</th><th>Costo</th><th>Estado</th><th></th>
               </tr></thead>
               <tbody>
                 {items.map((m) => (
                   <tr key={m.id}>
                     <td><span className="fw-semibold">{m.numero}</span></td>
-                    <td>{m.activo ? <Link to={`/activos/${m.activo.id}`} className="fw-semibold">{m.activo.codigo}</Link> : `#${m.activo_id}`}</td>
+                    <td>{m.activo ? <Link to={`/activos/${m.activo.id}`} className="fw-semibold">{m.activo.codigo}</Link> : (m.ubicacion ? <span className="fw-semibold">{m.ubicacion.nombre}</span> : `#${m.id}`)}</td>
                     <td className="small">{m.tipo}</td>
                     <td className="small">{m.cantidad || 1}</td>
                     <td className="small">{(m.seriales || []).length ? m.seriales.join(", ") : "—"}</td>
@@ -164,13 +199,14 @@ export default function Mantenimientos() {
         open={!!cerrando}
         title={`Cerrar mantenimiento ${cerrando?.numero || ""}`}
         icon="check2-circle"
+        size="lg"
         onClose={() => setCerrando(null)}
         busy={busy}
         footer={
           <>
             <button className="btn btn-sm btn-light" disabled={busy} onClick={() => setCerrando(null)}>Cancelar</button>
             <button className="btn btn-sm btn-brand" disabled={busy} onClick={cerrar}>
-              {busy ? "Guardando…" : "Cerrar mantenimiento"}
+              {busy ? (subiendo > 0 ? `Subiendo fotos… ${subiendo}%` : "Guardando…") : "Cerrar y generar acta"}
             </button>
           </>
         }
@@ -179,6 +215,42 @@ export default function Mantenimientos() {
           <label className="form-label small fw-semibold">Resultado *</label>
           <textarea className="form-control" rows={3} value={form.resultado} onChange={(e) => setForm({ ...form, resultado: e.target.value })} placeholder="Describe qué se hizo y el estado final del equipo" />
         </div>
+
+        <div className="mb-3">
+          <label className="form-label small fw-semibold">Seriales atendidos (para el acta)</label>
+          <SerialListInput value={serialesCierre} onChange={setSerialesCierre} placeholder="Serial del equipo mantenido…" />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label small fw-semibold">Fotos de los seriales</label>
+          <div className="d-flex align-items-start gap-2">
+            <label className="btn btn-sm btn-soft mb-0">
+              <i className="bi bi-camera me-1" /> {fotos.length ? `Agregar fotos (${fotos.length})` : "Subir fotos"}
+              <input
+                type="file" accept="image/*" multiple className="d-none"
+                onChange={(e) => {
+                  const fs = Array.from(e.target.files || []);
+                  if (fs.length) setFotos((prev) => [...prev, ...fs]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {fotos.length > 0 && (
+              <div className="d-flex flex-wrap gap-1 align-items-center">
+                {fotos.map((f, i) => (
+                  <span key={i} className="badge eta-badge fw-semibold" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" }}>
+                    📷 {f.name}
+                    <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}>
+                      <i className="bi bi-x"></i>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="form-text">Las fotos de los seriales quedan adjuntas al mantenimiento. Al cerrar se genera el acta con los seriales listados.</div>
+        </div>
+
         <div className="row g-2">
           <div className="col-md-6">
             <label className="form-label small fw-semibold">Costo ($)</label>
@@ -213,37 +285,61 @@ export default function Mantenimientos() {
       >
         <div className="row g-3">
           <div className="col-12">
-            <label className="form-label small fw-semibold">Activo *</label>
+            <div className="btn-group btn-group-sm mb-2" role="group">
+              <button type="button" className={`btn ${prog.destino === "ubicacion" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "ubicacion", q: "", destinoObj: null }))}>
+                <i className="bi bi-shop me-1" /> Farmacia / Sede
+              </button>
+              <button type="button" className={`btn ${prog.destino === "activo" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "activo", q: "", destinoObj: null }))}>
+                <i className="bi bi-cpu me-1" /> Activo
+              </button>
+            </div>
+            <label className="form-label small fw-semibold">{prog.destino === "ubicacion" ? "Farmacia / Ubicación *" : "Activo *"}</label>
             <input
               className="form-control"
-              placeholder="Busca por código, serial o descripción…"
+              placeholder={prog.destino === "ubicacion" ? "Busca por nombre de la farmacia (ej. 10522)…" : "Busca por código, serial o descripción…"}
               value={prog.q}
-              onChange={(e) => setProg((p) => ({ ...p, q: e.target.value, activo: null }))}
+              onChange={(e) => setProg((p) => ({ ...p, q: e.target.value, destinoObj: null }))}
             />
-            {prog.activo && (
+            {prog.destinoObj && (
               <div className="d-flex flex-wrap gap-1 mt-2">
                 <span className="badge eta-badge fw-semibold" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" }}>
-                  {prog.activo.codigo}{prog.activo.serial ? ` · ${prog.activo.serial}` : ""}
-                  <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} title="Quitar" onClick={() => setProg((p) => ({ ...p, activo: null, q: "" }))}>
+                  {prog.destinoObj.nombre || prog.destinoObj.codigo}{prog.destino === "activo" && prog.destinoObj.serial ? ` · ${prog.destinoObj.serial}` : ""}
+                  <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} title="Quitar" onClick={() => setProg((p) => ({ ...p, destinoObj: null, q: "" }))}>
                     <i className="bi bi-x"></i>
                   </button>
                 </span>
               </div>
             )}
-            {!prog.activo && prog.q.trim() && (
+            {!prog.destinoObj && prog.q.trim() && (
               <div className="list-group list-group-flush eticos-card mt-1" style={{ maxHeight: 220, overflowY: "auto" }}>
-                {activos.loading ? (
+                {prog.destino === "activo" ? (
+                  activos.loading ? (
+                    <div className="text-center py-3"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
+                  ) : (activos.data?.items || []).length === 0 ? (
+                    <div className="text-center py-3 text-secondary small">Sin coincidencias</div>
+                  ) : (
+                    (activos.data?.items || []).map((a) => (
+                      <button key={a.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarDestino(a, "activo")}>
+                        <span>
+                          <span className="fw-semibold">{a.codigo}</span>
+                          {a.serial && <span className="text-secondary small ms-2">{a.serial}</span>}
+                        </span>
+                        <small className="text-secondary">{a.tipo}{a.marca?.nombre ? ` · ${a.marca.nombre}` : ""}</small>
+                      </button>
+                    ))
+                  )
+                ) : ubicaciones.loading ? (
                   <div className="text-center py-3"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
-                ) : (activos.data?.items || []).length === 0 ? (
-                  <div className="text-center py-3 text-secondary small">Sin coincidencias</div>
+                ) : ubicCandidates.length === 0 ? (
+                  <div className="text-center py-3 text-secondary small">Sin farmacias o ubicaciones. Creáilas en Geografía</div>
                 ) : (
-                  (activos.data?.items || []).map((a) => (
-                    <button key={a.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarActivo(a)}>
+                  ubicCandidates.map((u) => (
+                    <button key={u.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarDestino(u, "ubicacion")}>
                       <span>
-                        <span className="fw-semibold">{a.codigo}</span>
-                        {a.serial && <span className="text-secondary small ms-2">{a.serial}</span>}
+                        <span className="fw-semibold">{u.nombre}</span>
+                        {u.sede?.nombre && <span className="text-secondary small ms-2">· {u.sede.nombre}</span>}
                       </span>
-                      <small className="text-secondary">{a.tipo}{a.marca?.nombre ? ` · ${a.marca.nombre}` : ""}</small>
+                      <small className="text-secondary">{u.tipo_ubicacion?.nombre || ""}</small>
                     </button>
                   ))
                 )}
@@ -265,8 +361,9 @@ export default function Mantenimientos() {
           </div>
 
           <div className="col-12">
-            <label className="form-label small fw-semibold">Seriales del equipo</label>
+            <label className="form-label small fw-semibold">Seriales (opcional al programar)</label>
             <SerialListInput value={prog.seriales} onChange={(seriales) => setProg((p) => ({ ...p, seriales }))} />
+            <div className="form-text">Los seriales atendidos se registran en el cierre; aquí solo si ya los conoces.</div>
           </div>
           <div className="col-md-6">
             <label className="form-label small fw-semibold">Cantidad</label>

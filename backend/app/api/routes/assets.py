@@ -189,10 +189,11 @@ def rechazar_prestamo(
 def listar_mantenimientos(
     estado: str | None = None,
     activo_id: int | None = None,
+    ubicacion_id: int | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_permiso("ver_activos")),
 ):
-    return asset_service.list_mantenimientos(db, estado, activo_id)
+    return asset_service.list_mantenimientos(db, estado, activo_id, ubicacion_id)
 
 
 @router.put("/mantenimientos/{mant_id}/cerrar", response_model=MantenimientoRead)
@@ -202,7 +203,7 @@ def cerrar_mantenimiento(
     db: Session = Depends(get_db),
     actor: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo, data.proxima_fecha)
+    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo, data.proxima_fecha, data.seriales)
 
 
 # ------------------------------------------------------------------ garantías
@@ -312,14 +313,25 @@ def crear_prestamo(
     return asset_service.crear_prestamo(db, activo_id, data, actor.id)
 
 
-@router.post("/{activo_id}/mantenimientos", response_model=MantenimientoRead, status_code=201)
+@router.post("/mantenimientos", response_model=MantenimientoRead, status_code=201)
 def crear_mantenimiento(
+    data: MantenimientoCreate,
+    db: Session = Depends(get_db),
+    actor: Usuario = Depends(require_permiso("registrar_mantenimiento")),
+):
+    return asset_service.crear_mantenimiento(db, data, actor.id)
+
+
+# Ruta de compatibilidad: creación por activo puntual desde el detalle del activo.
+@router.post("/{activo_id}/mantenimientos", response_model=MantenimientoRead, status_code=201)
+def crear_mantenimiento_de_activo(
     activo_id: int,
     data: MantenimientoCreate,
     db: Session = Depends(get_db),
     actor: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    return asset_service.crear_mantenimiento(db, activo_id, data, actor.id)
+    data.activo_id = activo_id
+    return asset_service.crear_mantenimiento(db, data, actor.id)
 
 
 @router.post("/{activo_id}/garantias", response_model=GarantiaRead, status_code=201)
