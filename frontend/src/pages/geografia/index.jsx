@@ -256,11 +256,11 @@ function GeoModal({ tipo, item, sedes, tipos, paises, departamentos, ciudades, o
   const esEdit = !!item;
 
   const deptos = useMemo(
-    () => (paisId ? departamentos.filter((x) => x.pais_id === Number(paisId)) : []),
+    () => (paisId ? departamentos.filter((x) => x.pais_id === Number(paisId)) : departamentos),
     [departamentos, paisId]
   );
   const subCiudades = useMemo(
-    () => (deptoId ? ciudades.filter((c) => c.departamento_id === Number(deptoId)) : []),
+    () => (deptoId ? ciudades.filter((c) => c.departamento_id === Number(deptoId)) : ciudades),
     [ciudades, deptoId]
   );
 
