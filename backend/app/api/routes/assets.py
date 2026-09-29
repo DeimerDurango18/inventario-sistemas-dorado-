@@ -204,7 +204,7 @@ def cerrar_mantenimiento(
     db: Session = Depends(get_db),
     actor: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo, data.proxima_fecha, data.seriales)
+    return asset_service.cerrar_mantenimiento(db, mant_id, actor.id, data.resultado, data.observaciones, data.costo, data.proxima_fecha, data.seriales, data.acta_con_fotos)
 
 
 # ------------------------------------------------------------------ garantías

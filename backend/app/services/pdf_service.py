@@ -413,17 +413,19 @@ def _render_mantenimiento(acta, op, db) -> bytes:
         elementos.append(Spacer(1, 0.2 * cm))
 
     # ------------------------------------------------------------ registro fotográfico
-    fotos = _fotos_mantenimiento(db, op)
-    if fotos:
-        elementos.append(Spacer(1, 0.2 * cm))
-        st_sec = ParagraphStyle("sec", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=13, textColor=colors.HexColor("#1a1a4e"))
-        elementos.append(Paragraph("REGISTRO FOTOGRÁFICO", st_sec))
-        elementos.append(Paragraph("Fotografías de los equipos atendidos, identificadas por serial.", st_p))
-        elementos.append(Spacer(1, 0.2 * cm))
-        grilla = _seccion_fotos(fotos, st_p)
-        if grilla is not None:
-            elementos.append(grilla)
-        elementos.append(Spacer(1, 0.4 * cm))
+    con_fotos = getattr(op, "acta_con_fotos", True)
+    if con_fotos:
+        fotos = _fotos_mantenimiento(db, op)
+        if fotos:
+            elementos.append(Spacer(1, 0.2 * cm))
+            st_sec = ParagraphStyle("sec", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=13, textColor=colors.HexColor("#1a1a4e"))
+            elementos.append(Paragraph("REGISTRO FOTOGRÁFICO", st_sec))
+            elementos.append(Paragraph("Fotografías de los equipos atendidos, identificadas por serial.", st_p))
+            elementos.append(Spacer(1, 0.2 * cm))
+            grilla = _seccion_fotos(fotos, st_p)
+            if grilla is not None:
+                elementos.append(grilla)
+            elementos.append(Spacer(1, 0.4 * cm))
 
     # ------------------------------------------------------------ cierre + firmas
     elementos.append(Paragraph(
@@ -691,7 +693,7 @@ def _render(acta, op, db) -> bytes:
             elementos.append(Paragraph(f"<b>OBSERVACIONES:</b> {op.observaciones}", st_obs))
             elementos.append(Spacer(1, 0.3 * cm))
 
-        fotos = _fotos_mantenimiento(db, op)
+        fotos = _fotos_mantenimiento(db, op) if getattr(op, "acta_con_fotos", True) else None
         if fotos:
             elementos.append(Paragraph("REGISTRO FOTOGRÁFICO DEL EQUIPO ATENDIDO", st_sec_titulo))
             elementos.append(Paragraph("Fotografías de referencia tomadas durante el mantenimiento, identificadas por serial.", st_obs))

@@ -12,6 +12,23 @@ from app.services import files_service
 router = APIRouter(prefix="/archivos", tags=["Adjuntos"])
 
 
+# ------------------------------------------------------------------ OCR de seriales en fotografías
+# ¡Debe declararse ANTES de la ruta dinámica /{activo_id} para no ser capturada!
+@router.post("/extraer-serial")
+def extraer_serial_ocr(
+    archivo: UploadFile = File(...),
+    _: Usuario = Depends(require_permiso("registrar_mantenimiento")),
+):
+    from app.services import ocr_service
+
+    try:
+        data = archivo.file.read(1024 * 1024 * 8)
+    finally:
+        archivo.file.seek(0)
+    serial = ocr_service.extraer_serial_imagen(data) if data else None
+    return {"serial": serial}
+
+
 @router.post("/{activo_id}", response_model=ArchivoRead, status_code=201)
 def subir_archivo(
     activo_id: int,

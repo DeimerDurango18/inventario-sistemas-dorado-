@@ -16,6 +16,9 @@ export default function Mantenimientos() {
   const [form, setForm] = useState({ resultado: "", observaciones: "", costo: "", proxima_fecha: "" });
   const [serialesCierre, setSerialesCierre] = useState([]);
   const [fotos, setFotos] = useState([]);
+  const [serialesManuales, setSerialesManuales] = useState([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [actaConFotos, setActaConFotos] = useState(true);
   const [subiendo, setSubiendo] = useState(0);
   const [busy, setBusy] = useState(false);
   const [progOpen, setProgOpen] = useState(false);
@@ -43,6 +46,9 @@ export default function Mantenimientos() {
   const abrirCerrar = (m) => {
     setCerrando(m);
     setFotos([]);
+    setSerialesManuales([]);
+    setManualOpen(false);
+    setActaConFotos(true);
     setSubiendo(0);
     setSerialesCierre(m.seriales || []);
     setForm({ resultado: "", observaciones: "", costo: "", proxima_fecha: m.proxima_fecha ? m.proxima_fecha.slice(0, 10) : "" });
@@ -103,6 +109,7 @@ export default function Mantenimientos() {
         costo: form.costo ? Number(form.costo) : null,
         proxima_fecha: form.proxima_fecha ? new Date(form.proxima_fecha).toISOString() : null,
         seriales: serialesCierre.length > 0 ? serialesCierre : null,
+        acta_con_fotos: actaConFotos,
       });
       pushToast("success", `Mantenimiento ${cerrando.numero} cerrado con acta`);
       setCerrando(null);
@@ -218,52 +225,121 @@ export default function Mantenimientos() {
 
         <div className="mb-3">
           <label className="form-label small fw-semibold">Fotos de los seriales</label>
-          <div className="d-flex align-items-start gap-2">
+          <div className="d-flex align-items-start gap-2 flex-wrap">
             <label className="btn btn-sm btn-soft mb-0">
-                  <i className="bi bi-camera me-1" /> {fotos.length ? `Agregar fotos (${fotos.length})` : "Subir fotos"}
-                  <input
-                    type="file" accept="image/*" multiple className="d-none"
-                    onChange={(e) => {
-                      const fs = Array.from(e.target.files || []);
-                      if (fs.length) setFotos((prev) => [...prev, ...fs.map((file) => ({ file, serial: "" }))]);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+              <i className="bi bi-camera me-1" /> {fotos.length ? `Agregar fotos (${fotos.length})` : "Subir fotos"}
+              <input
+                type="file" accept="image/*" multiple className="d-none"
+                onChange={(e) => {
+                  const fs = Array.from(e.target.files || []);
+                  if (!fs.length) return;
+                  setFotos((prev) => [...prev, ...fs.map((file) => ({ file, serial: "" }))]);
+                  fs.forEach((file) => {
+                    const id = URL.createObjectURL(file);
+                    api.upload("/archivos/extraer-serial", file, {}, () => {})
+                      .then((r) => {
+                        const serial = r?.data?.serial;
+                        URL.revokeObjectURL(id);
+                        if (!serial) return;
+                        setFotos((prev) => prev.map((x) => (x.file === file && !x.serial ? { ...x, serial } : x)));
+                      })
+                      .catch(() => URL.revokeObjectURL(id));
+                  });
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <button type="button" className="btn btn-sm btn-light mb-0 text-nowrap" onClick={() => setManualOpen((v) => !v)}>
+              <i className="bi bi-pencil-square me-1" /> {manualOpen ? "Ocultar seriales manuales" : "Colocar seriales manualmente"}
+            </button>
+            {fotos.length > 0 && (
+              <button type="button" className="btn btn-sm btn-outline-brand mb-0 text-nowrap" onClick={() => setFotos([])}>
+                <i className="bi bi-trash me-1" /> Quitar todas
+              </button>
+            )}
+          </div>
+
+          {manualOpen && (
+            <div className="eticos-card mt-2 p-2">
+              <SerialListInput
+                value={serialesManuales}
+                onChange={setSerialesManuales}
+                placeholder="Escribe o pega seriales (Enter)…"
+              />
+              <div className="d-flex align-items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-brand"
+                  disabled={!serialesManuales.length}
+                  onClick={() => {
+                    setFotos((prev) =>
+                      prev.map((x, j) => (j < serialesManuales.length ? { ...x, serial: serialesManuales[j] } : x))
+                    );
+                    pushToast("success", "Seriales asignados a las fotos en orden");
+                  }}
+                >
+                  <i className="bi bi-link-45deg me-1" /> Asignar a las fotos en orden
+                </button>
                 {fotos.length > 0 && (
-                  <div className="d-flex flex-wrap gap-2 align-items-start">
-                    {fotos.map((f, i) => (
-                      <div key={i} className="d-flex flex-column align-items-center gap-1 p-2 border rounded" style={{ width: 150, background: "#fafbff" }}>
-                        <img
-                          src={URL.createObjectURL(f.file)}
-                          alt={f.file.name}
-                          className="img-thumbnail"
-                          style={{ width: "100%", height: 90, objectFit: "cover", cursor: "zoom-in" }}
-                          onClick={() => window.open(URL.createObjectURL(f.file))}
-                        />
-                        <div className="w-100 d-flex gap-1 align-items-center">
-                          <input
-                            className="form-control form-control-sm"
-                            placeholder="Serial"
-                            value={f.serial}
-                            onChange={(e) => setFotos((prev) => prev.map((x, j) => (j === i ? { ...x, serial: e.target.value } : x)))}
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-light p-1"
-                            title="Eliminar foto"
-                            onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}
-                          >
-                            <i className="bi bi-trash text-danger"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-light"
+                    onClick={() => setSerialesCierre([...new Set([...serialesCierre, ...serialesManuales])])}
+                  >
+                    Agregar a la lista del acta
+                  </button>
                 )}
               </div>
-              <div className="form-text">Sube las fotos del equipo atendido y escribe en cada una el serial correspondiente (aparecerán en el acta con ese serial).</div>
+              <div className="form-text">El sistema detecta el serial automáticamente cuando la etiqueta es legible (SN, Serial No., Nº serie…). Con esta opción puedes escribirlos o pegarlos y asignarlos en orden a cada foto.</div>
             </div>
+          )}
+
+          {fotos.length > 0 && (
+            <div className="d-flex flex-wrap gap-2 align-items-start mt-2">
+              {fotos.map((f, i) => (
+                <div key={i} className="d-flex flex-column align-items-center gap-1 p-2 border rounded" style={{ width: 150, background: "#fafbff" }}>
+                  <img
+                    src={URL.createObjectURL(f.file)}
+                    alt={f.file.name}
+                    className="img-thumbnail"
+                    style={{ width: "100%", height: 90, objectFit: "cover", cursor: "zoom-in" }}
+                    onClick={() => window.open(URL.createObjectURL(f.file))}
+                  />
+                  <div className="w-100 d-flex gap-1 align-items-center">
+                    <input
+                      className="form-control form-control-sm"
+                      placeholder="Serial"
+                      value={f.serial}
+                      onChange={(e) => setFotos((prev) => prev.map((x, j) => (j === i ? { ...x, serial: e.target.value } : x)))}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-light p-1"
+                      title="Eliminar foto"
+                      onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <i className="bi bi-trash text-danger"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="form-text mt-1">Cada foto se asocia a un serial para que el acta las liste correctamente. El OCR rellena el serial automáticamente si se lee "SN:", "Serial No.", "Nº serie", etc.</div>
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label small fw-semibold">Modo del acta</label>
+          <div className="btn-group w-100" role="group">
+            <button type="button" className={"btn btn-sm " + (actaConFotos ? "btn-brand" : "btn-outline-brand")} onClick={() => setActaConFotos(true)}>
+              <i className="bi bi-file-image me-1" /> Con imágenes
+            </button>
+            <button type="button" className={"btn btn-sm " + (!actaConFotos ? "btn-brand" : "btn-outline-brand")} onClick={() => setActaConFotos(false)}>
+              <i className="bi bi-file-earmark-text me-1" /> Sin imágenes
+            </button>
+          </div>
+          <div className="form-text">"Con imágenes" incluye el registro fotográfico en el acta PDF; "Sin imágenes" genera el acta solo con texto.</div>
+        </div>
 
         <div className="row g-2">
           <div className="col-md-6">

@@ -741,10 +741,11 @@ def crear_mantenimiento(db: Session, data: MantenimientoCreate, actor_id: int) -
     return m
 
 
-def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None, proxima_fecha: datetime | None = None, seriales: list[str] | None = None) -> Mantenimiento:
+def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: str | None = None, observaciones: str | None = None, costo: float | None = None, proxima_fecha: datetime | None = None, seriales: list[str] | None = None, acta_con_fotos: bool = True) -> Mantenimiento:
     m = _get_or_404(db, Mantenimiento, mant_id, "Mantenimiento")
     m.fecha_ejecucion = datetime.now(timezone.utc)
     m.estado = "COMPLETADO"
+    m.acta_con_fotos = acta_con_fotos
     if resultado:
         m.resultado = resultado
     if observaciones:

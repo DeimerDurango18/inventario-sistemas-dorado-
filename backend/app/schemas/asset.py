@@ -261,6 +261,7 @@ class MantenimientoCerrar(BaseModel):
     costo: Optional[float] = None
     proxima_fecha: Optional[datetime] = None
     seriales: Optional[List[str]] = None
+    acta_con_fotos: Optional[bool] = True
 
 
 class MantenimientoRead(ORMModel):
@@ -284,6 +285,7 @@ class MantenimientoRead(ORMModel):
     proposito: Optional[str] = None
     proxima_fecha: Optional[datetime] = None
     observaciones: Optional[str] = None
+    acta_con_fotos: Optional[bool] = True
     acta_id: Optional[int] = None
     created_at: datetime
 

@@ -34,6 +34,7 @@ class Mantenimiento(Base):
     proxima_fecha: Mapped[datetime | None] = mapped_column(DateTime)
     observaciones: Mapped[str | None] = mapped_column(Text)
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    acta_con_fotos: Mapped[bool] = mapped_column(Boolean, server_default="1", default=True)
     acta_id: Mapped[int | None] = mapped_column(ForeignKey("actas.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
