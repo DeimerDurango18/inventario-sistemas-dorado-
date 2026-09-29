@@ -278,7 +278,19 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
 
   if (!tipo) return null;
   if (!form) {
-    setTimeout(() => setForm(inicial(tipo)), 0);
+    setTimeout(() => {
+      setForm(inicial(tipo));
+      if (tipo === "sedes" && item?.ciudad) {
+        const depto = item.ciudad.departamento;
+        const pid = depto?.pais_id;
+        const did = item.ciudad.departamento_id;
+        if (pid) setPaisId(String(pid));
+        if (did) setDeptoId(String(did));
+        loadSub(pid ? String(pid) : "", did ? String(did) : "");
+      } else if (tipo === "ciudades" && item?.pais_id) {
+        loadSub(String(item.pais_id), item.departamento_id ? String(item.departamento_id) : "");
+      }
+    }, 0);
     return null;
   }
 
@@ -336,26 +348,28 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
           <div className="col-md-4"><label className="form-label small fw-semibold">Código *</label><input className="form-control" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} /></div>
           <div className="col-md-8"><label className="form-label small fw-semibold">Nombre *</label><input className="form-control" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} /></div>
           <div className="col-md-6">
-            <label className="form-label small fw-semibold">Ciudad *</label>
+            <label className="form-label small fw-semibold">País *</label>
             <select className="form-select" value={paisId || ""} onChange={async (e) => {
               setPaisId(e.target.value);
               setDeptoId("");
               form.ciudad_id = "";
               await loadSub(e.target.value, "");
             }}>
-              <option value="">País</option>
+              <option value="">Seleccionar…</option>
               {paises.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
-            <select className="form-select mt-2" value={deptoId || ""} onChange={async (e) => {
+            <label className="form-label small fw-semibold mt-2">Departamento *</label>
+            <select className="form-select" value={deptoId || ""} onChange={async (e) => {
               setDeptoId(e.target.value);
               form.ciudad_id = "";
               await loadSub(paisId, e.target.value);
             }}>
-              <option value="">Departamento</option>
+              <option value="">Seleccionar…</option>
               {deptos.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
             </select>
-            <select className="form-select mt-2" value={form.ciudad_id || ""} onChange={(e) => setForm({ ...form, ciudad_id: e.target.value })}>
-              <option value="">Ciudad</option>
+            <label className="form-label small fw-semibold mt-2">Municipio *</label>
+            <select className="form-select" value={form.ciudad_id || ""} onChange={(e) => setForm({ ...form, ciudad_id: e.target.value })}>
+              <option value="">Seleccionar…</option>
               {subCiudades.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
