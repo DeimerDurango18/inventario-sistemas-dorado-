@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../../api/client";
 import { Card, EmptyState, LoadingBlock, Modal, PageHeader } from "../../components/ui";
 import useAsync from "../../hooks/useAsync";
@@ -238,6 +238,7 @@ export default function Geografia() {
         sedes={d.sedes}
         tipos={d.tipos}
         paises={d.paises}
+        departamentos={d.departamentos}
         ciudades={d.ciudades}
         onClose={() => setEditando(null)}
         onSaved={() => { setEditando(null); load(); }}
@@ -247,25 +248,21 @@ export default function Geografia() {
   );
 }
 
-function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved, pushToast }) {
+function GeoModal({ tipo, item, sedes, tipos, paises, departamentos, ciudades, onClose, onSaved, pushToast }) {
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const [paisId, setPaisId] = useState(item?.pais_id ? String(item.pais_id) : "");
   const [deptoId, setDeptoId] = useState(item?.departamento_id ? String(item.departamento_id) : "");
-  const [deptos, setDeptos] = useState([]);
-  const [subCiudades, setSubCiudades] = useState([]);
   const esEdit = !!item;
 
-  const loadSub = async (pid, did) => {
-    if (pid) {
-      const r = await api.get(`/geo/departamentos?pais_id=${pid}`).catch(() => ({ data: [] }));
-      setDeptos(r.data || []);
-    }
-    if (did) {
-      const r = await api.get(`/geo/ciudades?departamento_id=${did}&limit=2000`).catch(() => ({ data: [] }));
-      setSubCiudades(r.data || []);
-    }
-  };
+  const deptos = useMemo(
+    () => (paisId ? departamentos.filter((x) => x.pais_id === Number(paisId)) : []),
+    [departamentos, paisId]
+  );
+  const subCiudades = useMemo(
+    () => (deptoId ? ciudades.filter((c) => c.departamento_id === Number(deptoId)) : []),
+    [ciudades, deptoId]
+  );
 
   const inicial = (t) => {
     if (t === "sedes") return { codigo: item?.codigo || "", nombre: item?.nombre || "", ciudad_id: item?.ciudad_id ?? "", tipo_ubicacion_id: item?.tipo_ubicacion_id ?? "", direccion: item?.direccion || "", telefono: item?.telefono || "", responsable: item?.responsable || "", observaciones: item?.observaciones || "" };
@@ -276,21 +273,23 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
     return { codigo: item?.codigo || "", nombre: item?.nombre || "" };
   };
 
+  useEffect(() => {
+    if (!tipo) return;
+    if (item?.ciudad && tipo === "sedes") {
+      const depto = item.ciudad.departamento;
+      const pid = depto?.pais_id;
+      const did = item.ciudad.departamento_id;
+      if (pid) setPaisId(String(pid));
+      if (did) setDeptoId(String(did));
+    } else if (item?.pais_id && tipo === "ciudades") {
+      setPaisId(String(item.pais_id));
+      if (item.departamento_id) setDeptoId(String(item.departamento_id));
+    }
+  }, [tipo]);
+
   if (!tipo) return null;
   if (!form) {
-    setTimeout(() => {
-      setForm(inicial(tipo));
-      if (tipo === "sedes" && item?.ciudad) {
-        const depto = item.ciudad.departamento;
-        const pid = depto?.pais_id;
-        const did = item.ciudad.departamento_id;
-        if (pid) setPaisId(String(pid));
-        if (did) setDeptoId(String(did));
-        loadSub(pid ? String(pid) : "", did ? String(did) : "");
-      } else if (tipo === "ciudades" && item?.pais_id) {
-        loadSub(String(item.pais_id), item.departamento_id ? String(item.departamento_id) : "");
-      }
-    }, 0);
+    setTimeout(() => setForm(inicial(tipo)), 0);
     return null;
   }
 
@@ -349,20 +348,18 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
           <div className="col-md-8"><label className="form-label small fw-semibold">Nombre *</label><input className="form-control" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} /></div>
           <div className="col-md-6">
             <label className="form-label small fw-semibold">País *</label>
-            <select className="form-select" value={paisId || ""} onChange={async (e) => {
+            <select className="form-select" value={paisId || ""} onChange={(e) => {
               setPaisId(e.target.value);
               setDeptoId("");
-              form.ciudad_id = "";
-              await loadSub(e.target.value, "");
+              setForm({ ...form, ciudad_id: "" });
             }}>
               <option value="">Seleccionar…</option>
               {paises.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
             <label className="form-label small fw-semibold mt-2">Departamento *</label>
-            <select className="form-select" value={deptoId || ""} onChange={async (e) => {
+            <select className="form-select" value={deptoId || ""} onChange={(e) => {
               setDeptoId(e.target.value);
-              form.ciudad_id = "";
-              await loadSub(paisId, e.target.value);
+              setForm({ ...form, ciudad_id: "" });
             }}>
               <option value="">Seleccionar…</option>
               {deptos.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
@@ -430,11 +427,10 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label small fw-semibold">País *</label>
-            <select className="form-select" value={paisId || ""} onChange={async (e) => {
+            <select className="form-select" value={paisId || ""} onChange={(e) => {
               setPaisId(e.target.value);
               setDeptoId("");
               form.departamento_id = "";
-              await loadSub(e.target.value, "");
             }}>
               <option value="">Seleccionar…</option>
               {paises.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -442,7 +438,10 @@ function GeoModal({ tipo, item, sedes, tipos, paises, ciudades, onClose, onSaved
           </div>
           <div className="col-md-6">
             <label className="form-label small fw-semibold">Departamento *</label>
-            <select className="form-select" value={form.departamento_id ? String(form.departamento_id) : deptoId || ""} onChange={(e) => setForm({ ...form, departamento_id: e.target.value })}>
+            <select className="form-select" value={String(form.departamento_id || "") || deptoId || ""} onChange={(e) => {
+              setDeptoId(e.target.value);
+              setForm({ ...form, departamento_id: e.target.value });
+            }}>
               <option value="">Seleccionar…</option>
               {deptos.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
             </select>
