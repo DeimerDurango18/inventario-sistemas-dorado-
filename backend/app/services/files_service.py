@@ -44,6 +44,7 @@ def guardar_archivo(
     entidad_id: int,
     usuario_id: int | None = None,
     tipo_documento: str | None = None,
+    serial: str | None = None,
 ) -> Archivo:
     """Guarda un UploadFile con límite de tamaño y extensión permitida."""
     if entidad_tipo.upper() == "ACTIVO" and not db.get(Activo, entidad_id):
@@ -81,6 +82,7 @@ def guardar_archivo(
         ruta=str(destino.relative_to(_STORAGE)),
         mime=mime[:100],
         tamano=total,
+        serial=(serial or "")[:100] or None,
         usuario_id=usuario_id,
     )
     try:

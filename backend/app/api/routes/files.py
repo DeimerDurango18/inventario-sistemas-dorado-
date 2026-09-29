@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -36,10 +36,11 @@ def listar_archivos_activo(
 def subir_foto_mantenimiento(
     mant_id: int,
     archivo: UploadFile = File(...),
+    serial: str | None = Form(None),
     db: Session = Depends(get_db),
     user: Usuario = Depends(require_permiso("registrar_mantenimiento")),
 ):
-    return files_service.guardar_archivo(db, archivo, "MANTENIMIENTO", mant_id, user.id)
+    return files_service.guardar_archivo(db, archivo, "MANTENIMIENTO", mant_id, user.id, serial=serial)
 
 
 @router.get("/mantenimiento/{mant_id}", response_model=list[ArchivoRead])

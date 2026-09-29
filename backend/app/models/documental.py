@@ -111,5 +111,6 @@ class Archivo(Base):
     ruta: Mapped[str] = mapped_column(String(500), nullable=False)
     mime: Mapped[str | None] = mapped_column(String(100))
     tamano: Mapped[int | None] = mapped_column(Integer)
+    serial: Mapped[str | None] = mapped_column(String(100))
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -15,4 +15,5 @@ class ArchivoRead(ORMModel):
     ruta: Optional[str] = None
     mime: Optional[str] = None
     tamano: Optional[int] = None
+    serial: Optional[str] = None
     created_at: datetime

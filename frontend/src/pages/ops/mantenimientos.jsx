@@ -95,7 +95,7 @@ export default function Mantenimientos() {
     setBusy(true);
     try {
       for (const f of fotos) {
-        await api.upload(`/archivos/mantenimiento/${cerrando.id}`, f, {}, (p) => setSubiendo(p));
+        await api.upload(`/archivos/mantenimiento/${cerrando.id}`, f.file, { serial: f.serial || "" }, (p) => setSubiendo(p));
       }
       await api.put(`/activos/mantenimientos/${cerrando.id}/cerrar`, {
         resultado: form.resultado,
@@ -220,31 +220,50 @@ export default function Mantenimientos() {
           <label className="form-label small fw-semibold">Fotos de los seriales</label>
           <div className="d-flex align-items-start gap-2">
             <label className="btn btn-sm btn-soft mb-0">
-              <i className="bi bi-camera me-1" /> {fotos.length ? `Agregar fotos (${fotos.length})` : "Subir fotos"}
-              <input
-                type="file" accept="image/*" multiple className="d-none"
-                onChange={(e) => {
-                  const fs = Array.from(e.target.files || []);
-                  if (fs.length) setFotos((prev) => [...prev, ...fs]);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {fotos.length > 0 && (
-              <div className="d-flex flex-wrap gap-1 align-items-center">
-                {fotos.map((f, i) => (
-                  <span key={i} className="badge eta-badge fw-semibold" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" }}>
-                    📷 {f.name}
-                    <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}>
-                      <i className="bi bi-x"></i>
-                    </button>
-                  </span>
-                ))}
+                  <i className="bi bi-camera me-1" /> {fotos.length ? `Agregar fotos (${fotos.length})` : "Subir fotos"}
+                  <input
+                    type="file" accept="image/*" multiple className="d-none"
+                    onChange={(e) => {
+                      const fs = Array.from(e.target.files || []);
+                      if (fs.length) setFotos((prev) => [...prev, ...fs.map((file) => ({ file, serial: "" }))]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {fotos.length > 0 && (
+                  <div className="d-flex flex-wrap gap-2 align-items-start">
+                    {fotos.map((f, i) => (
+                      <div key={i} className="d-flex flex-column align-items-center gap-1 p-2 border rounded" style={{ width: 150, background: "#fafbff" }}>
+                        <img
+                          src={URL.createObjectURL(f.file)}
+                          alt={f.file.name}
+                          className="img-thumbnail"
+                          style={{ width: "100%", height: 90, objectFit: "cover", cursor: "zoom-in" }}
+                          onClick={() => window.open(URL.createObjectURL(f.file))}
+                        />
+                        <div className="w-100 d-flex gap-1 align-items-center">
+                          <input
+                            className="form-control form-control-sm"
+                            placeholder="Serial"
+                            value={f.serial}
+                            onChange={(e) => setFotos((prev) => prev.map((x, j) => (j === i ? { ...x, serial: e.target.value } : x)))}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-light p-1"
+                            title="Eliminar foto"
+                            onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}
+                          >
+                            <i className="bi bi-trash text-danger"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="form-text">Las fotos de los seriales quedan adjuntas al mantenimiento. Al cerrar se genera el acta con los seriales listados.</div>
-        </div>
+              <div className="form-text">Sube las fotos del equipo atendido y escribe en cada una el serial correspondiente (aparecerán en el acta con ese serial).</div>
+            </div>
 
         <div className="row g-2">
           <div className="col-md-6">
