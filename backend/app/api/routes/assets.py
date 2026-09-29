@@ -190,10 +190,11 @@ def listar_mantenimientos(
     estado: str | None = None,
     activo_id: int | None = None,
     ubicacion_id: int | None = None,
+    sede_id: int | None = None,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_permiso("ver_activos")),
 ):
-    return asset_service.list_mantenimientos(db, estado, activo_id, ubicacion_id)
+    return asset_service.list_mantenimientos(db, estado, activo_id, ubicacion_id, sede_id)
 
 
 @router.put("/mantenimientos/{mant_id}/cerrar", response_model=MantenimientoRead)

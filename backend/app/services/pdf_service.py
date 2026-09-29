@@ -98,13 +98,17 @@ def _datos_tabla(acta, op) -> list[list[str]]:
         activo = acta.activo
     seriales = getattr(op, "seriales", None) or []
     if activo is None:
-        # Mantenimiento programado a una ubicación/farmacia: lista los seriales
-        # de los equipos atendidos, aunque no estén ligados a un activo puntual.
+        # Mantenimiento programado a una sede/farmacia o ubicación: lista los
+        # seriales de los equipos atendidos, aunque no estén ligados a un activo.
         if seriales:
             ref = "MANTENIMIENTO"
-            if getattr(op, "ubicacion", None):
+            if getattr(op, "sede", None) and op.sede:
+                ref = f"{op.sede.nombre or op.sede.codigo or 'Sede'}"[:40]
+            elif getattr(op, "ubicacion", None):
                 ref = f"{op.ubicacion.nombre or 'Ubicación'}"[:40]
             return [[ref, "", "Equipo atendido", "1", s] for s in seriales]
+        if getattr(op, "sede", None) and op.sede:
+            return [[op.sede.nombre or op.sede.codigo or "Sede", "", "", str(getattr(op, "cantidad", 1) or 1), "—"]]
         if getattr(op, "ubicacion", None):
             return [[op.ubicacion.nombre or "Ubicación", "", "", str(getattr(op, "cantidad", 1) or 1), "—"]]
         return [["", "", "", "", ""]]
@@ -143,6 +147,8 @@ def _encabezado_params(db, op) -> dict:
         if getattr(op, "destino", None):
             info["destino_nombre"] = op.destino
             info["destino_persona"] = op.destino
+        if getattr(op, "sede", None) and op.sede:
+            info["destino_nombre"] = op.sede.nombre
         if getattr(op, "ubicacion", None) and op.ubicacion:
             info["destino_nombre"] = op.ubicacion.nombre
         if getattr(op, "documento", None):

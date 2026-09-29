@@ -13,7 +13,7 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.asset import Activo, ActivoAtributo, Responsable
 from app.models.catalog import EstadoActivo, Proveedor
 from app.models.documental import Acta, Baja, Garantia
-from app.models.geo import Ubicacion
+from app.models.geo import Sede, Ubicacion
 from app.models.loan import Prestamo
 from app.models.maintenance import Mantenimiento
 from app.models.movement import Movimiento
@@ -679,10 +679,11 @@ def devolver_prestamo(db: Session, prestamo_id: int, actor_id: int) -> Prestamo:
 
 
 # ------------------------------------------------------------------ mantenimientos
-def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int | None = None, ubicacion_id: int | None = None):
+def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int | None = None, ubicacion_id: int | None = None, sede_id: int | None = None):
     stmt = select(Mantenimiento).options(
         selectinload(Mantenimiento.activo),
         selectinload(Mantenimiento.ubicacion),
+        selectinload(Mantenimiento.sede),
         selectinload(Mantenimiento.tecnico),
         selectinload(Mantenimiento.proveedor),
     )
@@ -692,24 +693,30 @@ def list_mantenimientos(db: Session, estado: str | None = None, activo_id: int |
         stmt = stmt.where(Mantenimiento.activo_id == activo_id)
     if ubicacion_id:
         stmt = stmt.where(Mantenimiento.ubicacion_id == ubicacion_id)
+    if sede_id:
+        stmt = stmt.where(Mantenimiento.sede_id == sede_id)
     return db.scalars(stmt.order_by(Mantenimiento.id.desc())).all()
 
 
 def crear_mantenimiento(db: Session, data: MantenimientoCreate, actor_id: int) -> Mantenimiento:
-    if not data.activo_id and not data.ubicacion_id:
-        raise ValidationError("Selecciona el activo o la ubicación (farmacia) a mantener.")
+    if not data.activo_id and not data.ubicacion_id and not data.sede_id:
+        raise ValidationError("Selecciona la sede (farmacia), la ubicación o el activo a mantener.")
     activo = db.get(Activo, data.activo_id) if data.activo_id else None
     ubicacion = db.get(Ubicacion, data.ubicacion_id) if data.ubicacion_id else None
+    sede = db.get(Sede, data.sede_id) if data.sede_id else None
     if data.activo_id and not activo:
         raise NotFoundError("Activo")
     if data.ubicacion_id and not ubicacion:
         raise NotFoundError("Ubicación")
+    if data.sede_id and not sede:
+        raise NotFoundError("Sede")
     numero = get_next_number(db, "MANT", Mantenimiento)
     cantidad, seriales = _cantidad_seriales(data, activo)
     m = Mantenimiento(
         numero=numero,
         activo_id=activo.id if activo else None,
         ubicacion_id=ubicacion.id if ubicacion else None,
+        sede_id=sede.id if sede else None,
         tipo=data.tipo,
         cantidad=cantidad,
         seriales=seriales,
@@ -727,7 +734,7 @@ def crear_mantenimiento(db: Session, data: MantenimientoCreate, actor_id: int) -
     db.flush()
     if m.estado in ("EN_PROGRESO", "PROGRAMADO") and activo:
         activo.estado_id = _estado_o(db, _EST_CLAVE["MANTENIMIENTO"], activo.estado).id
-    ref = f"ubicación {ubicacion.nombre}" if ubicacion else activo.codigo
+    ref = sede.nombre if sede else (ubicacion.nombre if ubicacion else activo.codigo)
     audit_op(db, "ACTIVOS", "Mantenimiento", m.id, "CREAR", f"Mantenimiento {numero} para {ref}")
     db.commit()
     db.refresh(m)
@@ -766,7 +773,7 @@ def cerrar_mantenimiento(db: Session, mant_id: int, actor_id: int, resultado: st
     )
     m.acta_id = acta.id
     db.flush()
-    ref = m.activo.codigo if m.activo else (m.ubicacion.nombre if m.ubicacion else f"#{m.id}")
+    ref = m.activo.codigo if m.activo else (m.sede.nombre if m.sede else (m.ubicacion.nombre if m.ubicacion else f"#{m.id}"))
     notifications.crear_notificacion(
         db,
         tipo="MANTENIMIENTO",

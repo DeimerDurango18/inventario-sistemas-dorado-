@@ -20,7 +20,7 @@ export default function Mantenimientos() {
   const [busy, setBusy] = useState(false);
   const [progOpen, setProgOpen] = useState(false);
   const [prog, setProg] = useState({
-    destino: "ubicacion", q: "", destinoObj: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [],
+    destino: "sede", sedeId: "", activo: null, q: "", tipo: "PREVENTIVO", cantidad: 1, seriales: [],
     fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "",
   });
 
@@ -37,19 +37,8 @@ export default function Mantenimientos() {
   );
   const activos = useAsync(() => activosQ, [prog.q, prog.destino]);
 
-  const ubicacionesQ = useMemo(
-    () => api.get("/geo/ubicaciones"),
-    []
-  );
-  const ubicaciones = useAsync(() => ubicacionesQ, []);
-  const ubicCandidates = useMemo(() => {
-    if (!ubicaciones.data || prog.destino !== "ubicacion") return [];
-    const q = prog.q.trim().toLowerCase();
-    if (!q) return ubicaciones.data;
-    return ubicaciones.data.filter((u) =>
-      `${u.nombre} ${u.sede?.nombre || ""} ${u.sede?.codigo || ""}`.toLowerCase().includes(q)
-    );
-  }, [ubicaciones.data, prog.q, prog.destino]);
+  const sedesQ = useMemo(() => api.get("/geo/sedes"), []);
+  const sedes = useAsync(() => sedesQ, []);
 
   const abrirCerrar = (m) => {
     setCerrando(m);
@@ -59,16 +48,20 @@ export default function Mantenimientos() {
     setForm({ resultado: "", observaciones: "", costo: "", proxima_fecha: m.proxima_fecha ? m.proxima_fecha.slice(0, 10) : "" });
   };
 
+  const resetProg = () => setProg({
+    destino: "sede", sedeId: "", activo: null, q: "", tipo: "PREVENTIVO", cantidad: 1, seriales: [],
+    fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "",
+  });
+
   const seleccionarDestino = (obj, tipo) => {
-    if (tipo === "ubicacion") {
-      setProg((p) => ({ ...p, destino: "ubicacion", destinoObj: obj, q: obj.nombre }));
-    } else {
-      setProg((p) => ({ ...p, destino: "activo", destinoObj: obj, q: `${obj.codigo}${obj.serial ? ` · ${obj.serial}` : ""}`, seriales: obj.serial ? [obj.serial] : [] }));
+    if (tipo === "activo") {
+      setProg((p) => ({ ...p, destino: "activo", activo: obj, q: `${obj.codigo}${obj.serial ? ` · ${obj.serial}` : ""}`, seriales: obj.serial ? [obj.serial] : [] }));
     }
   };
 
   const guardarProgramado = async () => {
-    if (!prog.destinoObj) return pushToast("warning", "Selecciona la farmacia o el activo a mantener");
+    const objetivo = prog.destino === "sede" ? prog.sedeId : prog.activo;
+    if (!objetivo) return pushToast("warning", "Selecciona la sede (farmacia) o el activo a mantener");
     setBusy(true);
     try {
       const cantidad = prog.seriales.length > 0 ? prog.seriales.length : Number(prog.cantidad || 1);
@@ -81,12 +74,14 @@ export default function Mantenimientos() {
         diagnostico: prog.diagnostico || null,
         actividades: prog.actividades || null,
       };
-      if (prog.destino === "ubicacion") body.ubicacion_id = prog.destinoObj.id;
-      else body.activo_id = prog.destinoObj.id;
+      if (prog.destino === "sede") body.sede_id = Number(prog.sedeId);
+      else body.activo_id = prog.activo.id;
+      const sedeSel = sedes.data?.find((s) => s.id === Number(prog.sedeId));
+      const nombre = prog.destino === "sede" ? (sedeSel?.nombre || `#${prog.sedeId}`) : prog.activo.codigo;
       await api.post("/activos/mantenimientos", body);
-      pushToast("success", `Mantenimiento programado en ${prog.destinoObj.nombre || prog.destinoObj.codigo}`);
+      pushToast("success", `Mantenimiento programado en ${nombre}`);
       setProgOpen(false);
-      setProg({ destino: "ubicacion", q: "", destinoObj: null, tipo: "PREVENTIVO", cantidad: 1, seriales: [], fecha_programada: new Date().toISOString().slice(0, 10), proposito: "", diagnostico: "", actividades: "" });
+      resetProg();
       reload();
     } catch (e) {
       pushToast("error", e.message);
@@ -167,7 +162,7 @@ export default function Mantenimientos() {
                 {items.map((m) => (
                   <tr key={m.id}>
                     <td><span className="fw-semibold">{m.numero}</span></td>
-                    <td>{m.activo ? <Link to={`/activos/${m.activo.id}`} className="fw-semibold">{m.activo.codigo}</Link> : (m.ubicacion ? <span className="fw-semibold">{m.ubicacion.nombre}</span> : `#${m.id}`)}</td>
+                    <td>{m.activo ? <Link to={`/activos/${m.activo.id}`} className="fw-semibold">{m.activo.codigo}</Link> : (m.sede ? <span className="fw-semibold">{m.sede.nombre}</span> : (m.ubicacion ? <span className="fw-semibold">{m.ubicacion.nombre}</span> : `#${m.id}`))}</td>
                     <td className="small">{m.tipo}</td>
                     <td className="small">{m.cantidad || 1}</td>
                     <td className="small">{(m.seriales || []).length ? m.seriales.join(", ") : "—"}</td>
@@ -286,64 +281,74 @@ export default function Mantenimientos() {
         <div className="row g-3">
           <div className="col-12">
             <div className="btn-group btn-group-sm mb-2" role="group">
-              <button type="button" className={`btn ${prog.destino === "ubicacion" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "ubicacion", q: "", destinoObj: null }))}>
+              <button type="button" className={`btn ${prog.destino === "sede" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "sede", q: "", activo: null }))}>
                 <i className="bi bi-shop me-1" /> Farmacia / Sede
               </button>
-              <button type="button" className={`btn ${prog.destino === "activo" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "activo", q: "", destinoObj: null }))}>
+              <button type="button" className={`btn ${prog.destino === "activo" ? "btn-brand" : "btn-light"}`} onClick={() => setProg((p) => ({ ...p, destino: "activo", q: "", activo: null }))}>
                 <i className="bi bi-cpu me-1" /> Activo
               </button>
             </div>
-            <label className="form-label small fw-semibold">{prog.destino === "ubicacion" ? "Farmacia / Ubicación *" : "Activo *"}</label>
-            <input
-              className="form-control"
-              placeholder={prog.destino === "ubicacion" ? "Busca por nombre de la farmacia (ej. 10522)…" : "Busca por código, serial o descripción…"}
-              value={prog.q}
-              onChange={(e) => setProg((p) => ({ ...p, q: e.target.value, destinoObj: null }))}
-            />
-            {prog.destinoObj && (
-              <div className="d-flex flex-wrap gap-1 mt-2">
-                <span className="badge eta-badge fw-semibold" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" }}>
-                  {prog.destinoObj.nombre || prog.destinoObj.codigo}{prog.destino === "activo" && prog.destinoObj.serial ? ` · ${prog.destinoObj.serial}` : ""}
-                  <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} title="Quitar" onClick={() => setProg((p) => ({ ...p, destinoObj: null, q: "" }))}>
-                    <i className="bi bi-x"></i>
-                  </button>
-                </span>
-              </div>
-            )}
-            {!prog.destinoObj && prog.q.trim() && (
-              <div className="list-group list-group-flush eticos-card mt-1" style={{ maxHeight: 220, overflowY: "auto" }}>
-                {prog.destino === "activo" ? (
-                  activos.loading ? (
-                    <div className="text-center py-3"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
-                  ) : (activos.data?.items || []).length === 0 ? (
-                    <div className="text-center py-3 text-secondary small">Sin coincidencias</div>
-                  ) : (
-                    (activos.data?.items || []).map((a) => (
-                      <button key={a.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarDestino(a, "activo")}>
-                        <span>
-                          <span className="fw-semibold">{a.codigo}</span>
-                          {a.serial && <span className="text-secondary small ms-2">{a.serial}</span>}
-                        </span>
-                        <small className="text-secondary">{a.tipo}{a.marca?.nombre ? ` · ${a.marca.nombre}` : ""}</small>
-                      </button>
-                    ))
-                  )
-                ) : ubicaciones.loading ? (
-                  <div className="text-center py-3"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
-                ) : ubicCandidates.length === 0 ? (
-                  <div className="text-center py-3 text-secondary small">Sin farmacias o ubicaciones. Creáilas en Geografía</div>
+            {prog.destino === "sede" ? (
+              <>
+                <label className="form-label small fw-semibold">Sede *</label>
+                {sedes.loading ? (
+                  <div className="text-center py-2"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
+                ) : (sedes.data || []).length === 0 ? (
+                  <div className="text-secondary small py-2">No hay sedes. Créalas en Geografía → Sedes y ubicaciones.</div>
                 ) : (
-                  ubicCandidates.map((u) => (
-                    <button key={u.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarDestino(u, "ubicacion")}>
-                      <span>
-                        <span className="fw-semibold">{u.nombre}</span>
-                        {u.sede?.nombre && <span className="text-secondary small ms-2">· {u.sede.nombre}</span>}
-                      </span>
-                      <small className="text-secondary">{u.tipo_ubicacion?.nombre || ""}</small>
-                    </button>
-                  ))
+                  <select
+                    className="form-select"
+                    value={prog.sedeId}
+                    onChange={(e) => setProg((p) => ({ ...p, sedeId: e.target.value }))}
+                  >
+                    <option value="">— Selecciona la sede / farmacia —</option>
+                    {(sedes.data || [])
+                      .filter((s) => s.estado !== "INACTIVA")
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>{s.codigo} · {s.nombre}</option>
+                      ))}
+                  </select>
                 )}
-              </div>
+              </>
+            ) : (
+              <>
+                <label className="form-label small fw-semibold">Activo *</label>
+                <input
+                  className="form-control"
+                  placeholder="Busca por código, serial o descripción…"
+                  value={prog.q}
+                  onChange={(e) => setProg((p) => ({ ...p, q: e.target.value, activo: null }))}
+                />
+                {prog.activo && (
+                  <div className="d-flex flex-wrap gap-1 mt-2">
+                    <span className="badge eta-badge fw-semibold" style={{ background: "#e9f2fc", color: "#0b66c2", border: "1px solid #0b66c240" }}>
+                      {prog.activo.codigo}{prog.activo.serial ? ` · ${prog.activo.serial}` : ""}
+                      <button type="button" className="border-0 bg-transparent p-0 lh-1 ms-1" style={{ color: "inherit" }} title="Quitar" onClick={() => setProg((p) => ({ ...p, activo: null, q: "" }))}>
+                        <i className="bi bi-x"></i>
+                      </button>
+                    </span>
+                  </div>
+                )}
+                {!prog.activo && prog.q.trim() && (
+                  <div className="list-group list-group-flush eticos-card mt-1" style={{ maxHeight: 220, overflowY: "auto" }}>
+                    {activos.loading ? (
+                      <div className="text-center py-3"><span className="spinner-border spinner-border-sm eticos-spinner" /></div>
+                    ) : (activos.data?.items || []).length === 0 ? (
+                      <div className="text-center py-3 text-secondary small">Sin coincidencias</div>
+                    ) : (
+                      (activos.data?.items || []).map((a) => (
+                        <button key={a.id} type="button" className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => seleccionarDestino(a, "activo")}>
+                          <span>
+                            <span className="fw-semibold">{a.codigo}</span>
+                            {a.serial && <span className="text-secondary small ms-2">{a.serial}</span>}
+                          </span>
+                          <small className="text-secondary">{a.tipo}{a.marca?.nombre ? ` · ${a.marca.nombre}` : ""}</small>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

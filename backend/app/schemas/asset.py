@@ -14,7 +14,7 @@ from app.schemas.catalog import (
     SubcategoriaRead,
 )
 from app.schemas.common import ORMModel
-from app.schemas.geo import UbicacionRead
+from app.schemas.geo import SedeRead, UbicacionRead
 
 
 # ------------------------------------------------------------------ responsables
@@ -241,6 +241,7 @@ class PrestamoRead(ORMModel):
 class MantenimientoCreate(BaseModel):
     activo_id: Optional[int] = None
     ubicacion_id: Optional[int] = None
+    sede_id: Optional[int] = None
     tipo: str = "PREVENTIVO"  # PREVENTIVO | CORRECTIVO | PREDICTIVO
     cantidad: int = Field(1, ge=1)
     seriales: Optional[List[str]] = None
@@ -267,6 +268,7 @@ class MantenimientoRead(ORMModel):
     numero: str
     activo_id: Optional[int] = None
     ubicacion_id: Optional[int] = None
+    sede_id: Optional[int] = None
     tipo: str
     cantidad: int = 1
     seriales: Optional[List[str]] = None
@@ -287,6 +289,7 @@ class MantenimientoRead(ORMModel):
 
     activo: Optional[ActivoRead] = None
     ubicacion: Optional[UbicacionRead] = None
+    sede: Optional[SedeRead] = None
     tecnico: Optional[ResponsableRead] = None
     proveedor: Optional[ProveedorRead] = None
 
