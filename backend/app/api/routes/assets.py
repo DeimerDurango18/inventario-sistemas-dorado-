@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_permiso
 from app.core.database import get_db
+from app.core.errors import NotFoundError, ValidationError
 from app.models.user import Usuario
 from app.schemas.asset import (
     ActaRead,
@@ -13,6 +14,7 @@ from app.schemas.asset import (
     BajaCreate,
     BajaRead,
     ConsultaPublicaRead,
+    EnviarActa,
     GarantiaCreate,
     GarantiaRead,
     MantenimientoCerrar,
@@ -143,6 +145,52 @@ def descargar_pdf_acta(
         content=data,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{numero}.pdf"'},
+    )
+
+
+@router.post("/actas/{acta_id}/enviar")
+def enviar_acta(
+    acta_id: int,
+    data: EnviarActa,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("ver_activos")),
+):
+    from app.models.documental import Acta
+    from app.services import asset_service, notify_service
+
+    acta = db.get(Acta, acta_id)
+    if not acta:
+        raise NotFoundError("Acta")
+    pdf, numero = asset_service.pdf_acta(db, acta_id)
+    medio = (data.medio or "correo").lower()
+    if medio == "correo":
+        if not data.destino:
+            raise ValidationError("Indique el correo de destino.")
+        return notify_service.enviar_acta_correo(data.destino, acta, pdf, f"{numero}.pdf")
+    if medio == "whatsapp":
+        enlace = notify_service.enlace_whatsapp(data.destino or "", acta)
+        return {"medio": "whatsapp", "destino": data.destino, "enlace": enlace}
+    raise ValidationError("Medio no válido: use 'correo' o 'whatsapp'.")
+
+
+@router.get("/{activo_id}/ficha")
+def descargar_ficha_activo(
+    activo_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("ver_activos")),
+):
+    from app.models.asset import Activo
+    from app.services import pdf_service
+
+    activo = db.get(Activo, activo_id)
+    if not activo:
+        raise NotFoundError("Activo")
+    datos = pdf_service.generar_ficha_tecnica(db, activo)
+    nombre = f"FICHA-{activo.codigo or activo.id}.pdf"
+    return Response(
+        content=datos,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
     )
 
 

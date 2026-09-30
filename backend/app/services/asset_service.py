@@ -466,6 +466,19 @@ def anular_movimiento(db: Session, mov_id: int, motivo: str, actor_id: int) -> M
         elif mov.tipo == "ASIGNACION" and not activo.responsable_id:
             activo.estado_id = _estado_o(db, _EST_CLAVE["DISPONIBLE"], activo.estado).id
     db.flush()
+    acta_anul = _crear_acta(
+        db,
+        "ANULACION",
+        "ANULACION",
+        mov.id,
+        mov.activo_id,
+        actor_id,
+        f"Anulación del movimiento {mov.numero} ({mov.tipo}): {motivo or 'sin motivo registrado'}",
+        operacion_obj=mov,
+        prefix="CAN",
+    )
+    mov.acta_anulacion_id = acta_anul.id
+    db.flush()
     audit_op(db, "ACTIVOS", "Movimiento", mov.id, "ANULAR", f"Movimiento {mov.numero} anulado: {motivo}")
     db.commit()
     return _get_movimiento(db, mov_id)
@@ -520,10 +533,20 @@ def _operacion_acta(db: Session, acta: Acta):
         from app.models.stock import MovimientoStock
 
         return db.get(MovimientoStock, acta.operacion_id)
-    if (acta.tipo or "").upper() in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
+    if (acta.tipo or "").upper() == "ANULACION":
+        from app.models.movement import Movimiento as MovActiv
+        from app.models.stock import MovimientoStock
+
+        return (db.get(MovimientoStock, acta.operacion_id)
+                or db.get(MovActiv, acta.operacion_id))
+    if (acta.tipo or "").upper() in ("INSTALACION", "REUBICACION", "RETIRO"):
         from app.models.operations import Instalacion
 
         return db.get(Instalacion, acta.operacion_id)
+    if (acta.tipo or "").upper() in ("SOPORTE_SITIO", "ATENCION_PUNTO"):
+        from app.models.operations import AtencionPunto
+
+        return db.get(AtencionPunto, acta.operacion_id)
     modelo = por_tipo.get((acta.tipo or "").upper())
     if not modelo:
         return None

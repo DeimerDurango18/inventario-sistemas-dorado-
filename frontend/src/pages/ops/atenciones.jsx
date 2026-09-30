@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../api/client";
+import { downloadFile } from "../../api/client";
 import { Card, EmptyState, LoadingBlock, Modal, PageHeader } from "../../components/ui";
 import useAsync from "../../hooks/useAsync";
 import { useToast } from "../../context/ToastContext";
@@ -69,6 +70,11 @@ export default function Atenciones() {
                       {it.estado !== "RESUELTA" && (
                         <button className="btn btn-sm btn-outline-success" onClick={() => setModal({ item: it, resolver: true })}>
                           <i className="bi bi-check2-circle me-1" /> Resolver
+                        </button>
+                      )}
+                      {it.acta_id && (
+                        <button className="btn btn-sm btn-outline-brand ms-1" title="Descargar acta de soporte" onClick={() => downloadFile(`/actas/${it.acta_id}/pdf`, `${it.numero}.pdf`)}>
+                          <i className="bi bi-file-earmark-richtext me-1" /> Acta
                         </button>
                       )}
                       <button className="btn btn-sm btn-light ms-1" onClick={() => setModal({ item: it })}><i className="bi bi-pencil text-primary"></i></button>

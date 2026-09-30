@@ -41,6 +41,15 @@ def alertas(
     return dashboard_service.alertas(db)
 
 
+@router.get("/pendientes")
+def pendientes(
+    dias: int = 30,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_permiso("ver_activos")),
+):
+    return dashboard_service.pendientes(db, dias)
+
+
 @router.get("/bajas-tickets")
 def bajas_tickets(
     db: Session = Depends(get_db),

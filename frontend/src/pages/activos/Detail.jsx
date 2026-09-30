@@ -81,6 +81,14 @@ export default function ActivoDetail() {
                 <i className="bi bi-pencil me-1 text-primary" /> Editar
               </Link>
             )}
+            <button className="btn btn-sm btn-light me-1" onClick={async () => {
+              try {
+                await downloadFile(`/activos/${a.id}/ficha`, `FICHA-${a.codigo}.pdf`);
+                pushToast("success", "Ficha técnica descargada");
+              } catch (e) { pushToast("error", e.message || "No se pudo generar la ficha"); }
+            }}>
+              <i className="bi bi-file-earmark-pdf me-1 text-danger" /> Ficha técnica
+            </button>
             {cantRegistrar && (
               <button className="btn btn-sm btn-brand" onClick={() => setModal({ tipo: "movimiento" })}>
                 <i className="bi bi-arrow-left-right me-1" /> Registrar movimiento

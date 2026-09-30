@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { downloadFile } from "../../api/client";
-import { Badge, Card, EmptyState, PageHeader } from "../../components/ui";
+import { Badge, Card, EmptyState, Modal, PageHeader } from "../../components/ui";
 import useAsync from "../../hooks/useAsync";
 import { estadoInfo, fmtDateTime } from "../../utils/format";
 import { useToast } from "../../context/ToastContext";
@@ -10,6 +10,7 @@ export default function Actas() {
   const { pushToast } = useToast();
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState(null);
+  const [enviando, setEnviando] = useState(null);
 
   const loader = useMemo(() => api.get(`/activos/movimientos/actas?page=${page}&size=20`), [page]);
   const { data, loading, reload } = useAsync(() => loader, [page]);
@@ -23,6 +24,24 @@ export default function Actas() {
       pushToast("success", `Acta ${name || a.numero} descargada`);
     } catch (e) {
       pushToast("error", e.message || "No se pudo generar el PDF");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const enviar = async (a, medio, destino) => {
+    setBusyId(a.id);
+    try {
+      const r = await api.post(`/activos/actas/${a.id}/enviar`, { medio, destino });
+      if (medio === "whatsapp" && r.data?.enlace) {
+        window.open(r.data.enlace, "_blank");
+        pushToast("success", "Enlace de WhatsApp generado; adjunta el PDF en el chat");
+      } else {
+        pushToast("success", `Acta enviada a ${r.data?.destino || destino}`);
+      }
+      setEnviando(null);
+    } catch (e) {
+      pushToast("error", e.message || "No se pudo enviar el acta");
     } finally {
       setBusyId(null);
     }
@@ -62,7 +81,10 @@ export default function Actas() {
                     <td className="text-secondary small">{fmtDateTime(a.fecha)}</td>
                     <td><Badge estado={estadoInfo(a.estado)} /></td>
                     <td className="text-end">
-                      <button className="btn btn-sm btn-soft" disabled={busyId === a.id} onClick={() => descargar(a)}>
+                      <button className="btn btn-sm btn-outline-brand ms-1" title="Enviar acta" disabled={busyId === a.id} onClick={() => setEnviando(a)}>
+                        <i className="bi bi-send me-1" /> Enviar
+                      </button>
+                      <button className="btn btn-sm btn-soft ms-1" disabled={busyId === a.id} onClick={() => descargar(a)}>
                         {busyId === a.id ? (
                           <span className="spinner-border spinner-border-sm" />
                         ) : (
@@ -86,6 +108,54 @@ export default function Actas() {
           </div>
         )}
       </Card>
+
+      {enviando && (
+        <EnviarModal
+          acta={enviando}
+          onClose={() => setEnviando(null)}
+          onEnviar={(medio, destino) => enviar(enviando, medio, destino)}
+        />
+      )}
     </div>
+  );
+}
+
+function EnviarModal({ acta, onClose, onEnviar }) {
+  const [medio, setMedio] = useState("correo");
+  const [destino, setDestino] = useState("");
+
+  return (
+    <Modal open title={`Enviar ${acta.numero}`} icon="send" onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-sm btn-light" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-sm btn-brand" disabled={!destino.trim()} onClick={() => onEnviar(medio, destino.trim())}>
+            <i className="bi bi-send me-1" /> Enviar
+          </button>
+        </>
+      }>
+      <div className="row g-3">
+        <div className="col-12">
+          <label className="form-label small fw-semibold">Medio</label>
+          <div className="btn-group w-100">
+            <button className={`btn btn-sm ${medio === "correo" ? "btn-brand" : "btn-light"}`} onClick={() => setMedio("correo")}>
+              <i className="bi bi-envelope me-1" /> Correo
+            </button>
+            <button className={`btn btn-sm ${medio === "whatsapp" ? "btn-brand" : "btn-light"}`} onClick={() => setMedio("whatsapp")}>
+              <i className="bi bi-whatsapp me-1" /> WhatsApp
+            </button>
+          </div>
+        </div>
+        <div className="col-12">
+          <label className="form-label small fw-semibold">{medio === "correo" ? "Correo de destino *" : "WhatsApp (número) *"}</label>
+          <input className="form-control" type={medio === "correo" ? "email" : "tel"} value={destino}
+            onChange={(e) => setDestino(e.target.value)}
+            placeholder={medio === "correo" ? "cliente@empresa.com" : "57 300 000 0000"} />
+        </div>
+        {medio === "whatsapp" && (
+          <div className="col-12"><small className="text-secondary">Se abrirá un chat de WhatsApp con el resumen del acta; adjunta el PDF descargado manualmente.</small></div>
+        )}
+      </div>
+    </Modal>
   );
 }

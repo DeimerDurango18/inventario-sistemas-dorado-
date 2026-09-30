@@ -353,6 +353,11 @@ class BajaRead(ORMModel):
 
 
 # ------------------------------------------------------------------ actas
+class EnviarActa(BaseModel):
+    medio: Optional[str] = None  # 'correo' | 'whatsapp'
+    destino: Optional[str] = None  # email o teléfono
+
+
 class ActaRead(ORMModel):
     id: int
     numero: str

@@ -249,7 +249,7 @@ def registrar_movimiento(db: Session, data: MovimientoStockCreate, actor_id: int
             stock_anterior = activo.cantidad_stock
             activo.cantidad_stock = nuevo_stock
         cantidad_mov = nuevo_stock
-        genera_acta = False
+        genera_acta = True
 
     if data.proveedor_id:
         _get_or_404(db, Proveedor, data.proveedor_id, "Proveedor")
@@ -374,6 +374,21 @@ def anular_movimiento(db: Session, mov_id: int, motivo: str, actor_id: int) -> M
     mov.anulado_usuario_id = actor_id
     mov.anulado_fecha = datetime.now(timezone.utc)
     db.flush()
+
+    acta = _crear_acta(
+        db,
+        "ANULACION",
+        "ANULACION",
+        mov.id,
+        mov.activo_id,
+        actor_id,
+        f"Anulación del movimiento {mov.numero} ({mov.tipo}): {motivo or 'sin motivo registrado'}",
+        operacion_obj=mov,
+        prefix="CAN",
+    )
+    mov.acta_anulacion_id = acta.id
+    db.flush()
+
     audit_op(db, "STOCK", "MovimientoStock", mov.id, "ANULAR", f"{mov.numero} anulado: {motivo}")
     db.commit()
     return _get_mov(db, mov_id)

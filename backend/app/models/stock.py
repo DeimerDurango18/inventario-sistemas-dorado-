@@ -89,6 +89,7 @@ class MovimientoStock(Base):
     anulado_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     anulado_fecha: Mapped[datetime | None] = mapped_column(DateTime)
     acta_id: Mapped[int | None] = mapped_column(ForeignKey("actas.id"))
+    acta_anulacion_id: Mapped[int | None] = mapped_column(ForeignKey("actas.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     item: Mapped["StockItem | None"] = relationship(lazy="joined")

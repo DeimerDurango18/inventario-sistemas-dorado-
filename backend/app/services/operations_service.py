@@ -130,6 +130,23 @@ def actualizar_atencion(db: Session, atencion_id: int, data: AtencionUpdate, act
     for campo, valor in cambios.items():
         setattr(a, campo, valor)
     db.flush()
+    # Acta de soporte al resolver la atención del punto (una sola vez).
+    if a.estado == "RESUELTA" and not a.acta_id:
+        from app.services import asset_service
+
+        acta = asset_service._crear_acta(
+            db,
+            "SOPORTE_SITIO",
+            "SOPORTE_SITIO",
+            a.id,
+            None,
+            actor_id,
+            a.solucion or f"Atención del punto {a.nombre_punto}: {a.descripcion_problema or ''}",
+            operacion_obj=a,
+            prefix="ACT",
+        )
+        a.acta_id = acta.id
+        db.flush()
     audit_op(db, "OPERATIVO", "AtencionPunto", a.id, "EDITAR", f"Atención {a.numero} actualizada")
     db.commit()
     db.refresh(a)

@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     company_encargado_cargo: str = "DESPACHO BODEGA"
     company_destino: str = "BODEGA BOGOTÁ"
 
+    # Correo (envío de actas)
+    mail_host: str = ""
+    mail_port: int = Field(default=587, ge=1, le=65535)
+    mail_user: str = ""
+    mail_password: str = ""
+    mail_from: str = ""
+    mail_tls: bool = True
+
     # Storage
     storage_path: str = "./storage"
     max_upload_mb: int = Field(default=10, ge=1, le=100)

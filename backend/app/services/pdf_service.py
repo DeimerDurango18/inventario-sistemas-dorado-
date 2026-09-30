@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import re
 from datetime import datetime, timezone
 
+import qrcode
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -37,9 +39,12 @@ _TITULOS_DOC = {
     "BAJA": "ACTA DE BAJA",
     "ENTRADA": "ORDEN DE ENTRADA",
     "SALIDA": "ORDEN DE SALIDA",
+    "AJUSTE": "ACTA DE AJUSTE DE INVENTARIO",
+    "ANULACION": "ACTA DE ANULACIÓN",
     "INSTALACION": "ACTA DE INSTALACIÓN",
     "REUBICACION": "ACTA DE REUBICACIÓN",
     "SOPORTE_SITIO": "ACTA DE SOPORTE EN SITIO",
+    "ATENCION_PUNTO": "ACTA DE ATENCIÓN DE PUNTO",
     "RETIRO": "ACTA DE RETIRO DE EQUIPO",
 }
 
@@ -270,6 +275,170 @@ def _seccion_fotos(fotos: list[tuple[RLImage, str, str]], st_obs) -> Table | Non
     return tabla
 
 
+def _render_atencion(acta, op, db) -> bytes:
+    """Acta de soporte en sitio por atención de punto, formato de carta formal."""
+    if op is None:
+        return _render(acta, op, db)
+
+    p = _params(db)
+    fecha = op.fecha_resuelta or acta.fecha or datetime.now(timezone.utc)
+    if getattr(fecha, "tzinfo", None):
+        fecha = fecha.astimezone()
+
+    destino_texto = (getattr(op, "nombre_punto", None) or "").strip() or p.get("destino_nombre", "SEDE / FARMACIA")
+    contacto = (getattr(op, "contacto", None) or "").strip()
+    telefono = (getattr(op, "telefono", None) or "").strip()
+    categoria = ((getattr(op, "categoria", None) or "").strip() or "SOPORTE EN SITIO").replace("_", " ").lower()
+    ciudad = p.get("empresa_ciudad", "BOGOTÁ")
+    fecha_esp = _fecha_larga(fecha)
+    problema = (getattr(op, "descripcion_problema", None) or "").strip()
+    solucion = (getattr(op, "solucion", None) or "").strip()
+
+    numero_display = re.sub(r"^([A-Za-z]+)-0+(\d+)$", r"\1-\2", acta.numero or "")
+    titulo = _titulo_documento(acta.operacion_tipo, acta.tipo)
+
+    estilos = getSampleStyleSheet()
+    st_empresa = ParagraphStyle("empresa", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=14, leading=17, textColor=colors.HexColor("#1a1a4e"))
+    st_comercial = ParagraphStyle("comercial", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=13)
+    st_dato = ParagraphStyle("dato", parent=estilos["Normal"], fontSize=8.5, leading=11, textColor=_GRAY)
+    st_num = ParagraphStyle("num", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=13, alignment=TA_CENTER)
+    st_titulo_doc = ParagraphStyle("tdo", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=16, leading=19, alignment=TA_CENTER, textColor=colors.HexColor("#1a1a4e"))
+    st_p = ParagraphStyle("p", parent=estilos["Normal"], fontSize=10, leading=15, alignment=TA_JUSTIFY)
+    st_dir = ParagraphStyle("dir", parent=estilos["Normal"], fontSize=10, leading=15)
+    st_firma = ParagraphStyle("firma", parent=estilos["Normal"], fontSize=8.5, leading=11, alignment=TA_CENTER)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm,
+        leftMargin=2.0 * cm,
+        rightMargin=2.0 * cm,
+        title=f"{titulo} {acta.numero}",
+        author=p.get("empresa_nombre", "ETICOS"),
+    )
+
+    izq = Table(
+        [
+            [Paragraph(p.get("empresa_nombre", "SISTEMAS BOGOTÁ"), st_empresa)],
+            [Paragraph(p.get("empresa_comercial", "ETICOS BOGOTÁ"), st_comercial)],
+            [Paragraph(f'NIT: {p.get("empresa_nit", "892300678-7")}', st_dato)],
+            [Paragraph(p.get("empresa_direccion", ""), st_dato)],
+            [Paragraph(f'TEL: {p.get("empresa_telefono", "")}', st_dato)],
+        ],
+        colWidths=[9.2 * cm],
+    )
+    izq.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0)]))
+
+    der = Table(
+        [
+            [Paragraph(f"<b>{titulo}</b>", st_titulo_doc)],
+            [Paragraph("N° " + numero_display, st_num)],
+            [Paragraph(f'<b>FECHA:</b> {fecha.strftime("%d/%m/%Y")}', st_dato)],
+            [Paragraph(f'<b>CIUDAD:</b> {ciudad}', st_dato)],
+        ],
+        colWidths=[7.2 * cm],
+    )
+    der.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.8, _BORDER),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f2f3ff")),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    cabeza = Table([[izq, der]], colWidths=[9.2 * cm, 7.2 * cm])
+    cabeza.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    elementos: list = [cabeza, Spacer(1, 0.3 * cm), HRFlowable(width="100%", thickness=1.4, color=colors.HexColor("#1a1a4e")), Spacer(1, 0.7 * cm)]
+
+    elementos.append(Paragraph(f"{ciudad}, {fecha_esp}", st_dir))
+    elementos.append(Spacer(1, 0.4 * cm))
+    elementos.append(Paragraph(f"<b>CUMPLIDO: </b>{fecha.strftime('%d/%m/%Y')}", st_p))
+    elementos.append(Spacer(1, 0.2 * cm))
+
+    elementos.append(Paragraph(
+        f"La presente es para dejar constancia de la atención de soporte ({categoria}) realizada en {destino_texto} "
+        f"el día {fecha_esp}, por personal del área de sistemas, quedando registrada para efectos de control y seguimiento.",
+        st_p,
+    ))
+    elementos.append(Spacer(1, 0.25 * cm))
+
+    filas = [
+        [Paragraph("<b>PUNTO ATENDIDO:</b>", st_p), Paragraph(destino_texto, st_p)],
+    ]
+    if contacto:
+        filas.append([Paragraph("<b>CONTACTO:</b>", st_p), Paragraph(contacto + (f" · {telefono}" if telefono else ""), st_p)])
+    elif telefono:
+        filas.append([Paragraph("<b>TELÉFONO:</b>", st_p), Paragraph(telefono, st_p)])
+    filas.append([Paragraph("<b>PROBLEMA REPORTADO:</b>", st_p), Paragraph(problema or "—", st_p)])
+    filas.append([Paragraph("<b>SOLUCIÓN APLICADA:</b>", st_p), Paragraph(solucion or "—", st_p)])
+    t = Table(filas, colWidths=[4.6 * cm, 11.8 * cm])
+    t.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f2f3ff")),
+            ]
+        )
+    )
+    elementos.append(t)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    elementos.append(Spacer(1, 0.3 * cm))
+    elementos.append(Paragraph(
+        "Para confirmar lo anterior, firma el documento el responsable del punto atendido y el personal "
+        "del área de sistemas encargado de la atención.",
+        st_p,
+    ))
+    elementos.append(Spacer(1, 1.0 * cm))
+
+    f_tabla = Table(
+        [
+            [Paragraph("<b>__________________________________</b>", st_firma), Paragraph("<b>__________________________________</b>", st_firma)],
+            [Paragraph("RECIBÍ CONFORME", st_firma), Paragraph("ÁREA DE SISTEMAS", st_firma)],
+            [
+                Paragraph(contacto or destino_texto, st_firma),
+                Paragraph(p.get("encargado_nombre", "") + " - " + p.get("encargado_cargo", ""), st_firma),
+            ],
+        ],
+        colWidths=[8.2 * cm, 8.2 * cm],
+    )
+    f_tabla.setStyle(
+        TableStyle(
+            [
+                ("TOPPADDING", (0, 0), (-1, -1), 16),
+                ("LINEABELOW", (0, 0), (0, 0), 0.7, colors.black),
+                ("LINEABELOW", (1, 0), (1, 0), 0.7, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f3ff")),
+            ]
+        )
+    )
+    elementos.append(f_tabla)
+    _append_verificacion(elementos, acta)
+
+    def on_page(canvas, documento):
+        canvas.saveState()
+        canvas.setStrokeColor(_BORDER)
+        canvas.setLineWidth(0.6)
+        canvas.line(2.0 * cm, 1.0 * cm, letter[0] - 2.0 * cm, 1.0 * cm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(_GRAY)
+        canvas.drawString(2.0 * cm, 0.78 * cm, p.get("empresa_nombre", "ETICOS") + " · " + p.get("empresa_direccion", ""))
+        canvas.drawRightString(letter[0] - 2.0 * cm, 0.78 * cm, f"Pag. {canvas.getPageNumber()}")
+        canvas.restoreState()
+
+    doc.build(elementos, onFirstPage=on_page, onLaterPages=on_page)
+    return buf.getvalue()
+
+
 def _render_instalacion(acta, op, db) -> bytes:
     """Acta de instalación/servicio en sitio, formato de carta formal (modelo ETICOS)."""
     if op is None:
@@ -436,6 +605,7 @@ def _render_instalacion(acta, op, db) -> bytes:
         )
     )
     elementos.append(f_tabla)
+    _append_verificacion(elementos, acta)
 
     def on_page(canvas, documento):
         canvas.saveState()
@@ -644,6 +814,7 @@ def _render_mantenimiento(acta, op, db) -> bytes:
         )
     )
     elementos.append(f_tabla)
+    _append_verificacion(elementos, acta)
 
     # ------------------------------------------------------------ pie de página
     def on_page(canvas, documento):
@@ -722,6 +893,15 @@ def _render(acta, op, db) -> bytes:
         asunto = "Por medio de la presente se autoriza la salida de inventario del detalle relacionado."
         if cuerpo.get("destino_persona"):
             asunto += f" Destino: {cuerpo['destino_persona']}."
+    elif (acta.operacion_tipo or "").upper() == "AJUSTE" or (acta.tipo or "").upper() == "AJUSTE":
+        asunto = "Constancia del ajuste de existencias por conteo físico del detalle relacionado."
+        if cuerpo.get("motivo"):
+            asunto += f" Motivo: {cuerpo['motivo']}."
+    elif (acta.operacion_tipo or "").upper() == "ANULACION" or (acta.tipo or "").upper() == "ANULACION":
+        asunto = "Constancia de la anulación de la operación previamente registrada y del detalle relacionado."
+        obs = cuerpo.get("observaciones") or getattr(acta, "observaciones", None) or ""
+        if obs:
+            asunto += f" {obs}"
     elif (acta.operacion_tipo or "").upper() in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
         asunto = "Registro del servicio técnico ejecutado en sitio por el área de sistemas."
     else:
@@ -924,6 +1104,7 @@ def _render(acta, op, db) -> bytes:
         )
     )
     elementos.append(f_tabla)
+    _append_verificacion(elementos, acta)
 
     # ---------------------------------------------------------------- página 2: etiqueta de caja (prototipo)
     if es_stock:
@@ -979,7 +1160,9 @@ def generar_acta(db, acta, op) -> str:
     ot = (acta.operacion_tipo or "").upper()
     if t == "MANTENIMIENTO" or ot == "MANTENIMIENTO":
         pdf = _render_mantenimiento(acta, op, db)
-    elif t in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO") or ot in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
+    elif t in ("SOPORTE_SITIO", "ATENCION_PUNTO") or ot in ("SOPORTE_SITIO", "ATENCION_PUNTO"):
+        pdf = _render_atencion(acta, op, db) if ot == "SOPORTE_SITIO" else _render(acta, op, db)
+    elif t in ("INSTALACION", "REUBICACION", "RETIRO") or ot in ("INSTALACION", "REUBICACION", "RETIRO"):
         pdf = _render_instalacion(acta, op, db)
     else:
         pdf = _render(acta, op, db)
@@ -987,5 +1170,252 @@ def generar_acta(db, acta, op) -> str:
     return ruta
 
 
+def _hash_verificacion(acta) -> str:
+    """Código corto de verificación (firma) del acta a partir de sus datos."""
+    semilla = "|".join(
+        str(v or "")
+        for v in (acta.numero, acta.operacion_tipo, acta.tipo, acta.observaciones, acta.fecha)
+    )
+    return hashlib.sha256(semilla.encode("utf-8")).hexdigest()[:12].upper()
+
+
+def _qr_buffer(datos: str) -> io.BytesIO:
+    """Genera un PNG QR en memoria con la herramienta qrcode."""
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=3, border=1)
+    qr.add_data(datos)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
+def _bloque_verificacion(acta) -> Table:
+    """Bloque con QR y código de verificación para incorporar al pie del acta."""
+    codigo = _hash_verificacion(acta)
+    payload = f"ETICOS|{acta.numero}|{acta.tipo or acta.operacion_tipo or 'ACTA'}|{codigo}"
+    qr = RLImage(_qr_buffer(payload), width=2.0 * cm, height=2.0 * cm)
+    st_cod = ParagraphStyle(
+        "cod",
+        parent=getSampleStyleSheet()["Normal"],
+        fontSize=8,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=_GRAY,
+    )
+    celda_qr = Table([[qr]], colWidths=[2.4 * cm])
+    celda_qr.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    celda_txt = Table(
+        [[Paragraph("Escaneé para validar la autenticidad de este documento", st_cod)],
+         [Paragraph(f"<b>Código: {codigo}</b>", st_cod)]],
+        colWidths=[6.5 * cm],
+    )
+    celda_txt.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 6), ("TOPPADDING", (0, 0), (-1, -1), 0)]))
+    t = Table([[celda_qr, celda_txt]], colWidths=[2.4 * cm, 6.5 * cm])
+    t.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f8ff")),
+            ]
+        )
+    )
+    return t
+
+
+def _append_verificacion(elementos: list, acta) -> None:
+    """Inserta el bloque de verificación después de las firmas."""
+    elementos.append(Spacer(1, 0.4 * cm))
+    elementos.append(_bloque_verificacion(acta))
+
+
 def leer_acta_pdf(ruta: str | None):
     return files_service.leer_pdf(ruta) if ruta else None
+
+
+def _valor_parte(v) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, datetime):
+        return v.strftime("%d/%m/%Y")
+    return str(v)
+
+
+def generar_ficha_tecnica(db, activo) -> bytes:
+    """Genera la ficha técnica de un activo con su historial (movimientos, mantenimientos y actas)."""
+    from sqlalchemy import select as sa_select
+
+    from app.models.documental import Acta
+    from app.models.loan import Prestamo
+    from app.models.maintenance import Mantenimiento
+    from app.models.movement import Movimiento
+
+    p = _params(db)
+    codigo = activo.codigo or f"ACTIVO-{activo.id}"
+    fecha = datetime.now(timezone.utc).astimezone()
+
+    st = getSampleStyleSheet()
+    st_titulo = ParagraphStyle("t", parent=st["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, textColor=colors.HexColor("#1a1a4e"))
+    st_h2 = ParagraphStyle("h2", parent=st["Normal"], fontName="Helvetica-Bold", fontSize=10.5, leading=13, textColor=colors.HexColor("#1a1a4e"), spaceBefore=8, spaceAfter=2)
+    st_k = ParagraphStyle("k", parent=st["Normal"], fontSize=8.5, leading=12, textColor=_GRAY)
+    st_v = ParagraphStyle("v", parent=st["Normal"], fontSize=9, leading=12)
+    st_p = ParagraphStyle("p", parent=st["Normal"], fontSize=9, leading=13)
+    st_small = ParagraphStyle("s", parent=st["Normal"], fontSize=8, leading=10.5, textColor=_GRAY)
+
+    def campo(k, v):
+        return [Paragraph(f"<b>{k}</b>", st_k), Paragraph(_valor_parte(v), st_v)]
+
+    def bloque_tabla(titulo, filas, cols):
+        tab = Table(filas, colWidths=cols)
+        estilo = [("GRID", (0, 0), (-1, -1), 0.5, _BORDER), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                  ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                  ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                  ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f2f3ff"))]
+        if titulo:
+            tab = Table([[Paragraph(titulo, st_h2), "", ""], *filas], colWidths=cols)
+            estilo[0] = ("SPAN", (0, 0), (-1, 0))
+            estilo.append(("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8edff")))
+        tab.setStyle(TableStyle(estilo))
+        return tab
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+        leftMargin=2.0 * cm, rightMargin=2.0 * cm,
+        title=f"Ficha técnica {codigo}", author=p.get("empresa_nombre", "ETICOS"),
+    )
+
+    enc = Table(
+        [
+            [Paragraph(p.get("empresa_nombre", "ETICOS"), ParagraphStyle("e", parent=st["Normal"], fontName="Helvetica-Bold", fontSize=13, leading=16, textColor=colors.HexColor("#1a1a4e"))),
+             Paragraph(f"FICHA TÉCNICA<br/><font size=9 color='#555555'>Código: <b>{codigo}</b></font>", ParagraphStyle("ft", parent=st["Normal"], fontName="Helvetica-Bold", fontSize=13, leading=16, alignment=TA_RIGHT))],
+            [Paragraph(p.get("empresa_direccion", "") + " · " + p.get("empresa_ciudad", ""), st_small),
+             Paragraph(f"Generada: {fecha.strftime('%d/%m/%Y %H:%M')}", st_small)],
+        ],
+        colWidths=[8 * cm, 8 * cm],
+    )
+    enc.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    elementos: list = [enc, Spacer(1, 0.2 * cm), HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#1a1a4e")), Spacer(1, 0.4 * cm)]
+
+    # identificacion
+    elementos.append(Paragraph("IDENTIFICACIÓN", st_h2))
+    filas = [
+        campo("Usuario", codigo) + campo("Placa / Inv.", activo.placa or activo.codigo_inventario or "—"),
+    ]
+    filas.append(campo("Serial", activo.serial) + campo("Tipo", activo.tipo or "—"))
+    filas.append(campo("Marca", activo.marca.nombre if activo.marca else "—") + campo("Modelo", activo.modelo.nombre if activo.modelo else "—"))
+    filas.append(campo("Categoría", activo.categoria.nombre if activo.categoria else "—") + campo("Subcategoría", activo.subcategoria.nombre if activo.subcategoria else "—"))
+    filas.append(campo("Estado", activo.estado.nombre if activo.estado else "—") + campo("Cantidad stock", activo.cantidad_stock or 0))
+    elementos.append(bloque_tabla(None, filas, [4 * cm, 5.5 * cm, 4 * cm, 5.5 * cm]))
+
+    # adquisición y garantía
+    elementos.append(Paragraph("ADQUISICIÓN Y GARANTÍA", st_h2))
+    filas = [
+        campo("Fecha de adquisición", activo.fecha_adquisicion) + campo("Fecha de ingreso", activo.fecha_ingreso),
+    ]
+    filas.append(campo("Proveedor", activo.proveedor.nombre if activo.proveedor else "—") + campo("Factura", activo.factura_numero))
+    filas.append(campo("Valor de adquisición", f"$ {activo.valor_adquisicion:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if activo.valor_adquisicion else "—") + campo("Garantía (meses)", activo.garantia_meses))
+    filas.append(campo("Fin de garantía", activo.fecha_fin_garantia) + campo("Responsable", activo.responsable.nombre if activo.responsable else "—"))
+    filas.append(campo("Sede", activo.ubicacion.sede.nombre if activo.ubicacion and activo.ubicacion.sede else "—") + campo("Ubicación", activo.ubicacion.nombre if activo.ubicacion else "—"))
+    elementos.append(bloque_tabla(None, filas, [4 * cm, 5.5 * cm, 4 * cm, 5.5 * cm]))
+
+    # atributos dinámicos
+    if activo.atributos_valores:
+        elementos.append(Paragraph("ATRIBUTOS", st_h2))
+        filas = []
+        pares = [av for av in activo.atributos_valores if av.valor]
+        for i in range(0, len(pares), 2):
+            a = pares[i]
+            b = pares[i + 1] if i + 1 < len(pares) else None
+            filas.append(campo(a.definicion.nombre if a.definicion else "Atributo", a.valor) + (campo(b.definicion.nombre if b.definicion else "Atributo", b.valor) if b else ["", ""]))
+        elementos.append(bloque_tabla(None, filas, [4 * cm, 5.5 * cm, 4 * cm, 5.5 * cm]))
+
+    if activo.observaciones:
+        elementos.append(Paragraph("OBSERVACIONES", st_h2))
+        elementos.append(Paragraph(activo.observaciones, st_p))
+
+    # historial: movimientos
+    movs = db.scalars(sa_select(Movimiento).where(Movimiento.activo_id == activo.id).order_by(Movimiento.fecha.desc()).limit(20)).all()
+    elementos.append(Paragraph("HISTORIAL DE MOVIMIENTOS", st_h2))
+    if not movs:
+        elementos.append(Paragraph("Sin movimientos registrados.", st_small))
+    else:
+        filas = [[Paragraph("<b>Número</b>", st_k), Paragraph("<b>Fecha</b>", st_k), Paragraph("<b>Tipo</b>", st_k), Paragraph("<b>Origen → Destino</b>", st_k), Paragraph("<b>Estado</b>", st_k)]]
+        for m in movs:
+            filas.append([
+                Paragraph(m.numero, st_v), Paragraph(m.fecha.strftime("%d/%m/%Y") if m.fecha else "—", st_v),
+                Paragraph(m.tipo, st_v),
+                Paragraph(f"{(m.origen_ubicacion.nombre if m.origen_ubicacion else '—')} → {(m.destino_ubicacion.nombre if m.destino_ubicacion else '—')}", st_v),
+                Paragraph(m.estado, st_v),
+            ])
+        t = Table(filas, colWidths=[2.6 * cm, 2.2 * cm, 2.6 * cm, 6.4 * cm, 2.2 * cm])
+        t.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, _BORDER), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f3ff")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elementos.append(t)
+
+    # historial: mantenimientos
+    mants = db.scalars(sa_select(Mantenimiento).where(Mantenimiento.activo_id == activo.id).order_by(Mantenimiento.fecha_ejecucion.desc()).limit(20)).all()
+    elementos.append(Paragraph("MANTENIMIENTOS", st_h2))
+    if not mants:
+        elementos.append(Paragraph("Sin mantenimientos registrados.", st_small))
+    else:
+        filas = [[Paragraph("<b>Número</b>", st_k), Paragraph("<b>Tipo</b>", st_k), Paragraph("<b>Ejecutado</b>", st_k), Paragraph("<b>Técnico</b>", st_k), Paragraph("<b>Estado</b>", st_k)]]
+        for m in mants:
+            filas.append([
+                Paragraph(m.numero, st_v), Paragraph(m.tipo, st_v),
+                Paragraph(m.fecha_ejecucion.strftime("%d/%m/%Y") if m.fecha_ejecucion else (m.fecha_programada.strftime("%d/%m/%Y") if m.fecha_programada else "—"), st_v),
+                Paragraph(m.tecnico.nombre if m.tecnico else "—", st_v), Paragraph(m.estado, st_v),
+            ])
+        t = Table(filas, colWidths=[2.6 * cm, 2.6 * cm, 2.4 * cm, 6.2 * cm, 2.2 * cm])
+        t.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, _BORDER), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f3ff")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elementos.append(t)
+
+    # actas vinculadas
+    actas = db.scalars(sa_select(Acta).where(Acta.activo_id == activo.id).order_by(Acta.fecha.desc()).limit(20)).all()
+    elementos.append(Paragraph("ACTAS Y DOCUMENTOS", st_h2))
+    if not actas:
+        elementos.append(Paragraph("Sin actas vinculadas.", st_small))
+    else:
+        filas = [[Paragraph("<b>Número</b>", st_k), Paragraph("<b>Tipo</b>", st_k), Paragraph("<b>Fecha</b>", st_k), Paragraph("<b>Observaciones</b>", st_k)]]
+        for a in actas:
+            filas.append([
+                Paragraph(a.numero, st_v), Paragraph(a.operacion_tipo or a.tipo, st_v),
+                Paragraph(a.fecha.strftime("%d/%m/%Y") if a.fecha else "—", st_v),
+                Paragraph((a.observaciones or "")[:80] or "—", st_v),
+            ])
+        t = Table(filas, colWidths=[2.6 * cm, 3.0 * cm, 2.2 * cm, 8.2 * cm])
+        t.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, _BORDER), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f3ff")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elementos.append(t)
+
+    def on_page(canvas, documento):
+        canvas.saveState()
+        canvas.setStrokeColor(_BORDER)
+        canvas.setLineWidth(0.6)
+        canvas.line(2.0 * cm, 1.0 * cm, letter[0] - 2.0 * cm, 1.0 * cm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(_GRAY)
+        canvas.drawString(2.0 * cm, 0.78 * cm, p.get("empresa_nombre", "ETICOS") + " · " + p.get("empresa_direccion", ""))
+        canvas.drawRightString(letter[0] - 2.0 * cm, 0.78 * cm, f"Pag. {canvas.getPageNumber()}")
+        canvas.restoreState()
+
+    doc.build(elementos, onFirstPage=on_page, onLaterPages=on_page)
+    return buf.getvalue()
+
+
+def guardar_ficha_activo(db, activo) -> str:
+    """Genera y persiste la ficha técnica PDF del activo, devolviendo la ruta relativa."""
+    pdf = generar_ficha_tecnica(db, activo)
+    return files_service.guardar_pdf(pdf, f"FICHA-{activo.codigo or activo.id}")

@@ -84,4 +84,5 @@ class AtencionRead(ORMModel):
     estado: str
     solucion: Optional[str] = None
     fecha_resuelta: Optional[datetime] = None
+    acta_id: Optional[int] = None
     created_at: datetime

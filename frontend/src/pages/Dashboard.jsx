@@ -125,13 +125,13 @@ export default function Dashboard() {
   const [extra, setExtra] = useState({ tickets_abiertos: 0 });
   const [stock, setStock] = useState(null);
   const all = useAsync(async () => {
-    const [kpis, porCat, porSede, alertas] = await Promise.all([
+    const [kpis, porCat, porSede, pendientes] = await Promise.all([
       api.get("/dashboard/kpis"),
       api.get("/dashboard/por-categoria"),
       api.get("/dashboard/por-sede"),
-      api.get("/dashboard/alertas"),
+      api.get("/dashboard/pendientes"),
     ]);
-    return { kpis: kpis.data, porCat: porCat.data || [], porSede: porSede.data || [], alertas: alertas.data || [] };
+    return { kpis: kpis.data, porCat: porCat.data || [], porSede: porSede.data || [], pendientes: pendientes.data || [] };
   }, []);
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function Dashboard() {
 
   const { data, loading } = all;
   if (loading || !data) return <LoadingBlock label="Cargando indicadores…" />;
-  const { kpis, porCat, porSede, alertas } = data;
+  const { kpis, porCat, porSede, pendientes } = data;
 
   const colorOf = (nombre) => {
     const e = estados.find((s) => s.nombre === nombre);
@@ -198,26 +198,32 @@ export default function Dashboard() {
 
       <div className="row g-3">
         <div className="col-lg-7 col-xl-8">
-          <Card title="Alertas · Garantías próximas" icon="bell" className="lfo-card" bodyClassName="p-3">
-            {alertas.length === 0 ? (
-              <EmptyState icon="shield-shaded" title="Sin alertas" hint="Garantías a vencer en 60 días aparecerán aquí" />
+          <Card title={`Pendientes automáticos (${pendientes.length})`} icon="bell" className="lfo-card" bodyClassName="p-3">
+            {pendientes.length === 0 ? (
+              <EmptyState icon="shield-shaded" title="Sin pendientes" hint="Mantenimientos preventivos y garantías por vencer aparecerán aquí" />
             ) : (
               <div className="d-flex flex-column gap-2">
-                {alertas.map((a, i) => (
-                  <div key={i} className="lfo-alert">
-                    <div className="lfo-chip" style={{ background: "#fff2e3", color: "#f79009", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <i className="bi bi-shield-exclamation"></i>
-                    </div>
-                    <div className="flex-grow-1 min-w-0">
-                      <div className="small fw-semibold" style={{ color: "#1c2340" }}>{a.titulo}</div>
-                      <small className="d-block text-truncate" style={{ color: "#6b7793" }}>{a.mensaje}</small>
-                    </div>
-                    <small className="fw-semibold" style={{ color: "#f79009" }}>Alerta</small>
-                  </div>
-                ))}
-                <Link className="btn btn-sm btn-soft mt-1" to="/activos">
-                  Ver activos <i className="bi bi-arrow-right"></i>
-                </Link>
+                {pendientes.slice(0, 12).map((a, i) => {
+                  const isAlta = a.prioridad === "ALTA";
+                  const color = isAlta ? "#eb3f5b" : a.tipo.startsWith("GARANTIA") ? "#f79009" : "#0b66c2";
+                  const icono = a.tipo.startsWith("MANTENIMIENTO") ? "wrench-adjustable" : "shield-check";
+                  const bg = isAlta ? "#fdeeee" : a.tipo.startsWith("GARANTIA") ? "#fff2e3" : "#e9f2fc";
+                  return (
+                    <Link key={i} to={a.ruta || "/"} className="lfo-alert text-decoration-none">
+                      <div className="lfo-chip" style={{ background: bg, color, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <i className={`bi bi-${icono}`}></i>
+                      </div>
+                      <div className="flex-grow-1 min-w-0">
+                        <div className="small fw-semibold" style={{ color: "#1c2340" }}>{a.titulo}</div>
+                        <small className="d-block text-truncate" style={{ color: "#6b7793" }}>{a.mensaje}</small>
+                      </div>
+                      <small className={`fw-semibold ${isAlta ? "text-danger" : ""}`} style={{ color: color }}>{isAlta ? "Urgente" : "Pendiente"}</small>
+                    </Link>
+                  );
+                })}
+                {pendientes.length > 12 && (
+                  <div className="text-center small text-secondary fw-semibold py-1">…y {pendientes.length - 12} más</div>
+                )}
               </div>
             )}
           </Card>
