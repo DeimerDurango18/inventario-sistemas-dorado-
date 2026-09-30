@@ -46,6 +46,7 @@ class InstalacionRead(ORMModel):
     activo_id: Optional[int] = None
     ubicacion_id: Optional[int] = None
     estado: str
+    acta_id: Optional[int] = None
     created_at: datetime
 
     activo: Optional[ActivoRead] = None

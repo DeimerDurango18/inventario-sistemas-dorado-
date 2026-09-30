@@ -73,6 +73,23 @@ def actualizar_instalacion(db: Session, instalacion_id: int, data: InstalacionUp
     for campo, valor in cambios.items():
         setattr(it, campo, valor)
     db.flush()
+    # Genera el acta formal al completar la instalación (una sola vez).
+    if it.estado == "COMPLETADA" and not it.acta_id:
+        from app.services import asset_service
+
+        acta = asset_service._crear_acta(
+            db,
+            "INSTALACION",
+            it.tipo_servicio or "INSTALACION",
+            it.id,
+            it.activo_id,
+            actor_id,
+            it.descripcion,
+            operacion_obj=it,
+            prefix="ACT",
+        )
+        it.acta_id = acta.id
+        db.flush()
     audit_op(db, "OPERATIVO", "Instalacion", it.id, "EDITAR", f"Instalación {it.numero} actualizada")
     db.commit()
     db.refresh(it)

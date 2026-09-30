@@ -9,9 +9,9 @@ const DEFAULT_EMPRESA = {
   empresa_comercial: "ETICOS BOGOTÁ",
   empresa_nit: "892300678-7",
   empresa_telefono: "601 587 3010",
-  empresa_direccion: "AUTOPISTA MEDELLÍN KM 3.5 COSTADO NORTE CENTRO EMPRESARIAL METROPOLITANO",
+  empresa_direccion: "CR. 98 # 25G - 10 CENTRO EMPRESARIAL EL DORADO",
   empresa_ciudad: "BOGOTÁ",
-  encargado_nombre: "EDILFER AGUIRRE",
+  encargado_nombre: "DEIMER DURANGO",
   encargado_cargo: "DESPACHO BODEGA",
   destino_nombre: "BODEGA BOGOTÁ",
 };

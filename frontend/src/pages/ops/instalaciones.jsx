@@ -1,5 +1,5 @@
 import { useState } from "react";
-import api from "../../api/client";
+import api, { downloadFile } from "../../api/client";
 import { Card, EmptyState, LoadingBlock, Modal, PageHeader } from "../../components/ui";
 import useAsync from "../../hooks/useAsync";
 import { useToast } from "../../context/ToastContext";
@@ -86,6 +86,9 @@ export default function Instalaciones() {
                         <button className="btn btn-sm btn-light" data-bs-toggle="dropdown" data-bs-boundary="viewport"><i className="bi bi-three-dots"></i></button>
                         <ul className="dropdown-menu dropdown-menu-end shadow">
                           <li><button className="dropdown-item" onClick={() => setModal({ item: it })}><i className="bi bi-pencil me-2 text-primary"></i>Editar</button></li>
+                          {it.acta_id && (
+                            <li><button className="dropdown-item" onClick={() => downloadFile(`/activos/actas/${it.acta_id}/pdf`, `${it.numero}-acta.pdf`)}><i className="bi bi-file-earmark-pdf me-2 text-danger"></i>Descargar acta</button></li>
+                          )}
                           {ESTADOS.filter((s) => s !== it.estado).map((s) => (
                             <li key={s}><button className="dropdown-item" onClick={() => change(it, s)}><i className="bi bi-arrow-repeat me-2 text-secondary"></i>Marcar {s.replace("_", " ")}</button></li>
                           ))}

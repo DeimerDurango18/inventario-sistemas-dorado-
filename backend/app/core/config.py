@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     company_phone: str = ""
     company_address: str = ""
     company_city: str = "BOGOTÁ"
-    company_encargado: str = "EDILFER AGUIRRE"
+    company_encargado: str = "Deimer Durango"
     company_encargado_cargo: str = "DESPACHO BODEGA"
     company_destino: str = "BODEGA BOGOTÁ"
 

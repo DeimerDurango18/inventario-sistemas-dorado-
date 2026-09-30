@@ -24,6 +24,7 @@ class Instalacion(Base):
     ubicacion_id: Mapped[int | None] = mapped_column(ForeignKey("ubicaciones.id"))
     estado: Mapped[str] = mapped_column(String(20), default="PROGRAMADA")
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    acta_id: Mapped[int | None] = mapped_column(ForeignKey("actas.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     activo: Mapped["Activo | None"] = relationship(lazy="joined")

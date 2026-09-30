@@ -513,12 +513,17 @@ def _operacion_acta(db: Session, acta: Acta):
         "PRESTAMO": Prestamo,
         "MANTENIMIENTO": Mantenimiento,
         "BAJA": Baja,
+        "INSTALACION": None,
         "STOCK": None,
     }
     if (acta.tipo or "").upper() == "STOCK":
         from app.models.stock import MovimientoStock
 
         return db.get(MovimientoStock, acta.operacion_id)
+    if (acta.tipo or "").upper() in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
+        from app.models.operations import Instalacion
+
+        return db.get(Instalacion, acta.operacion_id)
     modelo = por_tipo.get((acta.tipo or "").upper())
     if not modelo:
         return None

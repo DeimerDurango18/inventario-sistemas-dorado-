@@ -37,6 +37,10 @@ _TITULOS_DOC = {
     "BAJA": "ACTA DE BAJA",
     "ENTRADA": "ORDEN DE ENTRADA",
     "SALIDA": "ORDEN DE SALIDA",
+    "INSTALACION": "ACTA DE INSTALACIÓN",
+    "REUBICACION": "ACTA DE REUBICACIÓN",
+    "SOPORTE_SITIO": "ACTA DE SOPORTE EN SITIO",
+    "RETIRO": "ACTA DE RETIRO DE EQUIPO",
 }
 
 _PARAMS_DEFAULTS = {
@@ -264,6 +268,188 @@ def _seccion_fotos(fotos: list[tuple[RLImage, str, str]], st_obs) -> Table | Non
         )
     )
     return tabla
+
+
+def _render_instalacion(acta, op, db) -> bytes:
+    """Acta de instalación/servicio en sitio, formato de carta formal (modelo ETICOS)."""
+    if op is None:
+        return _render(acta, op, db)
+
+    p = _params(db)
+    fecha = op.fecha_ejecucion or acta.fecha or datetime.now(timezone.utc)
+    if getattr(fecha, "tzinfo", None):
+        fecha = fecha.astimezone()
+
+    destino = (op.ubicacion.nombre if getattr(op, "ubicacion", None) and op.ubicacion
+               else (op.activo.codigo if getattr(op, "activo", None) and op.activo
+                     else (op.cliente if getattr(op, "cliente", None) else "")))
+    destino_texto = destino or p.get("destino_nombre", "SEDE / FARMACIA")
+
+    tipo_serv = (getattr(op, "tipo_servicio", None) or "INSTALACION").replace("_", " ").lower()
+    ciudad = p.get("empresa_ciudad", "BOGOTÁ")
+    fecha_esp = _fecha_larga(fecha)
+    tecnico = (getattr(op, "tecnico", None) or "").strip()
+    cliente = (getattr(op, "cliente", None) or "").strip()
+    descripcion = ((getattr(op, "descripcion", None) or "").strip()
+                   or (acta.observaciones or "") or "")
+
+    estilos = getSampleStyleSheet()
+    st_empresa = ParagraphStyle("empresa", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=14, leading=17, textColor=colors.HexColor("#1a1a4e"))
+    st_comercial = ParagraphStyle("comercial", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=13)
+    st_dato = ParagraphStyle("dato", parent=estilos["Normal"], fontSize=8.5, leading=11, textColor=_GRAY)
+    st_num = ParagraphStyle("num", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=13, alignment=TA_CENTER)
+    st_titulo_doc = ParagraphStyle("tdo", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=16, leading=19, alignment=TA_CENTER, textColor=colors.HexColor("#1a1a4e"))
+    st_p = ParagraphStyle("p", parent=estilos["Normal"], fontSize=10, leading=15, alignment=TA_JUSTIFY)
+    st_dir = ParagraphStyle("dir", parent=estilos["Normal"], fontSize=10, leading=15)
+    st_firma = ParagraphStyle("firma", parent=estilos["Normal"], fontSize=8.5, leading=11, alignment=TA_CENTER)
+    st_sec = ParagraphStyle("sec", parent=estilos["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=13, textColor=colors.HexColor("#1a1a4e"))
+
+    numero_display = re.sub(r"^([A-Za-z]+)-0+(\d+)$", r"\1-\2", acta.numero or "")
+    titulo = _titulo_documento(acta.operacion_tipo, acta.tipo)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm,
+        leftMargin=2.0 * cm,
+        rightMargin=2.0 * cm,
+        title=f"{titulo} {acta.numero}",
+        author=p.get("empresa_nombre", "ETICOS"),
+    )
+
+    elementos: list = []
+
+    izq = Table(
+        [
+            [Paragraph(p.get("empresa_nombre", "SISTEMAS BOGOTÁ"), st_empresa)],
+            [Paragraph(p.get("empresa_comercial", "ETICOS BOGOTÁ"), st_comercial)],
+            [Paragraph(f'NIT: {p.get("empresa_nit", "892300678-7")}', st_dato)],
+            [Paragraph(p.get("empresa_direccion", ""), st_dato)],
+            [Paragraph(f'TEL: {p.get("empresa_telefono", "")}', st_dato)],
+        ],
+        colWidths=[9.2 * cm],
+    )
+    izq.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0)]))
+
+    der = Table(
+        [
+            [Paragraph(f"<b>{titulo}</b>", st_titulo_doc)],
+            [Paragraph("N° " + numero_display, st_num)],
+            [Paragraph(f'<b>FECHA:</b> {fecha.strftime("%d/%m/%Y")}', st_dato)],
+            [Paragraph(f'<b>CIUDAD:</b> {ciudad}', st_dato)],
+        ],
+        colWidths=[7.2 * cm],
+    )
+    der.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.8, _BORDER),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f2f3ff")),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    cabeza = Table([[izq, der]], colWidths=[9.2 * cm, 7.2 * cm])
+    cabeza.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    elementos.append(cabeza)
+    elementos.append(Spacer(1, 0.3 * cm))
+    elementos.append(HRFlowable(width="100%", thickness=1.4, color=colors.HexColor("#1a1a4e")))
+    elementos.append(Spacer(1, 0.7 * cm))
+
+    elementos.append(Paragraph(f"{ciudad}, {fecha_esp}", st_dir))
+    elementos.append(Spacer(1, 0.4 * cm))
+    if cliente:
+        elementos.append(Paragraph("<b>Señores:</b>", st_p))
+        elementos.append(Paragraph(cliente, st_p))
+        elementos.append(Spacer(1, 0.3 * cm))
+
+    elementos.append(Paragraph(f"<b>CUMPLIDO: </b>{fecha.strftime('%d/%m/%Y')}", st_p))
+    elementos.append(Spacer(1, 0.2 * cm))
+
+    intro = (
+        "La presente es para dejar constancia escrita del servicio técnico "
+        f"({tipo_serv}) ejecutado en {destino_texto} el día {fecha_esp}, "
+        "con el fin de dejar registro de las labores realizadas por el área de sistemas."
+    )
+    elementos.append(Paragraph(intro, st_p))
+    elementos.append(Spacer(1, 0.25 * cm))
+
+    if descripcion:
+        elementos.append(Paragraph("<b>Descripción del trabajo realizado:</b>", st_p))
+        elementos.append(Paragraph(descripcion, st_p))
+        elementos.append(Spacer(1, 0.3 * cm))
+
+    if tecnico:
+        filas = [
+            [Paragraph("<b>LUGAR DE EJECUCIÓN:</b>", st_p), Paragraph(destino_texto, st_p)],
+            [Paragraph("<b>TÉCNICO RESPONSABLE:</b>", st_p), Paragraph(tecnico, st_p)],
+        ]
+        if cliente:
+            filas.append([Paragraph("<b>CLIENTE / RESPONSABLE:</b>", st_p), Paragraph(cliente, st_p)])
+        t_tec = Table(filas, colWidths=[5.4 * cm, 11.0 * cm])
+        t_tec.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f2f3ff")),
+                ]
+            )
+        )
+        elementos.append(t_tec)
+        elementos.append(Spacer(1, 0.35 * cm))
+
+    elementos.append(Spacer(1, 0.5 * cm))
+    elementos.append(Paragraph(
+        "Para confirmar lo anterior, firma el documento el responsable del punto atendido "
+        "y el personal del área de sistemas encargado del servicio.",
+        st_p,
+    ))
+    elementos.append(Spacer(1, 1.0 * cm))
+
+    f_tabla = Table(
+        [
+            [Paragraph("<b>__________________________________</b>", st_firma), Paragraph("<b>__________________________________</b>", st_firma)],
+            [Paragraph("RECIBÍ CONFORME", st_firma), Paragraph("ÁREA DE SISTEMAS", st_firma)],
+            [
+                Paragraph(cliente or destino_texto, st_firma),
+                Paragraph(p.get("encargado_nombre", "") + " - " + p.get("encargado_cargo", ""), st_firma),
+            ],
+        ],
+        colWidths=[8.2 * cm, 8.2 * cm],
+    )
+    f_tabla.setStyle(
+        TableStyle(
+            [
+                ("TOPPADDING", (0, 0), (-1, -1), 16),
+                ("LINEABELOW", (0, 0), (0, 0), 0.7, colors.black),
+                ("LINEABELOW", (1, 0), (1, 0), 0.7, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f3ff")),
+            ]
+        )
+    )
+    elementos.append(f_tabla)
+
+    def on_page(canvas, documento):
+        canvas.saveState()
+        canvas.setStrokeColor(_BORDER)
+        canvas.setLineWidth(0.6)
+        canvas.line(2.0 * cm, 1.0 * cm, letter[0] - 2.0 * cm, 1.0 * cm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(_GRAY)
+        canvas.drawString(2.0 * cm, 0.78 * cm, p.get("empresa_nombre", "ETICOS") + " · " + p.get("empresa_direccion", ""))
+        canvas.drawRightString(letter[0] - 2.0 * cm, 0.78 * cm, f"Pag. {canvas.getPageNumber()}")
+        canvas.restoreState()
+
+    doc.build(elementos, onFirstPage=on_page, onLaterPages=on_page)
+    return buf.getvalue()
 
 
 def _render_mantenimiento(acta, op, db) -> bytes:
@@ -536,6 +722,8 @@ def _render(acta, op, db) -> bytes:
         asunto = "Por medio de la presente se autoriza la salida de inventario del detalle relacionado."
         if cuerpo.get("destino_persona"):
             asunto += f" Destino: {cuerpo['destino_persona']}."
+    elif (acta.operacion_tipo or "").upper() in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
+        asunto = "Registro del servicio técnico ejecutado en sitio por el área de sistemas."
     else:
         asunto = "Por medio de la presente se autoriza la gestión del equipo detallado."
 
@@ -787,8 +975,14 @@ def generar_acta(db, acta, op) -> str:
     """Genera el PDF del acta, lo persiste y devuelve la ruta relativa."""
     from app.services import files_service as fs
 
-    es_mant = (acta.tipo or "").upper() == "MANTENIMIENTO" or (acta.operacion_tipo or "").upper() == "MANTENIMIENTO"
-    pdf = _render_mantenimiento(acta, op, db) if es_mant else _render(acta, op, db)
+    t = (acta.tipo or "").upper()
+    ot = (acta.operacion_tipo or "").upper()
+    if t == "MANTENIMIENTO" or ot == "MANTENIMIENTO":
+        pdf = _render_mantenimiento(acta, op, db)
+    elif t in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO") or ot in ("INSTALACION", "REUBICACION", "SOPORTE_SITIO", "RETIRO"):
+        pdf = _render_instalacion(acta, op, db)
+    else:
+        pdf = _render(acta, op, db)
     ruta = fs.guardar_pdf(pdf, acta.numero or f"ACT-{acta.id}")
     return ruta
 
