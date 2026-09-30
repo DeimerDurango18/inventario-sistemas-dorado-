@@ -537,6 +537,7 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
   const tipo = modal?.tipo || "ENTRADA";
   const esEntrada = tipo === "ENTRADA";
   const esAjuste = tipo === "AJUSTE";
+  const seriales = f.seriales || [];
 
   useEffect(() => {
     if (open) {
@@ -593,14 +594,14 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
       });
       return;
     }
-    const cantidad = f.seriales.length > 0 ? f.seriales.length : Number(f.cantidad);
-    if (f.seriales.length === 0 && (!f.cantidad || f.cantidad < 1)) return pushToast("warning", "Indica una cantidad válida");
+    const cantidad = seriales.length > 0 ? seriales.length : Number(f.cantidad);
+    if (seriales.length === 0 && (!f.cantidad || f.cantidad < 1)) return pushToast("warning", "Indica una cantidad válida");
     if (!esEntrada && stockActual !== null && cantidad > stockActual) return pushToast("warning", `Solo hay ${stockActual} unidad(es) disponibles`);
     if (!esEntrada && stockUbicacion !== null && cantidad > stockUbicacion) return pushToast("warning", `En esa ubicación solo hay ${stockUbicacion} unidad(es)`);
     const base = {
       ...f,
       cantidad,
-      seriales: f.seriales.length > 0 ? f.seriales : undefined,
+      seriales: seriales.length > 0 ? seriales : undefined,
       item_id: f.referencia_tipo === "ITEM" ? Number(f.item_id) : undefined,
       activo_id: f.referencia_tipo === "ACTIVO" ? Number(f.activo_id) : undefined,
       valor: f.valor === "" ? undefined : Number(f.valor),
@@ -648,15 +649,15 @@ function MovimientoModal({ open, modal, items, activos, ubicaciones, proveedores
               <div className="col-12">
                 <label className="form-label small fw-semibold">Seriales</label>
                 <SerialListInput
-                  value={f.seriales}
+                  value={seriales}
                   onChange={(seriales) => setF((s) => ({ ...s, seriales }))}
                   placeholder="Ej: SN-0001 (Enter para agregar; también puedes pegar una lista)"
                 />
               </div>
               <div className="col-md-6">
                 <label className="form-label small fw-semibold">Cantidad</label>
-                {f.seriales.length > 0 ? (
-                  <input className="form-control" tabIndex={-1} readOnly value={`${f.seriales.length} (calculada de los seriales)`} />
+                {seriales.length > 0 ? (
+                  <input className="form-control" tabIndex={-1} readOnly value={`${seriales.length} (calculada de los seriales)`} />
                 ) : (
                   <>
                     <input type="number" min="1" className="form-control" value={f.cantidad} onChange={(e) => setF((s) => ({ ...s, cantidad: Number(e.target.value) }))} />
