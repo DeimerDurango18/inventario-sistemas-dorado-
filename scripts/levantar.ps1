@@ -56,8 +56,11 @@ if (-not (Test-Path -LiteralPath $cf)) {
 
 $runTunel = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match "cloudflared" }
+$tunelLog = $tlog
 if ($runTunel) {
     Write-Host "Ya hay un tunel cloudflared corriendo (PID $($runTunel.ProcessId -join ','))."
+    $mLog = [regex]::Match(($runTunel | Select-Object -First 1).CommandLine, "--logfile\s+(?:""([^""]+)""|([^ ]+))")
+    if ($mLog.Success) { $tunelLog = if ($mLog.Groups[1].Value) { $mLog.Groups[1].Value } else { $mLog.Groups[2].Value } }
 } else {
     Remove-Item -LiteralPath $tlog -ErrorAction SilentlyContinue
     Start-Process -FilePath $cf -ArgumentList "tunnel", "--url", "http://127.0.0.1:$apiPort", "--no-autoupdate", "--logfile", $tlog -WindowStyle Hidden | Out-Null
@@ -67,7 +70,8 @@ if ($runTunel) {
 $url = $null
 for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 2
-    $c = Get-Content -LiteralPath $tlog -Raw -ErrorAction SilentlyContinue
+    $c = Get-Content -LiteralPath $tunelLog -Raw -ErrorAction SilentlyContinue
+    if ($null -eq $c) { $c = "" }
     $m = [regex]::Match($c, "https://[a-z0-9-]+\.trycloudflare\.com")
     if ($m.Success) { $url = $m.Value; break }
 }
